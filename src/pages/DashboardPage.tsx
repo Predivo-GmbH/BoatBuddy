@@ -22,8 +22,8 @@ import { useBootStats } from '@/hooks/useBootStats'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
 import { formatCurrency, formatDate, formatDateLong, todayISO } from '@/lib/format'
-import { FAHRER_LABELS, FAHRER_FARBEN, KATEGORIE_LABELS } from '@/lib/fahrer'
-import type { AlleFahrer, Kategorie } from '@/lib/fahrer'
+import { FAHRER_LABELS, FAHRER_FARBEN } from '@/lib/fahrer'
+import type { AlleFahrer } from '@/lib/fahrer'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
@@ -138,7 +138,7 @@ export default function DashboardPage() {
           <StatCard
             label="Betriebsstunden"
             value={stats ? `${stats.gesamtstunden} h` : '0 h'}
-            subtitle={stats?.motorstunden_grenze ? `Grenze: ${stats.motorstunden_grenze} h` : undefined}
+            subtitle={undefined}
             icon={Ship}
             accentColor="card-accent-top-warning"
           />
@@ -300,24 +300,21 @@ export default function DashboardPage() {
               <p className="text-sm">Keine Ausgaben vorhanden</p>
             </div>
           ) : (
-            <ul className="space-y-3">
-              {letzteAusgaben.map((a) => (
-                <li key={a.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="inline-flex items-center rounded-md bg-accent/10 px-2 py-0.5 text-[10px] font-medium text-accent uppercase tracking-wide shrink-0">
-                      {KATEGORIE_LABELS[a.kategorie as Kategorie] ?? a.kategorie}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{a.bezeichnung}</p>
+            <table className="w-full text-sm">
+              <tbody>
+                {letzteAusgaben.map((a) => (
+                  <tr key={a.id} className="border-b border-border/50 last:border-0">
+                    <td className="py-2 pr-3 align-middle">
+                      <p className="font-medium text-foreground truncate max-w-[180px]">{a.bezeichnung}</p>
                       <p className="text-[11px] text-muted-foreground">{formatDate(a.datum)}</p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-semibold tabular-nums text-foreground shrink-0 ml-3">
-                    {formatCurrency(a.betrag)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                    </td>
+                    <td className="py-2 text-right align-middle tabular-nums font-semibold text-foreground whitespace-nowrap">
+                      {formatCurrency(a.betrag)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
