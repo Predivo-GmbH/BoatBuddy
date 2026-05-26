@@ -37,6 +37,12 @@ html {
   --color-warning: #E09B3D;
   --color-warning-foreground: #FFFFFF;
 
+  /* Person colors */
+  --color-roger: #0D9488;
+  --color-dani: #F59E0B;
+  --color-jan: #7C3AED;
+  --color-pedro: #9CA3AF;
+
   --radius: 0.5rem;
   --radius-sm: 0.25rem;
   --radius-md: 0.75rem;
@@ -70,6 +76,11 @@ html {
   --color-success-foreground: #0A1628;
   --color-warning: #FBBF24;
   --color-warning-foreground: #0A1628;
+
+  --color-roger: #2DD4BF;
+  --color-dani: #FBBF24;
+  --color-jan: #A78BFA;
+  --color-pedro: #6B7280;
 }
 
 @layer base {
@@ -110,5 +121,146 @@ html {
 
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Premium card with hover lift */
+.card-premium {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -5px rgba(0, 0, 0, 0.04);
+  border-color: var(--color-accent);
+}
+
+/* Accent top border for stat cards */
+.card-accent-top {
+  border-top: 2px solid var(--color-accent);
+}
+.card-accent-top-success {
+  border-top: 2px solid var(--color-success);
+}
+.card-accent-top-warning {
+  border-top: 2px solid var(--color-warning);
+}
+.card-accent-top-destructive {
+  border-top: 2px solid var(--color-destructive);
+}
+
+/* Skeleton shimmer loading */
+.skeleton-shimmer {
+  background: var(--color-muted);
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.375rem;
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 40%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.04) 60%, transparent 100%);
+  animation: shimmer 2s infinite;
+}
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Section fade-in animation */
+.section-fade-in {
+  animation: fadeIn 0.4s ease-out both;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Stagger children animation */
+.stagger-child {
+  animation: fadeIn 0.4s ease-out both;
+  animation-delay: calc(var(--stagger, 0) * 60ms);
+}
+
+/* Premium table */
+.table-premium thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  backdrop-filter: blur(8px);
+}
+.table-premium tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+/* Row accent — left border on hover */
+.row-accent {
+  border-left: 3px solid transparent;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.row-accent:hover {
+  border-left-color: var(--color-accent);
+}
+
+/* Status pulse animation */
+.status-pulse {
+  animation: pulse-ring 2s ease-out infinite;
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 currentColor; opacity: 0.6; }
+  100% { box-shadow: 0 0 0 6px currentColor; opacity: 0; }
+}
+
+/* Tab underline animation */
+.tab-underline {
+  position: relative;
+}
+.tab-underline::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-accent);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+}
+.tab-underline.active::after {
+  transform: scaleX(1);
+}
+
+/* Person color utilities */
+.bg-roger { background-color: var(--color-roger); }
+.bg-dani { background-color: var(--color-dani); }
+.bg-jan { background-color: var(--color-jan); }
+.bg-pedro { background-color: var(--color-pedro); }
+.text-roger { color: var(--color-roger); }
+.text-dani { color: var(--color-dani); }
+.text-jan { color: var(--color-jan); }
+.text-pedro { color: var(--color-pedro); }
+.border-roger { border-color: var(--color-roger); }
+.border-dani { border-color: var(--color-dani); }
+.border-jan { border-color: var(--color-jan); }
+.border-pedro { border-color: var(--color-pedro); }
+.ring-roger { --tw-ring-color: var(--color-roger); }
+.ring-dani { --tw-ring-color: var(--color-dani); }
+.ring-jan { --tw-ring-color: var(--color-jan); }
+.ring-pedro { --tw-ring-color: var(--color-pedro); }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .card-premium,
+  .section-fade-in,
+  .stagger-child,
+  .status-pulse,
+  .tab-underline::after,
+  .skeleton-shimmer::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

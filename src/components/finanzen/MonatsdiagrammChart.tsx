@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useBeitraege } from '@/hooks/useBeitraege'
+import { formatCurrency } from '@/lib/format'
 
 const MONATE = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 
@@ -22,6 +23,16 @@ export function MonatsdiagrammChart({ jahr }: { jahr: number }) {
     })
   }, [ausgaben, beitraege, jahr])
 
+  const hasData = data.some(d => d.Einnahmen > 0 || d.Ausgaben > 0)
+
+  if (!hasData) {
+    return (
+      <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+        Noch keine Daten fur {jahr} vorhanden
+      </div>
+    )
+  }
+
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -32,12 +43,15 @@ export function MonatsdiagrammChart({ jahr }: { jahr: number }) {
             contentStyle={{
               backgroundColor: 'var(--color-card)',
               border: '1px solid var(--color-border)',
-              borderRadius: '0.375rem',
+              borderRadius: '0.5rem',
               fontSize: '0.875rem',
+              boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+              padding: '8px 12px',
             }}
-            formatter={(value) => [`CHF ${Number(value).toFixed(2)}`, undefined]}
+            formatter={(value) => [formatCurrency(Number(value)), undefined]}
+            cursor={{ fill: 'var(--color-muted)', opacity: 0.3 }}
           />
-          <Legend wrapperStyle={{ fontSize: '0.875rem' }} />
+          <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px' }} />
           <Bar dataKey="Einnahmen" fill="var(--color-success)" radius={[4, 4, 0, 0]} />
           <Bar dataKey="Ausgaben" fill="var(--color-destructive)" radius={[4, 4, 0, 0]} />
         </BarChart>

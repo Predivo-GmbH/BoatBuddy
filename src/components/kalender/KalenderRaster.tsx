@@ -1,14 +1,22 @@
 import { useMemo } from 'react'
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
-  eachDayOfInterval, format, isSameMonth, isToday,
+  eachDayOfInterval, format, isSameMonth, isToday, getDay,
 } from 'date-fns'
 
-import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, type Fahrer } from '@/lib/fahrer'
+import { ALLE_FAHRER, FAHRER_LABELS, FAHRER_FARBEN, type AlleFahrer } from '@/lib/fahrer'
 import { cn } from '@/lib/utils'
 import type { Reservierung } from '@/types'
 
 const WOCHENTAGE = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+
+/** First letter used as pill abbreviation */
+const FAHRER_ABKUERZUNG: Record<AlleFahrer, string> = {
+  roger: 'R',
+  dani: 'D',
+  jan: 'J',
+  pedro: 'P',
+}
 
 interface KalenderRasterProps {
   currentDate: Date
@@ -26,11 +34,11 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
   }, [currentDate])
 
   const reservationMap = useMemo(() => {
-    const map: Record<string, Fahrer[]> = {}
+    const map: Record<string, Reservierung[]> = {}
     for (const r of reservierungen) {
       const key = r.datum
       if (!map[key]) map[key] = []
-      map[key].push(r.fahrer)
+      map[key].push(r)
     }
     return map
   }, [reservierungen])
@@ -39,8 +47,14 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
     <div className="space-y-4">
       {/* Weekday headers */}
       <div className="grid grid-cols-7 gap-1">
-        {WOCHENTAGE.map(day => (
-          <div key={day} className="py-2 text-center text-xs font-medium text-muted-foreground">
+        {WOCHENTAGE.map((day, i) => (
+          <div
+            key={day}
+            className={cn(
+              'py-2 text-center text-xs font-semibold uppercase tracking-wider',
+              i >= 5 ? 'text-accent/70' : 'text-muted-foreground',
+            )}
+          >
             {day}
           </div>
         ))}
@@ -48,35 +62,62 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
 
       {/* Day cells */}
       <div className="grid grid-cols-7 gap-1">
-        {days.map(day => {
+        {days.map((day, index) => {
           const dateStr = format(day, 'yyyy-MM-dd')
           const inMonth = isSameMonth(day, currentDate)
           const today = isToday(day)
-          const fahrerOnDay = reservationMap[dateStr] ?? []
+          const dayOfWeek = getDay(day) // 0=Sun, 6=Sat
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+          const reservationsOnDay = reservationMap[dateStr] ?? []
 
           return (
             <button
               key={dateStr}
               onClick={() => onDayClick(dateStr)}
               className={cn(
-                'relative flex min-h-[60px] flex-col items-center gap-1 rounded-md border p-1.5 text-sm transition-colors',
+                'stagger-child relative flex min-h-[56px] flex-col items-start gap-1 rounded-lg border p-1.5 text-left text-sm transition-all sm:min-h-[80px] sm:p-2',
+                // Base styles
                 inMonth
-                  ? 'border-border bg-card hover:bg-muted'
-                  : 'border-transparent bg-transparent text-muted-foreground/40',
-                today && 'ring-2 ring-accent',
+                  ? 'border-border hover:border-accent/40 hover:shadow-sm'
+                  : 'border-transparent opacity-30',
+                // Weekend tint
+                inMonth && isWeekend && 'bg-muted/40',
+                // Normal in-month
+                inMonth && !isWeekend && 'bg-card',
+                // Today highlight
+                today && 'ring-2 ring-accent ring-offset-1 ring-offset-card bg-accent/5',
               )}
+              style={{ animationDelay: `${(index % 7) * 20}ms` }}
             >
-              <span className={cn('text-xs font-medium', today && 'text-accent')}>
+              {/* Day number */}
+              <span
+                className={cn(
+                  'text-xs font-medium leading-none',
+                  today && 'rounded-full bg-accent px-1.5 py-0.5 text-white',
+                  !today && inMonth && 'text-foreground',
+                  !today && !inMonth && 'text-muted-foreground',
+                )}
+              >
                 {format(day, 'd')}
               </span>
-              {fahrerOnDay.length > 0 && (
-                <div className="flex gap-0.5">
-                  {fahrerOnDay.map(f => (
+
+              {/* Reservation pills */}
+              {reservationsOnDay.length > 0 && (
+                <div className="mt-auto flex flex-wrap gap-0.5">
+                  {reservationsOnDay.map(r => (
                     <span
-                      key={f}
-                      className={cn('h-2 w-2 rounded-full', FAHRER_FARBEN[f])}
-                      title={FAHRER_LABELS[f]}
-                    />
+                      key={r.id}
+                      className={cn(
+                        'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold leading-none text-white',
+                        FAHRER_FARBEN[r.fahrer],
+                      )}
+                      title={`${FAHRER_LABELS[r.fahrer]}${r.notiz ? ` — ${r.notiz}` : ''}${!r.ganzer_tag ? ' (Halbtag)' : ''}`}
+                    >
+                      {FAHRER_ABKUERZUNG[r.fahrer]}
+                      {!r.ganzer_tag && (
+                        <span className="ml-0.5 text-white/70">&frac12;</span>
+                      )}
+                    </span>
                   ))}
                 </div>
               )}
@@ -86,11 +127,19 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 pt-2 text-xs text-muted-foreground">
-        {FAHRER.map(f => (
-          <div key={f} className="flex items-center gap-1.5">
-            <span className={cn('h-2.5 w-2.5 rounded-full', FAHRER_FARBEN[f])} />
-            {FAHRER_LABELS[f]}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-3">
+        <span className="text-xs font-medium text-muted-foreground">Legende:</span>
+        {ALLE_FAHRER.map(f => (
+          <div key={f} className="flex items-center gap-2">
+            <span
+              className={cn(
+                'inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold text-white',
+                FAHRER_FARBEN[f],
+              )}
+            >
+              {FAHRER_ABKUERZUNG[f]}
+            </span>
+            <span className="text-xs text-muted-foreground">{FAHRER_LABELS[f]}</span>
           </div>
         ))}
       </div>

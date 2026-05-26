@@ -49,7 +49,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 space-y-1 p-3">
+        <nav className="flex-1 space-y-0.5 p-3">
           {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
@@ -57,9 +57,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               onClick={onClose}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
                   isActive
-                    ? 'bg-accent text-accent-foreground'
+                    ? 'bg-accent text-accent-foreground shadow-sm'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )
               }
@@ -76,8 +76,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-border p-3 text-xs text-muted-foreground">
-          Mastercraft Wake-Surf
+        <div className="border-t border-border px-4 py-3">
+          <p className="text-[11px] font-medium tracking-wide text-muted-foreground/70 uppercase">Mastercraft X2</p>
+          <p className="text-[10px] text-muted-foreground/50">Wake-Surf · Seit 2021</p>
         </div>
       </aside>
     </>

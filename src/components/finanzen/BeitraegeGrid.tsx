@@ -7,7 +7,7 @@ import { Check, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const MONATE = [
-  'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun',
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun',
   'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
 ]
 
@@ -44,11 +44,19 @@ export function BeitraegeGrid() {
     <div className="space-y-4">
       {/* Year selector */}
       <div className="flex items-center gap-3">
-        <button onClick={() => setJahr(j => j - 1)} className="rounded-md p-1 hover:bg-muted" aria-label="Vorjahr">
+        <button
+          onClick={() => setJahr(j => j - 1)}
+          className="rounded-lg p-2 transition-colors hover:bg-muted"
+          aria-label="Vorjahr"
+        >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <span className="text-lg font-semibold">{jahr}</span>
-        <button onClick={() => setJahr(j => j + 1)} className="rounded-md p-1 hover:bg-muted" aria-label="Nachstes Jahr">
+        <span className="min-w-[4rem] text-center text-lg font-semibold tabular-nums">{jahr}</span>
+        <button
+          onClick={() => setJahr(j => j + 1)}
+          className="rounded-lg p-2 transition-colors hover:bg-muted"
+          aria-label="Nachstes Jahr"
+        >
           <ChevronRight className="h-5 w-5" />
         </button>
       </div>
@@ -58,11 +66,11 @@ export function BeitraegeGrid() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border">
-              <th className="py-2 pr-4 text-left font-medium text-muted-foreground">Fahrer</th>
+              <th className="py-2.5 pr-4 text-left font-medium text-muted-foreground">Fahrer</th>
               {MONATE.map(m => (
-                <th key={m} className="px-2 py-2 text-center font-medium text-muted-foreground">{m}</th>
+                <th key={m} className="px-1 py-2.5 text-center font-medium text-muted-foreground sm:px-2">{m}</th>
               ))}
-              <th className="pl-4 py-2 text-right font-medium text-muted-foreground">Total</th>
+              <th className="py-2.5 pl-4 text-right font-medium text-muted-foreground">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -70,8 +78,8 @@ export function BeitraegeGrid() {
               const total = Array.from({ length: 12 }, (_, i) => getBeitrag(fahrer, i)).filter(Boolean).length * 300
               return (
                 <tr key={fahrer} className="border-b border-border/50">
-                  <td className="py-2 pr-4">
-                    <span className={cn('inline-flex items-center gap-2 text-sm font-medium')}>
+                  <td className="py-2.5 pr-4">
+                    <span className="inline-flex items-center gap-2 text-sm font-medium">
                       <span className={cn('h-2.5 w-2.5 rounded-full', FAHRER_FARBEN[fahrer])} />
                       {FAHRER_LABELS[fahrer]}
                     </span>
@@ -79,26 +87,29 @@ export function BeitraegeGrid() {
                   {Array.from({ length: 12 }, (_, monatIdx) => {
                     const paid = !!getBeitrag(fahrer, monatIdx)
                     const isPast = new Date(jahr, monatIdx + 1, 0) < new Date()
+                    const isFuture = !isPast && !paid
                     return (
-                      <td key={monatIdx} className="px-2 py-2 text-center">
+                      <td key={monatIdx} className="px-1 py-2.5 text-center sm:px-2">
                         <button
                           onClick={() => handleToggle(fahrer, monatIdx)}
                           className={cn(
-                            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+                            'inline-flex h-10 w-10 items-center justify-center rounded-lg transition-all',
+                            'sm:h-9 sm:w-9',
                             paid
-                              ? 'bg-success/20 text-success hover:bg-success/30'
+                              ? 'bg-success/20 text-success shadow-sm hover:bg-success/30'
                               : isPast
-                                ? 'bg-destructive/10 text-destructive hover:bg-destructive/20'
-                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                ? 'bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20 hover:bg-destructive/20'
+                                : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                            isFuture && 'opacity-50'
                           )}
-                          title={paid ? 'Bezahlt — klicken zum Entfernen' : 'Nicht bezahlt — klicken zum Markieren'}
+                          title={paid ? 'Bezahlt -- klicken zum Entfernen' : isPast ? 'Ausstehend -- klicken zum Markieren' : 'Zukunftig -- klicken zum Markieren'}
                         >
                           {paid ? <Check className="h-4 w-4" /> : <X className="h-3 w-3" />}
                         </button>
                       </td>
                     )
                   })}
-                  <td className="pl-4 py-2 text-right font-semibold">{formatCurrency(total)}</td>
+                  <td className="py-2.5 pl-4 text-right font-semibold tabular-nums">{formatCurrency(total)}</td>
                 </tr>
               )
             })}
@@ -108,7 +119,7 @@ export function BeitraegeGrid() {
 
       {/* Summary */}
       <div className="flex justify-end text-sm text-muted-foreground">
-        Total eingezahlt: <span className="ml-1 font-semibold text-foreground">
+        Total eingezahlt: <span className="ml-1 font-semibold text-foreground tabular-nums">
           {formatCurrency(beitraege.reduce((sum, b) => sum + Number(b.betrag), 0))}
         </span>
       </div>

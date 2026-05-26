@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
@@ -13,6 +13,7 @@ export function AusgabeFormDialog() {
   const [datum, setDatum] = useState(todayISO())
   const [notiz, setNotiz] = useState('')
   const { createAusgabe } = useAusgaben()
+  const overlayRef = useRef<HTMLDivElement>(null)
 
   const reset = () => {
     setBezeichnung('')
@@ -20,6 +21,26 @@ export function AusgabeFormDialog() {
     setKategorie('sonstiges')
     setDatum(todayISO())
     setNotiz('')
+  }
+
+  const close = () => {
+    reset()
+    setOpen(false)
+  }
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open])
+
+  // Close on backdrop click
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === overlayRef.current) close()
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -35,8 +56,7 @@ export function AusgabeFormDialog() {
       {
         onSuccess: () => {
           toast.success('Ausgabe gespeichert')
-          reset()
-          setOpen(false)
+          close()
         },
         onError: () => toast.error('Fehler beim Speichern'),
       },
@@ -47,7 +67,7 @@ export function AusgabeFormDialog() {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/90"
+        className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent/90"
       >
         <Plus className="h-4 w-4" /> Neue Ausgabe
       </button>
@@ -55,58 +75,66 @@ export function AusgabeFormDialog() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div
+      ref={overlayRef}
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+    >
       <form
         onSubmit={handleSubmit}
-        className="mx-4 w-full max-w-md space-y-4 rounded-lg border border-border bg-card p-6"
+        className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl animate-in zoom-in-95 duration-200"
       >
-        <div className="flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Neue Ausgabe</h2>
-          <button type="button" onClick={() => { reset(); setOpen(false) }} className="text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={close}
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Bezeichnung *</label>
+            <label className="mb-1.5 block text-sm font-medium">Bezeichnung *</label>
             <input
               value={bezeichnung}
               onChange={e => setBezeichnung(e.target.value)}
-              className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+              className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder="z.B. Winterservice"
               autoFocus
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium">Betrag (CHF) *</label>
+              <label className="mb-1.5 block text-sm font-medium">Betrag (CHF) *</label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={betrag}
                 onChange={e => setBetrag(e.target.value)}
-                className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 placeholder="0.00"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">Datum *</label>
+              <label className="mb-1.5 block text-sm font-medium">Datum *</label>
               <input
                 type="date"
                 value={datum}
                 onChange={e => setDatum(e.target.value)}
-                className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Kategorie</label>
+            <label className="mb-1.5 block text-sm font-medium">Kategorie</label>
             <select
               value={kategorie}
               onChange={e => setKategorie(e.target.value as Kategorie)}
-              className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+              className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
             >
               {KATEGORIEN.map(k => (
                 <option key={k} value={k}>{KATEGORIE_LABELS[k]}</option>
@@ -114,28 +142,28 @@ export function AusgabeFormDialog() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Notiz</label>
+            <label className="mb-1.5 block text-sm font-medium">Notiz</label>
             <input
               value={notiz}
               onChange={e => setNotiz(e.target.value)}
-              className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+              className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder="Optional"
             />
           </div>
         </div>
 
-        <div className="flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
-            onClick={() => { reset(); setOpen(false) }}
-            className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
+            onClick={close}
+            className="rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             Abbrechen
           </button>
           <button
             type="submit"
             disabled={createAusgabe.isPending}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/90 disabled:opacity-50"
+            className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
             {createAusgabe.isPending ? 'Speichern...' : 'Speichern'}
           </button>

@@ -14,17 +14,24 @@ export const FAHRER_LABELS: Record<AlleFahrer, string> = {
 }
 
 export const FAHRER_FARBEN: Record<AlleFahrer, string> = {
-  roger: 'bg-accent',
-  dani: 'bg-blue-500',
-  jan: 'bg-orange-500',
-  pedro: 'bg-purple-500',
+  roger: 'bg-roger',
+  dani: 'bg-dani',
+  jan: 'bg-jan',
+  pedro: 'bg-pedro',
 }
 
 export const FAHRER_TEXT_FARBEN: Record<AlleFahrer, string> = {
-  roger: 'text-accent',
-  dani: 'text-blue-500',
-  jan: 'text-orange-500',
-  pedro: 'text-purple-500',
+  roger: 'text-roger',
+  dani: 'text-dani',
+  jan: 'text-jan',
+  pedro: 'text-pedro',
+}
+
+export const FAHRER_BORDER_FARBEN: Record<AlleFahrer, string> = {
+  roger: 'border-roger',
+  dani: 'border-dani',
+  jan: 'border-jan',
+  pedro: 'border-pedro',
 }
 
 export const KATEGORIEN = [

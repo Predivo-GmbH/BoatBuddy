@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
+import { formatCurrency } from '@/lib/format'
 
 const COLORS: Record<string, string> = {
   bootsplatz: '#0EA5E9',
@@ -61,12 +62,14 @@ export function KategorieChart() {
             contentStyle={{
               backgroundColor: 'var(--color-card)',
               border: '1px solid var(--color-border)',
-              borderRadius: '0.375rem',
+              borderRadius: '0.5rem',
               fontSize: '0.875rem',
+              boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+              padding: '8px 12px',
             }}
-            formatter={(value) => [`CHF ${Number(value).toFixed(2)}`, undefined]}
+            formatter={(value) => [formatCurrency(Number(value)), undefined]}
           />
-          <Legend wrapperStyle={{ fontSize: '0.875rem' }} />
+          <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px' }} />
         </PieChart>
       </ResponsiveContainer>
     </div>

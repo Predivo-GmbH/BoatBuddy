@@ -2,13 +2,17 @@ import type { ReactNode } from 'react'
 
 interface PageHeaderProps {
   title: string
+  subtitle?: string
   action?: ReactNode
 }
 
-export function PageHeader({ title, action }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   return (
     <div className="mb-6 flex items-center justify-between">
-      <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
+        {subtitle && <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>}
+      </div>
       {action}
     </div>
   )

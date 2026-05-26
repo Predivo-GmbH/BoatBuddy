@@ -4,8 +4,11 @@ import { FAHRER, FAHRER_LABELS, type Fahrer } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
 import type { Aktivitaet } from '@/types'
 import { AktivitaetenEditor } from './AktivitaetenEditor'
-import { Plus } from 'lucide-react'
+import { Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+
+const inputClass =
+  'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
 export function NutzungslogForm() {
   const [datum, setDatum] = useState(todayISO())
@@ -50,24 +53,27 @@ export function NutzungslogForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-border bg-card p-4">
-      <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Neuen Eintrag erfassen</h3>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <form onSubmit={handleSubmit} className="card-premium rounded-xl border border-border bg-card p-5">
+      <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        Neuen Eintrag erfassen
+      </h3>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Datum</label>
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Datum</label>
           <input
             type="date"
             value={datum}
             onChange={e => setDatum(e.target.value)}
-            className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+            className={inputClass}
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Fahrer</label>
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Fahrer</label>
           <select
             value={fahrer}
             onChange={e => setFahrer(e.target.value as Fahrer)}
-            className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+            className={inputClass}
           >
             {FAHRER.map(f => (
               <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
@@ -75,7 +81,7 @@ export function NutzungslogForm() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Betriebsstunden *</label>
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Betriebsstunden *</label>
           <input
             type="number"
             step="0.1"
@@ -83,11 +89,11 @@ export function NutzungslogForm() {
             value={betriebsstunden}
             onChange={e => setBetriebsstunden(e.target.value)}
             placeholder="z.B. 2.5"
-            className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+            className={inputClass}
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">Treibstoff (Liter)</label>
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Treibstoff (Liter)</label>
           <input
             type="number"
             step="0.1"
@@ -95,33 +101,37 @@ export function NutzungslogForm() {
             value={treibstoffLiter}
             onChange={e => setTreibstoffLiter(e.target.value)}
             placeholder="Optional"
-            className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+            className={inputClass}
           />
         </div>
       </div>
 
-      <div className="mt-3">
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">Aktivitaten</label>
+      <div className="mt-4">
+        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Aktivitaeten</label>
         <AktivitaetenEditor value={aktivitaeten} onChange={setAktivitaeten} />
       </div>
 
-      <div className="mt-3">
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">Notiz</label>
+      <div className="mt-4">
+        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notiz</label>
         <input
           value={notiz}
           onChange={e => setNotiz(e.target.value)}
           placeholder="Optional"
-          className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+          className={inputClass}
         />
       </div>
 
-      <div className="mt-4">
+      <div className="mt-5">
         <button
           type="submit"
           disabled={createNutzungslog.isPending}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent/90 disabled:opacity-50"
+          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50 sm:w-auto"
         >
-          <Plus className="h-4 w-4" />
+          {createNutzungslog.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
           Erfassen
         </button>
       </div>
