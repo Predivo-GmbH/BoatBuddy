@@ -68,7 +68,7 @@ export function AusgabenTabelle() {
     return items
   }, [ausgaben, search, filterKategorie, sortKey, sortDir])
 
-  const SortIcon = ({ column }: { column: SortKey }) => {
+  const sortIcon = (column: SortKey) => {
     if (sortKey !== column) return <ArrowUpDown className="ml-1 inline h-3.5 w-3.5 opacity-40" />
     return sortDir === 'asc'
       ? <ArrowUp className="ml-1 inline h-3.5 w-3.5" />
@@ -124,20 +124,20 @@ export function AusgabenTabelle() {
                 className="cursor-pointer select-none px-4 py-3 text-left font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('datum')}
               >
-                Datum <SortIcon column="datum" />
+                Datum {sortIcon('datum')}
               </th>
               <th className="px-4 py-3 text-left font-medium text-muted-foreground">Bezeichnung</th>
               <th
                 className="cursor-pointer select-none px-4 py-3 text-left font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('kategorie')}
               >
-                Kategorie <SortIcon column="kategorie" />
+                Kategorie {sortIcon('kategorie')}
               </th>
               <th
                 className="cursor-pointer select-none px-4 py-3 text-right font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('betrag')}
               >
-                Betrag <SortIcon column="betrag" />
+                Betrag {sortIcon('betrag')}
               </th>
               <th className="w-10 px-4 py-3 text-right font-medium text-muted-foreground"></th>
             </tr>
