@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Menu } from 'lucide-react'
+import { Anchor } from 'lucide-react'
 import { Sidebar } from './Sidebar'
+import { BottomNav } from './BottomNav'
 import { Footer } from './Footer'
 
 export function AppLayout() {
@@ -9,27 +10,29 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {/* Desktop sidebar — hidden on mobile */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile header */}
-        <header className="flex h-14 items-center border-b border-border bg-card px-4 lg:hidden">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground"
-            aria-label="Menu offnen"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <span className="ml-3 text-lg font-semibold text-foreground">BoatBuddy</span>
+        {/* Mobile header — minimal, just logo */}
+        <header className="flex h-12 items-center border-b border-border bg-card px-4 lg:hidden">
+          <Anchor className="h-4 w-4 text-accent" />
+          <span className="ml-2 text-base font-semibold text-foreground">BoatBuddy</span>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin">
+        {/* Main content — extra bottom padding on mobile for bottom nav */}
+        <main className="flex-1 overflow-y-auto p-4 pb-20 sm:p-6 lg:pb-6 scrollbar-thin">
           <Outlet />
         </main>
 
-        <Footer />
+        {/* Desktop footer */}
+        <div className="hidden lg:block">
+          <Footer />
+        </div>
       </div>
+
+      {/* Mobile bottom navigation */}
+      <BottomNav />
     </div>
   )
 }

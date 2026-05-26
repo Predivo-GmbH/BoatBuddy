@@ -4,11 +4,16 @@ import { useAusgaben } from '@/hooks/useAusgaben'
 import { KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 
 const COLORS: Record<string, string> = {
-  service: '#0077B6',
-  treibstoff: '#E09B3D',
+  bootsplatz: '#0EA5E9',
   versicherung: '#2D9E6B',
-  lagerung: '#6366F1',
+  verkehrssteuer: '#F59E0B',
+  winterlager: '#6366F1',
+  fruehlingslager: '#10B981',
+  vorfuehren: '#64748B',
+  treibstoff: '#E09B3D',
+  material: '#06B6D4',
   reparatur: '#D93F3F',
+  service: '#0077B6',
   sonstiges: '#8AAEC6',
 }
 

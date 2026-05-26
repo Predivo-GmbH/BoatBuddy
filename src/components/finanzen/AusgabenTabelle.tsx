@@ -5,11 +5,16 @@ import { Trash2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const KATEGORIE_COLORS: Record<Kategorie, string> = {
-  service: 'bg-accent/10 text-accent',
-  treibstoff: 'bg-warning/10 text-warning',
+  bootsplatz: 'bg-sky-500/10 text-sky-500',
   versicherung: 'bg-success/10 text-success',
-  lagerung: 'bg-violet-500/10 text-violet-500',
+  verkehrssteuer: 'bg-amber-500/10 text-amber-500',
+  winterlager: 'bg-violet-500/10 text-violet-500',
+  fruehlingslager: 'bg-emerald-500/10 text-emerald-500',
+  vorfuehren: 'bg-slate-500/10 text-slate-500',
+  treibstoff: 'bg-warning/10 text-warning',
+  material: 'bg-cyan-500/10 text-cyan-500',
   reparatur: 'bg-destructive/10 text-destructive',
+  service: 'bg-accent/10 text-accent',
   sonstiges: 'bg-muted text-muted-foreground',
 }
 

@@ -1,8 +1,8 @@
-import type { Fahrer, Kategorie, AktivitaetTyp } from '@/lib/fahrer'
+import type { AlleFahrer, Fahrer, Kategorie, AktivitaetTyp } from '@/lib/fahrer'
 
 export interface Beitrag {
   id: string
-  fahrer: Fahrer
+  fahrer: AlleFahrer
   betrag: number
   monat: string
   notiz: string | null
@@ -23,6 +23,7 @@ export interface Ausgabe {
   betrag: number
   kategorie: Kategorie
   datum: string
+  bezahlt_von: string
   notiz: string | null
   erstellt_am: string
 }
@@ -42,7 +43,7 @@ export interface Gastsession {
   id: string
   gast_name: string
   betrag: number
-  bezahlt_an: Fahrer
+  bezahlt_an: AlleFahrer
   datum: string
   notiz: string | null
   erstellt_am: string
@@ -56,10 +57,24 @@ export interface Aktivitaet {
 export interface Nutzungslog {
   id: string
   datum: string
-  fahrer: Fahrer
+  fahrer: AlleFahrer
   betriebsstunden: number
   treibstoff_liter: number | null
   aktivitaeten: Aktivitaet[]
+  teilnehmer: AlleFahrer[]
+  motorstunden_stand: number | null
+  notiz: string | null
+  erstellt_am: string
+}
+
+export interface Tanken {
+  id: string
+  datum: string
+  fahrer: AlleFahrer
+  ort: string | null
+  betrag: number
+  liter: number | null
+  motorstunden_stand: number | null
   notiz: string | null
   erstellt_am: string
 }

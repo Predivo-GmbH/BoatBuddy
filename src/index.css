@@ -107,4 +107,8 @@ html {
     scrollbar-width: thin;
     scrollbar-color: var(--color-border) transparent;
   }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
