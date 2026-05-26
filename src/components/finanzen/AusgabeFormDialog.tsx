@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
@@ -23,10 +23,10 @@ export function AusgabeFormDialog() {
     setNotiz('')
   }
 
-  const close = () => {
+  const close = useCallback(() => {
     reset()
     setOpen(false)
-  }
+  }, [])
 
   // Close on Escape
   useEffect(() => {
@@ -36,7 +36,7 @@ export function AusgabeFormDialog() {
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [open])
+  }, [open, close])
 
   // Close on backdrop click
   const handleBackdropClick = (e: React.MouseEvent) => {
