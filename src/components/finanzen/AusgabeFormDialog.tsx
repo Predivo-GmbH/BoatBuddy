@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
