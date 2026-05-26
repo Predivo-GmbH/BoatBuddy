@@ -158,9 +158,9 @@ export function AusgabenTabelle() {
                 <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatCurrency(Number(a.betrag))}</td>
                 <td className="px-4 py-3 text-right">
                   <button
-                    onClick={() => deleteAusgabe.mutate(a.id, { onError: () => toast.error('Fehler beim Loschen') })}
+                    onClick={() => deleteAusgabe.mutate(a.id, { onError: () => toast.error('Fehler beim Löschen') })}
                     className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                    aria-label="Loschen"
+                    aria-label="Löschen"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

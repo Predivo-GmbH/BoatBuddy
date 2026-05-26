@@ -31,7 +31,7 @@ export function GastsessionTabelle() {
           Noch keine Gast-Sessions erfasst
         </p>
         <p className="mt-1 text-xs text-muted-foreground/70">
-          Erfasse oben die erste Wakesurfen-Session mit deinen Gasten.
+          Erfasse oben die erste Wakesurfen-Session mit deinen Gästen.
         </p>
       </div>
     )

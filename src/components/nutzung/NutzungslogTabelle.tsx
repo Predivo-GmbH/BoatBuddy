@@ -25,7 +25,7 @@ export function NutzungslogTabelle() {
           Noch keine Nutzungslogs erfasst
         </p>
         <p className="mt-1 text-xs text-muted-foreground/70">
-          Erfasse oben deine erste Fahrt mit Betriebsstunden und Aktivitaeten.
+          Erfasse oben deine erste Fahrt mit Betriebsstunden und Aktivitäten.
         </p>
       </div>
     )
@@ -43,7 +43,7 @@ export function NutzungslogTabelle() {
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fahrer</th>
             <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stunden</th>
             <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Liter</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aktivitaeten</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aktivitäten</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notiz</th>
             <th className="w-10 px-4 py-3"></th>
           </tr>

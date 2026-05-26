@@ -28,7 +28,7 @@ export function MonatsdiagrammChart({ jahr }: { jahr: number }) {
   if (!hasData) {
     return (
       <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-        Noch keine Daten fur {jahr} vorhanden
+        Noch keine Daten für {jahr} vorhanden
       </div>
     )
   }

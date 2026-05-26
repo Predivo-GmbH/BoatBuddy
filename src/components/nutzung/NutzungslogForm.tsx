@@ -107,7 +107,7 @@ export function NutzungslogForm() {
       </div>
 
       <div className="mt-4">
-        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Aktivitaeten</label>
+        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Aktivitäten</label>
         <AktivitaetenEditor value={aktivitaeten} onChange={setAktivitaeten} />
       </div>
 

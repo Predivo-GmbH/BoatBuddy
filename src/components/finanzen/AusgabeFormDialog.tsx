@@ -47,7 +47,7 @@ export function AusgabeFormDialog() {
     e.preventDefault()
     const betragNum = parseFloat(betrag)
     if (!bezeichnung.trim() || isNaN(betragNum) || betragNum <= 0) {
-      toast.error('Bitte alle Pflichtfelder ausfullen')
+      toast.error('Bitte alle Pflichtfelder ausfüllen')
       return
     }
 

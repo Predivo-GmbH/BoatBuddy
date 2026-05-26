@@ -8,11 +8,11 @@ import { AusgabeFormDialog } from '@/components/finanzen/AusgabeFormDialog'
 import { BeitraegeGrid } from '@/components/finanzen/BeitraegeGrid'
 import { cn } from '@/lib/utils'
 
-const TABS = ['Ubersicht', 'Ausgaben', 'Beitrage'] as const
+const TABS = ['Übersicht', 'Ausgaben', 'Beiträge'] as const
 type Tab = typeof TABS[number]
 
 export default function FinanzenPage() {
-  const [tab, setTab] = useState<Tab>('Ubersicht')
+  const [tab, setTab] = useState<Tab>('Übersicht')
   const jahr = new Date().getFullYear()
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([])
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
@@ -52,7 +52,7 @@ export default function FinanzenPage() {
         ))}
       </div>
 
-      {tab === 'Ubersicht' && (
+      {tab === 'Übersicht' && (
         <div className="section-fade-in space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
             <KontoBilanzCard />
@@ -80,7 +80,7 @@ export default function FinanzenPage() {
         </div>
       )}
 
-      {tab === 'Beitrage' && (
+      {tab === 'Beiträge' && (
         <div className="section-fade-in">
           <div className="card-premium p-5">
             <BeitraegeGrid />

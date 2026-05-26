@@ -50,7 +50,7 @@ export function AktivitaetenEditor({ value, onChange }: AktivitaetenEditorProps)
             type="button"
             onClick={() => removeRow(index)}
             className="ml-1 rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-            aria-label="Aktivitaet entfernen"
+            aria-label="Aktivität entfernen"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -62,7 +62,7 @@ export function AktivitaetenEditor({ value, onChange }: AktivitaetenEditorProps)
         className="inline-flex min-h-[40px] items-center gap-2 rounded-lg border border-dashed border-input px-3 text-sm text-muted-foreground transition-colors hover:border-accent hover:bg-accent/5 hover:text-foreground"
       >
         <Plus className="h-4 w-4" />
-        Aktivitaet hinzufuegen
+        Aktivität hinzufügen
       </button>
     </div>
   )

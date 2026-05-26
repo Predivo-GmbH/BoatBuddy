@@ -8,7 +8,7 @@ export default function GastsessionsPage() {
     <div className="section-fade-in">
       <PageHeader
         title="Gast-Sessions"
-        subtitle="Wakesurfen-Sessions mit Gasten"
+        subtitle="Wakesurfen-Sessions mit Gästen"
       />
       <div className="space-y-6">
         <GastsessionStats />

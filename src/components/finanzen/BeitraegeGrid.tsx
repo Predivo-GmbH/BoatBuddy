@@ -26,7 +26,7 @@ export function BeitraegeGrid() {
 
     if (existing) {
       deleteBeitrag.mutate(existing.id, {
-        onError: () => toast.error('Fehler beim Loschen'),
+        onError: () => toast.error('Fehler beim Löschen'),
       })
     } else {
       createBeitrag.mutate(
