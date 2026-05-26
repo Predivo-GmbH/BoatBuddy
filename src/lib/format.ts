@@ -1,11 +1,19 @@
+function parseLocalDate(date: string | Date): Date {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [y, m, d] = date.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }
+  return new Date(date)
+}
+
 export function formatDate(date: string | Date): string {
-  return new Date(date).toLocaleDateString('de-CH', {
+  return parseLocalDate(date).toLocaleDateString('de-CH', {
     day: '2-digit', month: '2-digit', year: 'numeric'
   })
 }
 
 export function formatDateLong(date: string | Date): string {
-  return new Date(date).toLocaleDateString('de-CH', {
+  return parseLocalDate(date).toLocaleDateString('de-CH', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   })
 }
@@ -17,7 +25,7 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatMonat(date: string | Date): string {
-  return new Date(date).toLocaleDateString('de-CH', {
+  return parseLocalDate(date).toLocaleDateString('de-CH', {
     month: 'long', year: 'numeric'
   })
 }

@@ -12,9 +12,9 @@ export function useBootStats() {
         .from('boot_stats')
         .select('*')
         .limit(1)
-        .single()
+        .maybeSingle()
       if (error) throw new Error(error.message)
-      return data as BootStats
+      return data as BootStats | null
     },
   })
 

@@ -23,7 +23,7 @@ import { useBootStats } from '@/hooks/useBootStats'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
 import { formatCurrency, formatDate, formatDateLong, todayISO } from '@/lib/format'
-import { FAHRER_LABELS, FAHRER_FARBEN } from '@/lib/fahrer'
+import { FAHRER_LABELS, FAHRER_FARBEN, FAHRER_TEXT_FARBEN } from '@/lib/fahrer'
 import type { AlleFahrer } from '@/lib/fahrer'
 import { cn } from '@/lib/utils'
 
@@ -56,19 +56,19 @@ export default function DashboardPage() {
   }, [logs, currentYear])
 
   const seasonTotalExpenses = useMemo(() => {
-    return seasonAusgaben.reduce((sum, a) => sum + a.betrag, 0)
+    return seasonAusgaben.reduce((sum, a) => sum + Number(a.betrag), 0)
   }, [seasonAusgaben])
 
   const seasonTotalHours = useMemo(() => {
-    return seasonLogs.reduce((sum, l) => sum + l.betriebsstunden, 0)
+    return seasonLogs.reduce((sum, l) => sum + Number(l.betriebsstunden), 0)
   }, [seasonLogs])
 
   const seasonTotalFuel = useMemo(() => {
-    return seasonLogs.reduce((sum, l) => sum + (l.treibstoff_liter ?? 0), 0)
+    return seasonLogs.reduce((sum, l) => sum + Number(l.treibstoff_liter ?? 0), 0)
   }, [seasonLogs])
 
   const seasonSessionsTotal = useMemo(() => {
-    return seasonSessions.reduce((sum, s) => sum + s.betrag, 0)
+    return seasonSessions.reduce((sum, s) => sum + Number(s.betrag), 0)
   }, [seasonSessions])
 
   const letzteAusgaben = useMemo(() => {
@@ -302,7 +302,7 @@ export default function DashboardPage() {
                   <span
                     className={cn(
                       'text-sm font-medium',
-                      `text-${nextReservation.fahrer}` // Uses person text color
+                      FAHRER_TEXT_FARBEN[nextReservation.fahrer as AlleFahrer]
                     )}
                   >
                     {FAHRER_LABELS[nextReservation.fahrer as AlleFahrer]}

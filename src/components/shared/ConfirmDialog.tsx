@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 
 interface ConfirmDialogProps {
@@ -19,6 +20,15 @@ export function ConfirmDialog({
   confirmLabel = 'Löschen',
   isPending = false,
 }: ConfirmDialogProps) {
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isPending) onCancel()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open, isPending, onCancel])
+
   if (!open) return null
 
   return (
