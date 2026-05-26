@@ -5,6 +5,7 @@ import {
 } from 'date-fns'
 
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, type AlleFahrer } from '@/lib/fahrer'
+import { getFeiertageMap } from '@/lib/feiertage'
 import { cn } from '@/lib/utils'
 import type { Reservierung } from '@/types'
 
@@ -31,6 +32,17 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
     const calStart = startOfWeek(monthStart, { weekStartsOn: 1 })
     const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
     return eachDayOfInterval({ start: calStart, end: calEnd })
+  }, [currentDate])
+
+  const feiertageMap = useMemo(() => {
+    const year = currentDate.getFullYear()
+    const map = getFeiertageMap(year)
+    // If the calendar grid spills into adjacent months/years, include those too
+    const prevYear = year - 1
+    const nextYear = year + 1
+    for (const [k, v] of getFeiertageMap(prevYear)) map.set(k, v)
+    for (const [k, v] of getFeiertageMap(nextYear)) map.set(k, v)
+    return map
   }, [currentDate])
 
   const reservationMap = useMemo(() => {
@@ -69,6 +81,7 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
           const dayOfWeek = getDay(day) // 0=Sun, 6=Sat
           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
           const reservationsOnDay = reservationMap[dateStr] ?? []
+          const feiertag = feiertageMap.get(dateStr)
 
           return (
             <button
@@ -80,10 +93,12 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
                 inMonth
                   ? 'border-border hover:border-accent/40 hover:shadow-sm'
                   : 'border-transparent opacity-30',
+                // Holiday tint (subtle red/rose)
+                inMonth && feiertag && !today && 'bg-rose-50 dark:bg-rose-950/20',
                 // Weekend tint
-                inMonth && isWeekend && 'bg-muted/40',
+                inMonth && isWeekend && !feiertag && 'bg-muted/40',
                 // Normal in-month
-                inMonth && !isWeekend && 'bg-card',
+                inMonth && !isWeekend && !feiertag && 'bg-card',
                 // Today highlight
                 today && 'ring-2 ring-accent ring-offset-1 ring-offset-card bg-accent/5',
               )}
@@ -100,6 +115,13 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
               >
                 {format(day, 'd')}
               </span>
+
+              {/* Holiday label */}
+              {feiertag && inMonth && (
+                <span className="hidden text-[9px] font-medium leading-tight text-rose-500 dark:text-rose-400 sm:block">
+                  {feiertag}
+                </span>
+              )}
 
               {/* Reservation pills */}
               {reservationsOnDay.length > 0 && (
