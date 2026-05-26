@@ -1,28 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
 import { BootStatsKarte } from '@/components/nutzung/BootStatsKarte'
 import { NutzungslogForm } from '@/components/nutzung/NutzungslogForm'
 import { NutzungslogTabelle } from '@/components/nutzung/NutzungslogTabelle'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
-import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, ALLE_FAHRER, type AlleFahrer } from '@/lib/fahrer'
-import { todayISO } from '@/lib/format'
+import { FAHRER_LABELS, FAHRER_FARBEN, ALLE_FAHRER, type AlleFahrer } from '@/lib/fahrer'
 import { cn } from '@/lib/utils'
-import { Clock, Fuel, Navigation, TrendingUp, Zap, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
-import type { Fahrer } from '@/lib/fahrer'
-
-const inputClass =
-  'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
+import { Clock, Fuel, Navigation, TrendingUp, Zap } from 'lucide-react'
 
 export default function NutzungslogPage() {
-  const { logs, createNutzungslog } = useNutzungslogs()
-
-  // Quick entry state
-  const [qDatum, setQDatum] = useState(todayISO())
-  const [qFahrer, setQFahrer] = useState<Fahrer>('roger')
-  const [qStunden, setQStunden] = useState('')
-  const [qLiter, setQLiter] = useState('')
+  const { logs } = useNutzungslogs()
 
   const currentYear = new Date().getFullYear()
 
@@ -65,28 +53,6 @@ export default function NutzungslogPage() {
       .map(f => ({ fahrer: f, liter: map[f]! }))
       .sort((a, b) => b.liter - a.liter)
   }, [logs])
-
-  const handleQuickSave = (e: React.FormEvent) => {
-    e.preventDefault()
-    const stunden = parseFloat(qStunden)
-    if (isNaN(stunden) || stunden <= 0) {
-      toast.error('Bitte Betriebsstunden angeben')
-      return
-    }
-    const liter = qLiter ? parseFloat(qLiter) : undefined
-    createNutzungslog.mutate(
-      { datum: qDatum, fahrer: qFahrer, betriebsstunden: stunden, treibstoff_liter: liter, aktivitaeten: [] },
-      {
-        onSuccess: () => {
-          toast.success('Schnelleintrag gespeichert')
-          setQStunden('')
-          setQLiter('')
-          setQDatum(todayISO())
-        },
-        onError: () => toast.error('Fehler beim Speichern'),
-      },
-    )
-  }
 
   return (
     <div className="section-fade-in">
@@ -166,76 +132,9 @@ export default function NutzungslogPage() {
           </div>
         </div>
 
-        {/* Quick entry */}
-        <form
-          onSubmit={handleQuickSave}
-          className="card-premium rounded-xl border border-border bg-card p-5 border-t-2 border-t-accent"
-        >
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-            Schnelleintrag
-          </h3>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[130px] flex-1">
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Datum</label>
-              <input
-                type="date"
-                value={qDatum}
-                onChange={e => setQDatum(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div className="min-w-[120px] flex-1">
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Fahrer</label>
-              <select
-                value={qFahrer}
-                onChange={e => setQFahrer(e.target.value as Fahrer)}
-                className={inputClass}
-              >
-                {FAHRER.map(f => (
-                  <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
-                ))}
-              </select>
-            </div>
-            <div className="min-w-[120px] flex-1">
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Betriebsstunden *</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                value={qStunden}
-                onChange={e => setQStunden(e.target.value)}
-                placeholder="z.B. 2.5"
-                className={inputClass}
-              />
-            </div>
-            <div className="min-w-[120px] flex-1">
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Treibstoff (L)</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                value={qLiter}
-                onChange={e => setQLiter(e.target.value)}
-                placeholder="Optional"
-                className={inputClass}
-              />
-            </div>
-            <div className="flex-shrink-0">
-              <button
-                type="submit"
-                disabled={createNutzungslog.isPending}
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
-              >
-                {createNutzungslog.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
-                Speichern
-              </button>
-            </div>
-          </div>
-        </form>
-
         <BootStatsKarte />
+
+        <NutzungslogForm />
 
         {/* Fuel per driver */}
         {fuelPerFahrer.length > 0 && (
@@ -274,7 +173,6 @@ export default function NutzungslogPage() {
           </div>
         )}
 
-        <NutzungslogForm />
         <NutzungslogTabelle />
       </div>
     </div>

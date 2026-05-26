@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { X, Trash2, Clock, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Reservierung } from '@/types'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 interface ReservierungDialogProps {
   datum: string
@@ -17,6 +18,7 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
   const [fahrer, setFahrer] = useState<Fahrer>('roger')
   const [notiz, setNotiz] = useState('')
   const [ganzerTag, setGanzerTag] = useState(true)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
   const { createReservierung, deleteReservierung } = useReservierungen()
 
   const existing = reservierungen.filter(r => r.datum === datum)
@@ -92,11 +94,7 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
                   )}
                 </span>
                 <button
-                  onClick={() =>
-                    deleteReservierung.mutate(r.id, {
-                      onError: () => toast.error('Fehler'),
-                    })
-                  }
+                  onClick={() => setDeleteId(r.id)}
                   className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                   aria-label="Löschen"
                 >
@@ -106,6 +104,20 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
             ))}
           </div>
         )}
+
+        <ConfirmDialog
+          open={deleteId !== null}
+          onConfirm={() => {
+            if (deleteId) {
+              deleteReservierung.mutate(deleteId, {
+                onSuccess: () => setDeleteId(null),
+                onError: () => toast.error('Fehler'),
+              })
+            }
+          }}
+          onCancel={() => setDeleteId(null)}
+          isPending={deleteReservierung.isPending}
+        />
 
         {/* Add new */}
         <div className="space-y-3 border-t border-border pt-4">

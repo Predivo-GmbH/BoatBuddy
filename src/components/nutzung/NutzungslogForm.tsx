@@ -4,7 +4,7 @@ import { FAHRER, FAHRER_LABELS, type Fahrer } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
 import type { Aktivitaet } from '@/types'
 import { AktivitaetenEditor } from './AktivitaetenEditor'
-import { Plus, Loader2 } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 
 const inputClass =
@@ -17,6 +17,7 @@ export function NutzungslogForm() {
   const [treibstoffLiter, setTreibstoffLiter] = useState('')
   const [aktivitaeten, setAktivitaeten] = useState<Aktivitaet[]>([])
   const [notiz, setNotiz] = useState('')
+  const [expanded, setExpanded] = useState(false)
   const { createNutzungslog } = useNutzungslogs()
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -40,12 +41,13 @@ export function NutzungslogForm() {
       },
       {
         onSuccess: () => {
-          toast.success('Nutzungslog gespeichert')
+          toast.success('Eintrag gespeichert')
           setBetriebsstunden('')
           setTreibstoffLiter('')
           setAktivitaeten([])
           setNotiz('')
           setDatum(todayISO())
+          setExpanded(false)
         },
         onError: () => toast.error('Fehler beim Speichern'),
       },
@@ -53,13 +55,17 @@ export function NutzungslogForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card-premium rounded-xl border border-border bg-card p-5">
+    <form
+      onSubmit={handleSubmit}
+      className="card-premium rounded-xl border border-border bg-card p-5 border-t-2 border-t-accent"
+    >
       <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
         Neuen Eintrag erfassen
       </h3>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div>
+      {/* Compact row: Date, Driver, Hours, Fuel, Toggle, Save */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[130px] flex-1">
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Datum</label>
           <input
             type="date"
@@ -68,7 +74,7 @@ export function NutzungslogForm() {
             className={inputClass}
           />
         </div>
-        <div>
+        <div className="min-w-[120px] flex-1">
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Fahrer</label>
           <select
             value={fahrer}
@@ -80,7 +86,7 @@ export function NutzungslogForm() {
             ))}
           </select>
         </div>
-        <div>
+        <div className="min-w-[120px] flex-1">
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Betriebsstunden *</label>
           <input
             type="number"
@@ -92,8 +98,8 @@ export function NutzungslogForm() {
             className={inputClass}
           />
         </div>
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Treibstoff (Liter)</label>
+        <div className="min-w-[120px] flex-1">
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Treibstoff (L)</label>
           <input
             type="number"
             step="0.1"
@@ -104,37 +110,46 @@ export function NutzungslogForm() {
             className={inputClass}
           />
         </div>
+        <div className="flex flex-shrink-0 items-end gap-2">
+          <button
+            type="button"
+            onClick={() => setExpanded(prev => !prev)}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-input px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          >
+            Erweitert
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          <button
+            type="submit"
+            disabled={createNutzungslog.isPending}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+          >
+            {createNutzungslog.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            Erfassen
+          </button>
+        </div>
       </div>
 
-      <div className="mt-4">
-        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Aktivitäten</label>
-        <AktivitaetenEditor value={aktivitaeten} onChange={setAktivitaeten} />
-      </div>
-
-      <div className="mt-4">
-        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notiz</label>
-        <input
-          value={notiz}
-          onChange={e => setNotiz(e.target.value)}
-          placeholder="Optional"
-          className={inputClass}
-        />
-      </div>
-
-      <div className="mt-5">
-        <button
-          type="submit"
-          disabled={createNutzungslog.isPending}
-          className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50 sm:w-auto"
-        >
-          {createNutzungslog.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="h-4 w-4" />
-          )}
-          Erfassen
-        </button>
-      </div>
+      {/* Expanded section: Activities + Notes */}
+      {expanded && (
+        <div className="mt-4 space-y-4 border-t border-border pt-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Aktivitäten</label>
+            <AktivitaetenEditor value={aktivitaeten} onChange={setAktivitaeten} />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notiz</label>
+            <input
+              value={notiz}
+              onChange={e => setNotiz(e.target.value)}
+              placeholder="Optional"
+              className={inputClass}
+            />
+          </div>
+        </div>
+      )}
     </form>
   )
 }

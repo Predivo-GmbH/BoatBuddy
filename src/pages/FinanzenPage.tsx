@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { KontoBilanzCard } from '@/components/finanzen/KontoBilanzCard'
 import { MonatsdiagrammChart } from '@/components/finanzen/MonatsdiagrammChart'
@@ -6,14 +6,34 @@ import { KategorieChart } from '@/components/finanzen/KategorieChart'
 import { AusgabenTabelle } from '@/components/finanzen/AusgabenTabelle'
 import { AusgabeFormDialog } from '@/components/finanzen/AusgabeFormDialog'
 import { BeitraegeGrid } from '@/components/finanzen/BeitraegeGrid'
+import { useAusgaben } from '@/hooks/useAusgaben'
+import { useBeitraege } from '@/hooks/useBeitraege'
+import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { DollarSign, Wallet } from 'lucide-react'
 
 const TABS = ['Übersicht', 'Ausgaben', 'Beiträge'] as const
 type Tab = typeof TABS[number]
 
 export default function FinanzenPage() {
   const [tab, setTab] = useState<Tab>('Übersicht')
-  const jahr = new Date().getFullYear()
+  const currentYear = new Date().getFullYear()
+  const { ausgaben } = useAusgaben()
+  const { beitraege } = useBeitraege(currentYear)
+
+  const ausgabenYear = useMemo(() => {
+    const filtered = ausgaben.filter(a => a.datum.startsWith(String(currentYear)))
+    return {
+      total: filtered.reduce((sum, a) => sum + Number(a.betrag), 0),
+      count: filtered.length,
+    }
+  }, [ausgaben, currentYear])
+
+  const beitraegeYear = useMemo(() => ({
+    total: beitraege.reduce((sum, b) => sum + Number(b.betrag), 0),
+    count: beitraege.length,
+  }), [beitraege])
+
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([])
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
 
@@ -56,12 +76,36 @@ export default function FinanzenPage() {
         <div className="section-fade-in space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
             <KontoBilanzCard />
+            <div className="card-premium p-5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <DollarSign className="h-4 w-4" />
+                Ausgaben {currentYear}
+              </div>
+              <p className="mt-3 text-3xl font-bold tabular-nums text-foreground">
+                {formatCurrency(ausgabenYear.total)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {ausgabenYear.count} {ausgabenYear.count === 1 ? 'Ausgabe' : 'Ausgaben'}
+              </p>
+            </div>
+            <div className="card-premium p-5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Wallet className="h-4 w-4" />
+                Beiträge {currentYear}
+              </div>
+              <p className="mt-3 text-3xl font-bold tabular-nums text-foreground">
+                {formatCurrency(beitraegeYear.total)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {beitraegeYear.count} {beitraegeYear.count === 1 ? 'Monat' : 'Monate'} bezahlt
+              </p>
+            </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card-premium p-5">
               <h3 className="mb-4 text-sm font-semibold text-muted-foreground">Einnahmen vs. Ausgaben</h3>
-              <MonatsdiagrammChart jahr={jahr} />
+              <MonatsdiagrammChart />
             </div>
             <div className="card-premium p-5">
               <h3 className="mb-4 text-sm font-semibold text-muted-foreground">Ausgaben nach Kategorie</h3>

@@ -28,6 +28,16 @@ export function useGastsessions() {
     },
   })
 
+  const updateGastsession = useMutation({
+    mutationFn: async ({ id, ...fields }: Partial<Gastsession> & { id: string }) => {
+      const { error } = await supabase.from('gastsessions').update(fields).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['gastsessions'] })
+    },
+  })
+
   const deleteGastsession = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('gastsessions').delete().eq('id', id)
@@ -38,5 +48,5 @@ export function useGastsessions() {
     },
   })
 
-  return { sessions, isLoading, error, createGastsession, deleteGastsession }
+  return { sessions, isLoading, error, createGastsession, updateGastsession, deleteGastsession }
 }

@@ -3,8 +3,11 @@ import { useAusgaben } from '@/hooks/useAusgaben'
 import { KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { Trash2, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react'
+import { Trash2, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { AusgabeFormDialog } from './AusgabeFormDialog'
+import type { Ausgabe } from '@/types'
 
 const KATEGORIE_COLORS: Record<Kategorie, string> = {
   bootsplatz: 'bg-[#0EA5E9]/10 text-[#0EA5E9]',
@@ -25,6 +28,8 @@ type SortDir = 'asc' | 'desc'
 
 export function AusgabenTabelle() {
   const { ausgaben, isLoading, deleteAusgabe } = useAusgaben()
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [editingAusgabe, setEditingAusgabe] = useState<Ausgabe | null>(null)
   const [search, setSearch] = useState('')
   const [filterKategorie, setFilterKategorie] = useState<Kategorie | ''>('')
   const [sortKey, setSortKey] = useState<SortKey>('datum')
@@ -157,19 +162,49 @@ export function AusgabenTabelle() {
                 </td>
                 <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatCurrency(Number(a.betrag))}</td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => deleteAusgabe.mutate(a.id, { onError: () => toast.error('Fehler beim Löschen') })}
-                    className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                    aria-label="Löschen"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      onClick={() => setEditingAusgabe(a)}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent"
+                      aria-label="Bearbeiten"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(a.id)}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Löschen"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onConfirm={() => {
+          if (deleteId) {
+            deleteAusgabe.mutate(deleteId, {
+              onSuccess: () => setDeleteId(null),
+              onError: () => toast.error('Fehler beim Löschen'),
+            })
+          }
+        }}
+        onCancel={() => setDeleteId(null)}
+        isPending={deleteAusgabe.isPending}
+      />
+
+      {editingAusgabe && (
+        <AusgabeFormDialog
+          editAusgabe={editingAusgabe}
+          onClose={() => setEditingAusgabe(null)}
+        />
+      )}
 
       {/* Result count */}
       {(search || filterKategorie) && (

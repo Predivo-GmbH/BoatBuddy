@@ -107,11 +107,10 @@ export default function DashboardPage() {
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8">
         <div className="stagger-child" style={{ '--stagger': 1 } as React.CSSProperties}>
           <StatCard
-            label="Kontostand"
-            value={latestKontostand ? formatCurrency(latestKontostand.betrag) : 'CHF 0.00'}
-            subtitle={latestKontostand ? `Stand ${formatDate(latestKontostand.datum)}` : undefined}
-            icon={Wallet}
-            accentColor="card-accent-top-success"
+            label={`Ausgaben ${currentYear}`}
+            value={formatCurrency(seasonTotalExpenses)}
+            subtitle={`${seasonAusgaben.length} Posten`}
+            icon={DollarSign}
           />
         </div>
         <div className="stagger-child" style={{ '--stagger': 2 } as React.CSSProperties}>

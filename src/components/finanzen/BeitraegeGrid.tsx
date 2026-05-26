@@ -40,9 +40,20 @@ export function BeitraegeGrid() {
     return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
   }
 
+  const outstandingCount = FAHRER.reduce((total, fahrer) => {
+    const now = new Date()
+    for (let m = 0; m < 12; m++) {
+      const monthEnd = new Date(jahr, m + 1, 0)
+      if (monthEnd < now && !getBeitrag(fahrer, m)) {
+        total++
+      }
+    }
+    return total
+  }, 0)
+
   return (
     <div className="space-y-4">
-      {/* Year selector */}
+      {/* Year selector + outstanding badge */}
       <div className="flex items-center gap-3">
         <button
           onClick={() => setJahr(j => j - 1)}
@@ -59,6 +70,16 @@ export function BeitraegeGrid() {
         >
           <ChevronRight className="h-5 w-5" />
         </button>
+        <span
+          className={cn(
+            'ml-auto inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+            outstandingCount > 0
+              ? 'bg-destructive/15 text-destructive'
+              : 'bg-success/15 text-success'
+          )}
+        >
+          {outstandingCount > 0 ? `${outstandingCount} ausstehend` : 'Alles bezahlt'}
+        </span>
       </div>
 
       {/* Grid */}

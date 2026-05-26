@@ -1,13 +1,47 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useBeitraege } from '@/hooks/useBeitraege'
 import { formatCurrency } from '@/lib/format'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 const MONATE = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 
-export function MonatsdiagrammChart({ jahr }: { jahr: number }) {
+export function MonatsdiagrammChart() {
   const { ausgaben } = useAusgaben()
+
+  // Fetch all beitraege months to detect latest year
+  const { data: beitraegeMonths = [] } = useQuery({
+    queryKey: ['beitraege-months'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('beitraege')
+        .select('monat')
+        .order('monat', { ascending: false })
+        .limit(1)
+      if (error) throw new Error(error.message)
+      return data as { monat: string }[]
+    },
+  })
+
+  const detectedYear = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    let latest = currentYear
+    for (const a of ausgaben) {
+      const y = parseInt(a.datum.slice(0, 4), 10)
+      if (y > latest) latest = y
+    }
+    for (const b of beitraegeMonths) {
+      const y = parseInt(b.monat.slice(0, 4), 10)
+      if (y > latest) latest = y
+    }
+    return latest
+  }, [ausgaben, beitraegeMonths])
+
+  const [jahrOverride, setJahrOverride] = useState<number | null>(null)
+  const jahr = jahrOverride ?? detectedYear
   const { beitraege } = useBeitraege(jahr)
 
   const data = useMemo(() => {
@@ -25,16 +59,41 @@ export function MonatsdiagrammChart({ jahr }: { jahr: number }) {
 
   const hasData = data.some(d => d.Einnahmen > 0 || d.Ausgaben > 0)
 
+  const yearNav = (
+    <div className="flex items-center gap-3">
+      <button
+        onClick={() => setJahrOverride(jahr - 1)}
+        className="rounded-lg p-2 transition-colors hover:bg-muted"
+        aria-label="Vorjahr"
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+      <span className="min-w-[4rem] text-center text-lg font-semibold tabular-nums">{jahr}</span>
+      <button
+        onClick={() => setJahrOverride(jahr + 1)}
+        className="rounded-lg p-2 transition-colors hover:bg-muted"
+        aria-label="Nachstes Jahr"
+      >
+        <ChevronRight className="h-5 w-5" />
+      </button>
+    </div>
+  )
+
   if (!hasData) {
     return (
-      <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-        Noch keine Daten für {jahr} vorhanden
+      <div className="space-y-4">
+        {yearNav}
+        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+          Noch keine Daten für {jahr} vorhanden
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="h-64 w-full">
+    <div className="space-y-4">
+      {yearNav}
+      <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
           <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
@@ -56,6 +115,7 @@ export function MonatsdiagrammChart({ jahr }: { jahr: number }) {
           <Bar dataKey="Ausgaben" fill="var(--color-destructive)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
+      </div>
     </div>
   )
 }

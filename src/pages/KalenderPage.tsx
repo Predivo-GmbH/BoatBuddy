@@ -95,7 +95,7 @@ export default function KalenderPage() {
             <table className="w-full text-sm">
               <tbody>
                 {kommende.map(r => (
-                  <tr key={r.id} className="row-accent border-b border-border/50 last:border-0">
+                  <tr key={r.id} onClick={() => setSelectedDate(r.datum)} className="cursor-pointer row-accent border-b border-border/50 last:border-0 hover:bg-muted/50">
                     <td className="py-3 pr-4 text-foreground">
                       {formatDateLong(r.datum)}
                     </td>

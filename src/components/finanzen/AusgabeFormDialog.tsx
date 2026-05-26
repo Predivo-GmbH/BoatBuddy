@@ -4,16 +4,34 @@ import { KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
+import type { Ausgabe } from '@/types'
 
-export function AusgabeFormDialog() {
+interface AusgabeFormDialogProps {
+  editAusgabe?: Ausgabe | null
+  onClose?: () => void
+}
+
+export function AusgabeFormDialog({ editAusgabe, onClose }: AusgabeFormDialogProps = {}) {
+  const isEdit = !!editAusgabe
   const [open, setOpen] = useState(false)
   const [bezeichnung, setBezeichnung] = useState('')
   const [betrag, setBetrag] = useState('')
   const [kategorie, setKategorie] = useState<Kategorie>('sonstiges')
   const [datum, setDatum] = useState(todayISO())
   const [notiz, setNotiz] = useState('')
-  const { createAusgabe } = useAusgaben()
+  const { createAusgabe, updateAusgabe } = useAusgaben()
   const overlayRef = useRef<HTMLDivElement>(null)
+
+  // Pre-fill fields when editing
+  useEffect(() => {
+    if (editAusgabe) {
+      setBezeichnung(editAusgabe.bezeichnung)
+      setBetrag(String(editAusgabe.betrag))
+      setKategorie(editAusgabe.kategorie)
+      setDatum(editAusgabe.datum)
+      setNotiz(editAusgabe.notiz ?? '')
+    }
+  }, [editAusgabe])
 
   const reset = () => {
     setBezeichnung('')
@@ -25,8 +43,12 @@ export function AusgabeFormDialog() {
 
   const close = useCallback(() => {
     reset()
-    setOpen(false)
-  }, [])
+    if (onClose) {
+      onClose()
+    } else {
+      setOpen(false)
+    }
+  }, [onClose])
 
   // Close on Escape
   useEffect(() => {
@@ -51,19 +73,32 @@ export function AusgabeFormDialog() {
       return
     }
 
-    createAusgabe.mutate(
-      { bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, notiz: notiz.trim() || undefined },
-      {
-        onSuccess: () => {
-          toast.success('Ausgabe gespeichert')
-          close()
+    if (isEdit && editAusgabe) {
+      updateAusgabe.mutate(
+        { id: editAusgabe.id, bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, notiz: notiz.trim() || undefined },
+        {
+          onSuccess: () => {
+            toast.success('Ausgabe aktualisiert')
+            close()
+          },
+          onError: () => toast.error('Fehler beim Aktualisieren'),
         },
-        onError: () => toast.error('Fehler beim Speichern'),
-      },
-    )
+      )
+    } else {
+      createAusgabe.mutate(
+        { bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, notiz: notiz.trim() || undefined },
+        {
+          onSuccess: () => {
+            toast.success('Ausgabe gespeichert')
+            close()
+          },
+          onError: () => toast.error('Fehler beim Speichern'),
+        },
+      )
+    }
   }
 
-  if (!open) {
+  if (!isEdit && !open) {
     return (
       <button
         onClick={() => setOpen(true)}
@@ -73,6 +108,8 @@ export function AusgabeFormDialog() {
       </button>
     )
   }
+
+  if (!isEdit && !open) return null
 
   return (
     <div
@@ -85,7 +122,7 @@ export function AusgabeFormDialog() {
         className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl animate-in zoom-in-95 duration-200"
       >
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Neue Ausgabe</h2>
+          <h2 className="text-lg font-semibold">{isEdit ? 'Ausgabe bearbeiten' : 'Neue Ausgabe'}</h2>
           <button
             type="button"
             onClick={close}
@@ -162,10 +199,12 @@ export function AusgabeFormDialog() {
           </button>
           <button
             type="submit"
-            disabled={createAusgabe.isPending}
+            disabled={isEdit ? updateAusgabe.isPending : createAusgabe.isPending}
             className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
-            {createAusgabe.isPending ? 'Speichern...' : 'Speichern'}
+            {isEdit
+              ? (updateAusgabe.isPending ? 'Aktualisieren...' : 'Aktualisieren')
+              : (createAusgabe.isPending ? 'Speichern...' : 'Speichern')}
           </button>
         </div>
       </form>

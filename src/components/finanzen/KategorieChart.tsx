@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 import { formatCurrency } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 const COLORS: Record<string, string> = {
   bootsplatz: '#0EA5E9',
@@ -19,11 +20,18 @@ const COLORS: Record<string, string> = {
 }
 
 export function KategorieChart() {
+  const currentYear = new Date().getFullYear()
+  const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const { ausgaben } = useAusgaben()
+
+  const filtered = useMemo(() => {
+    if (selectedYear === null) return ausgaben
+    return ausgaben.filter(a => a.datum.startsWith(String(selectedYear)))
+  }, [ausgaben, selectedYear])
 
   const data = useMemo(() => {
     const grouped: Record<string, number> = {}
-    for (const a of ausgaben) {
+    for (const a of filtered) {
       grouped[a.kategorie] = (grouped[a.kategorie] || 0) + Number(a.betrag)
     }
     return Object.entries(grouped).map(([kategorie, betrag]) => ({
@@ -31,7 +39,7 @@ export function KategorieChart() {
       value: betrag,
       key: kategorie,
     }))
-  }, [ausgaben])
+  }, [filtered])
 
   if (data.length === 0) {
     return (
@@ -42,7 +50,32 @@ export function KategorieChart() {
   }
 
   return (
-    <div className="h-64 w-full">
+    <div className="space-y-4">
+      <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
+        <button
+          onClick={() => setSelectedYear(null)}
+          className={cn(
+            'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+            selectedYear === null
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          Alle Jahre
+        </button>
+        <button
+          onClick={() => setSelectedYear(currentYear)}
+          className={cn(
+            'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+            selectedYear === currentYear
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {currentYear}
+        </button>
+      </div>
+      <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -72,6 +105,7 @@ export function KategorieChart() {
           <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px' }} />
         </PieChart>
       </ResponsiveContainer>
+      </div>
     </div>
   )
 }

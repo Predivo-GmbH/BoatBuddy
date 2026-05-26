@@ -35,6 +35,16 @@ export function useNutzungslogs() {
     },
   })
 
+  const updateNutzungslog = useMutation({
+    mutationFn: async ({ id, ...fields }: Partial<Nutzungslog> & { id: string }) => {
+      const { error } = await supabase.from('nutzungslogs').update(fields).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })
+    },
+  })
+
   const deleteNutzungslog = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('nutzungslogs').delete().eq('id', id)
@@ -45,5 +55,5 @@ export function useNutzungslogs() {
     },
   })
 
-  return { logs, isLoading, error, createNutzungslog, deleteNutzungslog }
+  return { logs, isLoading, error, createNutzungslog, updateNutzungslog, deleteNutzungslog }
 }
