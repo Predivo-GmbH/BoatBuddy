@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
@@ -14,24 +14,13 @@ interface AusgabeFormDialogProps {
 export function AusgabeFormDialog({ editAusgabe, onClose }: AusgabeFormDialogProps = {}) {
   const isEdit = !!editAusgabe
   const [open, setOpen] = useState(false)
-  const [bezeichnung, setBezeichnung] = useState('')
-  const [betrag, setBetrag] = useState('')
-  const [kategorie, setKategorie] = useState<Kategorie>('sonstiges')
-  const [datum, setDatum] = useState(todayISO())
-  const [notiz, setNotiz] = useState('')
+  const [bezeichnung, setBezeichnung] = useState(editAusgabe?.bezeichnung ?? '')
+  const [betrag, setBetrag] = useState(editAusgabe ? String(editAusgabe.betrag) : '')
+  const [kategorie, setKategorie] = useState<Kategorie>(editAusgabe?.kategorie ?? 'sonstiges')
+  const [datum, setDatum] = useState(editAusgabe?.datum ?? todayISO())
+  const [notiz, setNotiz] = useState(editAusgabe?.notiz ?? '')
   const { createAusgabe, updateAusgabe } = useAusgaben()
   const overlayRef = useRef<HTMLDivElement>(null)
-
-  // Pre-fill fields when editing
-  useEffect(() => {
-    if (editAusgabe) {
-      setBezeichnung(editAusgabe.bezeichnung)
-      setBetrag(String(editAusgabe.betrag))
-      setKategorie(editAusgabe.kategorie)
-      setDatum(editAusgabe.datum)
-      setNotiz(editAusgabe.notiz ?? '')
-    }
-  }, [editAusgabe])
 
   const reset = () => {
     setBezeichnung('')
