@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useGastsessions } from '@/hooks/useGastsessions'
-import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, ALLE_FAHRER, type Fahrer, type AlleFahrer } from '@/lib/fahrer'
+import { FAHRER_LABELS, FAHRER_FARBEN, ALLE_FAHRER, type AlleFahrer } from '@/lib/fahrer'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Users, Wallet } from 'lucide-react'
