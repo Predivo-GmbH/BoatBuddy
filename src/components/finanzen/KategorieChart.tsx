@@ -41,14 +41,6 @@ export function KategorieChart() {
     }))
   }, [filtered])
 
-  if (data.length === 0) {
-    return (
-      <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-        Noch keine Ausgaben erfasst
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
@@ -75,37 +67,43 @@ export function KategorieChart() {
           {currentYear}
         </button>
       </div>
-      <div className="h-64 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={50}
-            outerRadius={80}
-            paddingAngle={2}
-            dataKey="value"
-          >
-            {data.map((entry) => (
-              <Cell key={entry.key} fill={COLORS[entry.key] ?? '#8AAEC6'} />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={{
-              backgroundColor: 'var(--color-card)',
-              border: '1px solid var(--color-border)',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-              boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-              padding: '8px 12px',
-            }}
-            formatter={(value) => [formatCurrency(Number(value)), undefined]}
-          />
-          <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px' }} />
-        </PieChart>
-      </ResponsiveContainer>
-      </div>
+      {data.length === 0 ? (
+        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+          Keine Ausgaben {selectedYear ? `in ${selectedYear}` : ''} erfasst
+        </div>
+      ) : (
+        <div className="h-64 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={50}
+              outerRadius={80}
+              paddingAngle={2}
+              dataKey="value"
+            >
+              {data.map((entry) => (
+                <Cell key={entry.key} fill={COLORS[entry.key] ?? '#8AAEC6'} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{
+                backgroundColor: 'var(--color-card)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '0.5rem',
+                fontSize: '0.875rem',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                padding: '8px 12px',
+              }}
+              formatter={(value) => [formatCurrency(Number(value)), undefined]}
+            />
+            <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px' }} />
+          </PieChart>
+        </ResponsiveContainer>
+        </div>
+      )}
     </div>
   )
 }

@@ -21,7 +21,7 @@ export function NutzungslogTabelle() {
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   const availableYears = useMemo(() => {
-    const years = [...new Set(logs.map(l => new Date(l.datum).getFullYear()))]
+    const years = [...new Set(logs.map(l => parseInt(l.datum.slice(0, 4), 10)))]
     years.sort((a, b) => b - a)
     return years
   }, [logs])
@@ -43,8 +43,7 @@ export function NutzungslogTabelle() {
     }
 
     if (filterYear) {
-      const year = Number(filterYear)
-      items = items.filter(l => new Date(l.datum).getFullYear() === year)
+      items = items.filter(l => l.datum.startsWith(filterYear))
     }
 
     items.sort((a, b) => {
@@ -52,9 +51,9 @@ export function NutzungslogTabelle() {
       if (sortKey === 'datum') {
         cmp = a.datum.localeCompare(b.datum)
       } else if (sortKey === 'betriebsstunden') {
-        cmp = a.betriebsstunden - b.betriebsstunden
+        cmp = Number(a.betriebsstunden) - Number(b.betriebsstunden)
       } else if (sortKey === 'treibstoff_liter') {
-        cmp = (a.treibstoff_liter ?? 0) - (b.treibstoff_liter ?? 0)
+        cmp = Number(a.treibstoff_liter ?? 0) - Number(b.treibstoff_liter ?? 0)
       }
       return sortDir === 'asc' ? cmp : -cmp
     })
@@ -64,8 +63,8 @@ export function NutzungslogTabelle() {
 
   const summary = useMemo(() => ({
     trips: filtered.length,
-    hours: filtered.reduce((sum, l) => sum + l.betriebsstunden, 0),
-    fuel: filtered.reduce((sum, l) => sum + (l.treibstoff_liter ?? 0), 0),
+    hours: filtered.reduce((sum, l) => sum + Number(l.betriebsstunden), 0),
+    fuel: filtered.reduce((sum, l) => sum + Number(l.treibstoff_liter ?? 0), 0),
   }), [filtered])
 
   const sortIcon = (column: SortKey) => {

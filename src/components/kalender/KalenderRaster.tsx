@@ -28,7 +28,6 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
   }, [currentDate])
 
   const calYear = currentDate.getFullYear()
-  const calMonth = currentDate.getMonth()
 
   const feiertageMap = useMemo(() => {
     const map = new Map<string, string>()
@@ -36,7 +35,7 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
     for (const [k, v] of getFeiertageMap(calYear + 1)) map.set(k, v)
     for (const [k, v] of getFeiertageMap(calYear)) map.set(k, v)
     return map
-  }, [calYear, calMonth])
+  }, [calYear])
 
   const reservationMap = useMemo(() => {
     const map: Record<string, Reservierung[]> = {}

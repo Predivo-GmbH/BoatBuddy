@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useReservierungen } from '@/hooks/useReservierungen'
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_BORDER_FARBEN, type Fahrer } from '@/lib/fahrer'
 import { formatDateLong } from '@/lib/format'
@@ -20,6 +20,14 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
   const [ganzerTag, setGanzerTag] = useState(true)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const { createReservierung, deleteReservierung } = useReservierungen()
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
 
   const existing = reservierungen.filter(r => r.datum === datum)
 

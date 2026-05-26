@@ -31,7 +31,7 @@ export default function FinanzenPage() {
 
   const beitraegeYear = useMemo(() => ({
     total: beitraege.reduce((sum, b) => sum + Number(b.betrag), 0),
-    count: beitraege.length,
+    months: new Set(beitraege.map(b => b.monat)).size,
   }), [beitraege])
 
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([])
@@ -102,7 +102,7 @@ export default function FinanzenPage() {
                 {formatCurrency(beitraegeYear.total)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {beitraegeYear.count} {beitraegeYear.count === 1 ? 'Monat' : 'Monate'} bezahlt
+                {beitraegeYear.months} {beitraegeYear.months === 1 ? 'Monat' : 'Monate'} bezahlt
               </p>
             </div>
           </div>

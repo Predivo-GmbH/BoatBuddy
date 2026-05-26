@@ -139,7 +139,7 @@ export default function DashboardPage() {
         <div className="stagger-child" style={{ '--stagger': 4 } as React.CSSProperties}>
           <StatCard
             label="Betriebsstunden"
-            value={stats ? `${stats.gesamtstunden} h` : '0 h'}
+            value={stats ? `${Number(stats.gesamtstunden)} h` : '0 h'}
             subtitle={undefined}
             icon={Ship}
             accentColor="card-accent-top-warning"
