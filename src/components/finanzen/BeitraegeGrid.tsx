@@ -30,7 +30,7 @@ export function BeitraegeGrid() {
       })
     } else {
       createBeitrag.mutate(
-        { fahrer, betrag: 300, monat: monatStr },
+        { fahrer, betrag: 400, monat: monatStr },
         { onError: () => toast.error('Fehler beim Erstellen') },
       )
     }
@@ -75,7 +75,7 @@ export function BeitraegeGrid() {
           </thead>
           <tbody>
             {FAHRER.map(fahrer => {
-              const total = Array.from({ length: 12 }, (_, i) => getBeitrag(fahrer, i)).filter(Boolean).length * 300
+              const total = Array.from({ length: 12 }, (_, i) => getBeitrag(fahrer, i)).filter((b): b is NonNullable<typeof b> => !!b).reduce((sum, b) => sum + Number(b.betrag), 0)
               return (
                 <tr key={fahrer} className="border-b border-border/50">
                   <td className="py-2.5 pr-4">

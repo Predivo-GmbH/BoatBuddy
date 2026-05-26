@@ -4,7 +4,7 @@ import {
   eachDayOfInterval, format, isSameMonth, isToday, getDay,
 } from 'date-fns'
 
-import { ALLE_FAHRER, FAHRER_LABELS, FAHRER_FARBEN, type AlleFahrer } from '@/lib/fahrer'
+import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, type AlleFahrer } from '@/lib/fahrer'
 import { cn } from '@/lib/utils'
 import type { Reservierung } from '@/types'
 
@@ -129,7 +129,7 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-3">
         <span className="text-xs font-medium text-muted-foreground">Legende:</span>
-        {ALLE_FAHRER.map(f => (
+        {FAHRER.map(f => (
           <div key={f} className="flex items-center gap-2">
             <span
               className={cn(

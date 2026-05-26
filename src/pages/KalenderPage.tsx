@@ -7,6 +7,9 @@ import { ReservierungDialog } from '@/components/kalender/ReservierungDialog'
 import { useReservierungen } from '@/hooks/useReservierungen'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { FAHRER_FARBEN, FAHRER_LABELS } from '@/lib/fahrer'
+import type { AlleFahrer } from '@/lib/fahrer'
+import { formatDateLong, todayISO } from '@/lib/format'
 
 export default function KalenderPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -16,10 +19,19 @@ export default function KalenderPage() {
   const jahr = currentDate.getFullYear()
   const { reservierungen } = useReservierungen(monat, jahr)
 
+  // Fetch ALL reservations (no monat/jahr filter) for the upcoming list
+  const { reservierungen: alleReservierungen } = useReservierungen()
+
+  const today = todayISO()
+  const kommende = alleReservierungen
+    .filter(r => r.datum >= today)
+    .slice(0, 10)
+  const weitereAnzahl = Math.max(0, alleReservierungen.filter(r => r.datum >= today).length - 10)
+
   const isCurrentMonth = isSameMonth(currentDate, new Date())
 
   return (
-    <div className="section-fade-in">
+    <div className="section-fade-in space-y-6">
       <PageHeader title="Kalender" />
 
       <div className="card-premium rounded-lg border border-border bg-card p-4 sm:p-6">
@@ -66,6 +78,67 @@ export default function KalenderPage() {
           reservierungen={reservierungen}
           onDayClick={setSelectedDate}
         />
+      </div>
+
+      {/* Upcoming reservations */}
+      <div className="card-premium rounded-lg border border-border bg-card p-4 sm:p-6">
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Kommende Reservierungen
+        </h2>
+
+        {kommende.length === 0 ? (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            Keine kommenden Reservierungen
+          </p>
+        ) : (
+          <div className="table-premium overflow-x-auto">
+            <table className="w-full text-sm">
+              <tbody>
+                {kommende.map(r => (
+                  <tr key={r.id} className="row-accent border-b border-border/50 last:border-0">
+                    <td className="py-3 pr-4 text-foreground">
+                      {formatDateLong(r.datum)}
+                    </td>
+                    <td className="py-3 pr-4">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            'h-2.5 w-2.5 flex-shrink-0 rounded-full',
+                            FAHRER_FARBEN[r.fahrer as AlleFahrer] ?? 'bg-muted',
+                          )}
+                        />
+                        <span className="font-medium text-foreground">
+                          {FAHRER_LABELS[r.fahrer as AlleFahrer] ?? r.fahrer}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span className={cn(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                        r.ganzer_tag
+                          ? 'bg-accent/10 text-accent'
+                          : 'bg-muted text-muted-foreground',
+                      )}>
+                        {r.ganzer_tag ? 'Ganzer Tag' : 'Halbtag'}
+                      </span>
+                    </td>
+                    {r.notiz && (
+                      <td className="py-3 text-muted-foreground">
+                        {r.notiz}
+                      </td>
+                    )}
+                    {!r.notiz && <td className="py-3" />}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {weitereAnzahl > 0 && (
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                und {weitereAnzahl} weitere…
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedDate && (
