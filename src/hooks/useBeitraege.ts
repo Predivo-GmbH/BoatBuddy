@@ -29,6 +29,7 @@ export function useBeitraege(jahr: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['beitraege'] })
+      queryClient.invalidateQueries({ queryKey: ['beitraege-months'] })
     },
   })
 
@@ -39,6 +40,7 @@ export function useBeitraege(jahr: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['beitraege'] })
+      queryClient.invalidateQueries({ queryKey: ['beitraege-months'] })
     },
   })
 

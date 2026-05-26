@@ -20,6 +20,8 @@ export function BeitraegeGrid() {
     return beitraege.find(b => b.fahrer === fahrer && b.monat === monatStr)
   }
 
+  const mutating = createBeitrag.isPending || deleteBeitrag.isPending
+
   const handleToggle = async (fahrer: Fahrer, monatIdx: number) => {
     const existing = getBeitrag(fahrer, monatIdx)
     const monatStr = `${jahr}-${String(monatIdx + 1).padStart(2, '0')}-01`
@@ -112,6 +114,7 @@ export function BeitraegeGrid() {
                     return (
                       <td key={monatIdx} className="px-1 py-2.5 text-center sm:px-2">
                         <button
+                          disabled={mutating}
                           onClick={() => handleToggle(fahrer, monatIdx)}
                           className={cn(
                             'inline-flex h-10 w-10 items-center justify-center rounded-lg transition-all',
