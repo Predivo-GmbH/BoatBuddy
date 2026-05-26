@@ -9,11 +9,12 @@ import type { Ausgabe } from '@/types'
 interface AusgabeFormDialogProps {
   editAusgabe?: Ausgabe | null
   onClose?: () => void
+  autoOpen?: boolean
 }
 
-export function AusgabeFormDialog({ editAusgabe, onClose }: AusgabeFormDialogProps = {}) {
+export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFormDialogProps = {}) {
   const isEdit = !!editAusgabe
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(autoOpen ?? false)
   const [bezeichnung, setBezeichnung] = useState(editAusgabe?.bezeichnung ?? '')
   const [betrag, setBetrag] = useState(editAusgabe ? String(editAusgabe.betrag) : '')
   const [kategorie, setKategorie] = useState<Kategorie>(editAusgabe?.kategorie ?? 'sonstiges')
@@ -40,14 +41,15 @@ export function AusgabeFormDialog({ editAusgabe, onClose }: AusgabeFormDialogPro
   }, [onClose])
 
   // Close on Escape
+  const isVisible = open || isEdit || !!onClose
   useEffect(() => {
-    if (!open) return
+    if (!isVisible) return
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [open, close])
+  }, [isVisible, close])
 
   // Close on backdrop click
   const handleBackdropClick = (e: React.MouseEvent) => {

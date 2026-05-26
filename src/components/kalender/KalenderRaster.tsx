@@ -4,20 +4,13 @@ import {
   eachDayOfInterval, format, isSameMonth, isToday, getDay,
 } from 'date-fns'
 
-import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, type AlleFahrer } from '@/lib/fahrer'
+import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN } from '@/lib/fahrer'
 import { getFeiertageMap } from '@/lib/feiertage'
 import { cn } from '@/lib/utils'
 import type { Reservierung } from '@/types'
 
 const WOCHENTAGE = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
-/** First letter used as pill abbreviation */
-const FAHRER_ABKUERZUNG: Record<AlleFahrer, string> = {
-  roger: 'R',
-  dani: 'D',
-  jan: 'J',
-  pedro: 'P',
-}
 
 interface KalenderRasterProps {
   currentDate: Date
@@ -135,7 +128,7 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
                       )}
                       title={`${FAHRER_LABELS[r.fahrer]}${r.notiz ? ` — ${r.notiz}` : ''}${!r.ganzer_tag ? ' (Halbtag)' : ''}`}
                     >
-                      {FAHRER_ABKUERZUNG[r.fahrer]}
+                      {(FAHRER_LABELS[r.fahrer]?.charAt(0) ?? '?')}
                       {!r.ganzer_tag && (
                         <span className="ml-0.5 text-white/70">&frac12;</span>
                       )}
@@ -159,7 +152,7 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
                 FAHRER_FARBEN[f],
               )}
             >
-              {FAHRER_ABKUERZUNG[f]}
+              {FAHRER_LABELS[f].charAt(0)}
             </span>
             <span className="text-xs text-muted-foreground">{FAHRER_LABELS[f]}</span>
           </div>

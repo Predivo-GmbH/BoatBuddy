@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
+import { AusgabeFormDialog } from '@/components/finanzen/AusgabeFormDialog'
 import {
   Wallet,
   Calendar,
@@ -74,6 +75,8 @@ export default function DashboardPage() {
     return ausgaben.slice(0, 5)
   }, [ausgaben])
 
+  const [showAusgabeForm, setShowAusgabeForm] = useState(false)
+
   const isLoading = kontoLoading || resvLoading || sessionsLoading || statsLoading || ausgabenLoading || logsLoading
 
   return (
@@ -144,9 +147,58 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Quick Actions — centered */}
+      <div className="grid gap-3 grid-cols-3 mb-8">
+        <button
+          onClick={() => setShowAusgabeForm(true)}
+          className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
+          style={{ '--stagger': 5 } as React.CSSProperties}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-colors">
+            <Plus className="h-5 w-5 text-red-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Neue Ausgabe</p>
+            <p className="text-[11px] text-muted-foreground">Kosten erfassen</p>
+          </div>
+        </button>
+
+        <Link
+          to="/kalender"
+          className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
+          style={{ '--stagger': 6 } as React.CSSProperties}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+            <CalendarPlus className="h-5 w-5 text-blue-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Reservierung</p>
+            <p className="text-[11px] text-muted-foreground">Boot reservieren</p>
+          </div>
+        </Link>
+
+        <Link
+          to="/gastsessions"
+          className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
+          style={{ '--stagger': 7 } as React.CSSProperties}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors">
+            <UserPlus className="h-5 w-5 text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Session erfassen</p>
+            <p className="text-[11px] text-muted-foreground">Gastsession buchen</p>
+          </div>
+        </Link>
+      </div>
+
+      {showAusgabeForm && (
+        <AusgabeFormDialog onClose={() => setShowAusgabeForm(false)} autoOpen />
+      )}
+
       {/* Season Overview */}
       <div className="mb-8">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 stagger-child" style={{ '--stagger': 5 } as React.CSSProperties}>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 stagger-child" style={{ '--stagger': 8 } as React.CSSProperties}>
           Saison {currentYear}
         </h2>
         <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
@@ -318,58 +370,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="mb-4">
-        <h2
-          className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 stagger-child"
-          style={{ '--stagger': 11 } as React.CSSProperties}
-        >
-          Schnellaktionen
-        </h2>
-        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
-          <Link
-            to="/finanzen"
-            className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex items-center gap-3 hover:border-accent transition-colors group stagger-child"
-            style={{ '--stagger': 11 } as React.CSSProperties}
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-colors">
-              <Plus className="h-5 w-5 text-red-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Neue Ausgabe</p>
-              <p className="text-[11px] text-muted-foreground">Kosten erfassen</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/kalender"
-            className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex items-center gap-3 hover:border-accent transition-colors group stagger-child"
-            style={{ '--stagger': 12 } as React.CSSProperties}
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
-              <CalendarPlus className="h-5 w-5 text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Reservierung</p>
-              <p className="text-[11px] text-muted-foreground">Boot reservieren</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/gastsessions"
-            className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex items-center gap-3 hover:border-accent transition-colors group stagger-child"
-            style={{ '--stagger': 13 } as React.CSSProperties}
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors">
-              <UserPlus className="h-5 w-5 text-emerald-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">Session erfassen</p>
-              <p className="text-[11px] text-muted-foreground">Gastsession buchen</p>
-            </div>
-          </Link>
-        </div>
-      </div>
     </div>
   )
 }
