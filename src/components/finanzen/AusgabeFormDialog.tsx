@@ -100,8 +100,6 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
     )
   }
 
-  if (!isEdit && !open) return null
-
   return (
     <div
       ref={overlayRef}

@@ -12,6 +12,7 @@ export function useKontostand() {
         .from('kontostand_snapshots')
         .select('*')
         .order('datum', { ascending: false })
+        .order('erstellt_am', { ascending: false })
       if (error) throw new Error(error.message)
       return data as KontostandSnapshot[]
     },

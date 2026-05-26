@@ -15,11 +15,8 @@ export default function KalenderPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
-  const monat = currentDate.getMonth()
-  const jahr = currentDate.getFullYear()
-  const { reservierungen } = useReservierungen(monat, jahr)
-
-  // Fetch ALL reservations (no monat/jahr filter) for the upcoming list
+  // Single unfiltered fetch — used for both calendar grid and upcoming list
+  // Fixes cross-month click bug where dialog showed empty data for other months
   const { reservierungen: alleReservierungen } = useReservierungen()
 
   const today = todayISO()
@@ -75,7 +72,7 @@ export default function KalenderPage() {
 
         <KalenderRaster
           currentDate={currentDate}
-          reservierungen={reservierungen}
+          reservierungen={alleReservierungen}
           onDayClick={setSelectedDate}
         />
       </div>
@@ -144,7 +141,7 @@ export default function KalenderPage() {
       {selectedDate && (
         <ReservierungDialog
           datum={selectedDate}
-          reservierungen={reservierungen}
+          reservierungen={alleReservierungen}
           onClose={() => setSelectedDate(null)}
         />
       )}

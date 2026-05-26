@@ -16,7 +16,7 @@ export function NutzungslogTabelle() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editingLog, setEditingLog] = useState<Nutzungslog | null>(null)
   const [filterFahrer, setFilterFahrer] = useState<AlleFahrer | ''>('')
-  const [filterYear, setFilterYear] = useState<string>(() => String(new Date().getFullYear()))
+  const [filterYear, setFilterYear] = useState<string>('')
   const [sortKey, setSortKey] = useState<SortKey>('datum')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -189,7 +189,7 @@ export function NutzungslogTabelle() {
                   {log.treibstoff_liter != null ? `${log.treibstoff_liter}L` : '-'}
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
-                  {log.aktivitaeten.length > 0 ? formatAktivitaeten(log.aktivitaeten) : '-'}
+                  {log.aktivitaeten && log.aktivitaeten.length > 0 ? formatAktivitaeten(log.aktivitaeten) : '-'}
                 </td>
                 <td className="max-w-[200px] truncate px-4 py-3 text-muted-foreground">
                   {log.notiz ?? '-'}

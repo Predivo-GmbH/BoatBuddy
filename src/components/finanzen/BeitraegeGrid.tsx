@@ -30,7 +30,7 @@ export function BeitraegeGrid() {
       })
     } else {
       createBeitrag.mutate(
-        { fahrer, betrag: 400, monat: monatStr },
+        { fahrer, betrag: jahr <= 2023 ? 300 : 400, monat: monatStr },
         { onError: () => toast.error('Fehler beim Erstellen') },
       )
     }

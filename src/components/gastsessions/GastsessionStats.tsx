@@ -1,14 +1,15 @@
 import { useMemo } from 'react'
 import { useGastsessions } from '@/hooks/useGastsessions'
-import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, type Fahrer } from '@/lib/fahrer'
+import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, ALLE_FAHRER, type Fahrer, type AlleFahrer } from '@/lib/fahrer'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Users, Wallet } from 'lucide-react'
 
-const FAHRER_CSS_VARS: Record<Fahrer, string> = {
+const FAHRER_CSS_VARS: Record<AlleFahrer, string> = {
   roger: 'var(--color-roger)',
   dani: 'var(--color-dani)',
   jan: 'var(--color-jan)',
+  pedro: 'var(--color-pedro)',
 }
 
 export function GastsessionStats() {
@@ -16,17 +17,18 @@ export function GastsessionStats() {
 
   const stats = useMemo(() => {
     const currentYear = new Date().getFullYear().toString()
-    const perFahrer: Record<Fahrer, { total: number; season: number; count: number; seasonCount: number }> = {
+    const perFahrer: Record<AlleFahrer, { total: number; season: number; count: number; seasonCount: number }> = {
       roger: { total: 0, season: 0, count: 0, seasonCount: 0 },
       dani: { total: 0, season: 0, count: 0, seasonCount: 0 },
       jan: { total: 0, season: 0, count: 0, seasonCount: 0 },
+      pedro: { total: 0, season: 0, count: 0, seasonCount: 0 },
     }
     let total = 0
     let seasonTotal = 0
     let seasonCount = 0
 
     for (const s of sessions) {
-      const fahrer = s.bezahlt_an as Fahrer
+      const fahrer = s.bezahlt_an as AlleFahrer
       const betrag = Number(s.betrag)
       const isSeason = s.datum.startsWith(currentYear)
 
@@ -50,7 +52,7 @@ export function GastsessionStats() {
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {FAHRER.map(f => (
+      {ALLE_FAHRER.filter(f => stats.perFahrer[f].count > 0).map(f => (
         <div
           key={f}
           className="card-premium card-accent-top rounded-xl border border-border bg-card p-4"

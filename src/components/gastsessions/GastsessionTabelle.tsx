@@ -146,7 +146,7 @@ export function GastsessionTabelle() {
         </div>
 
         {/* Year pills */}
-        {availableYears.length > 1 && (
+        {availableYears.length >= 1 && (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="mr-1 text-xs text-muted-foreground">Jahr:</span>
             <button
@@ -279,9 +279,9 @@ export function GastsessionTabelle() {
         />
       )}
 
-      {search && filtered.length === 0 && (
+      {filtered.length === 0 && (
         <p className="py-4 text-center text-sm text-muted-foreground">
-          Kein Gast mit "{search}" gefunden.
+          {search ? `Kein Gast mit "${search}" gefunden.` : 'Keine Sessions für die ausgewählten Filter.'}
         </p>
       )}
     </div>

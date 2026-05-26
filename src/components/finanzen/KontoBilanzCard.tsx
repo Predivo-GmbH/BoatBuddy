@@ -26,6 +26,7 @@ export function KontoBilanzCard() {
           toast.success('Kontostand aktualisiert')
           setEditing(false)
           setBetrag('')
+          setDatum(todayISO())
         },
         onError: () => toast.error('Fehler beim Speichern'),
       },

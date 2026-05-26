@@ -32,7 +32,8 @@ export default function NutzungslogPage() {
       if (log.treibstoff_liter != null) aFuel += Number(log.treibstoff_liter)
     }
     const aTrips = logs.length
-    const aAvgFuel = aTrips > 0 ? aFuel / aTrips : 0
+    const aFuelTrips = logs.filter(l => l.treibstoff_liter != null).length
+    const aAvgFuel = aFuelTrips > 0 ? aFuel / aFuelTrips : 0
 
     return {
       seasonStats: { totalHours: sHours, totalFuel: sFuel, trips: sTrips, avgHours: sAvgHours },
@@ -40,7 +41,7 @@ export default function NutzungslogPage() {
     }
   }, [logs, currentYear])
 
-  const fuelPerFahrer = useMemo(() => {
+  const { fuelPerFahrer, fuelTotal } = useMemo(() => {
     const map: Partial<Record<AlleFahrer, number>> = {}
     for (const log of logs) {
       if (log.treibstoff_liter != null && log.fahrer) {
@@ -48,10 +49,11 @@ export default function NutzungslogPage() {
         map[f] = (map[f] ?? 0) + Number(log.treibstoff_liter)
       }
     }
-    return ALLE_FAHRER
+    const entries = ALLE_FAHRER
       .filter(f => (map[f] ?? 0) > 0)
       .map(f => ({ fahrer: f, liter: map[f]! }))
       .sort((a, b) => b.liter - a.liter)
+    return { fuelPerFahrer: entries, fuelTotal: entries.reduce((s, x) => s + x.liter, 0) }
   }, [logs])
 
   return (
@@ -144,8 +146,7 @@ export default function NutzungslogPage() {
             </h3>
             <div className="space-y-2.5">
               {fuelPerFahrer.map(({ fahrer, liter }) => {
-                const total = fuelPerFahrer.reduce((s, x) => s + x.liter, 0)
-                const pct = total > 0 ? (liter / total) * 100 : 0
+                const pct = fuelTotal > 0 ? (liter / fuelTotal) * 100 : 0
                 return (
                   <div key={fahrer} className="flex items-center gap-3">
                     <span

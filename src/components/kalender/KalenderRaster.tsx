@@ -29,14 +29,14 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
 
   const feiertageMap = useMemo(() => {
     const year = currentDate.getFullYear()
-    const map = getFeiertageMap(year)
-    // If the calendar grid spills into adjacent months/years, include those too
-    const prevYear = year - 1
-    const nextYear = year + 1
-    for (const [k, v] of getFeiertageMap(prevYear)) map.set(k, v)
-    for (const [k, v] of getFeiertageMap(nextYear)) map.set(k, v)
+    // Build map: prev year first, then next year, then current year last
+    // so current year holidays take priority over adjacent year overwrites
+    const map = new Map<string, string>()
+    for (const [k, v] of getFeiertageMap(year - 1)) map.set(k, v)
+    for (const [k, v] of getFeiertageMap(year + 1)) map.set(k, v)
+    for (const [k, v] of getFeiertageMap(year)) map.set(k, v)
     return map
-  }, [currentDate])
+  }, [currentDate.getFullYear(), currentDate.getMonth()])
 
   const reservationMap = useMemo(() => {
     const map: Record<string, Reservierung[]> = {}

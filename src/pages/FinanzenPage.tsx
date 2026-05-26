@@ -38,11 +38,16 @@ export default function FinanzenPage() {
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
 
   useEffect(() => {
-    const idx = TABS.indexOf(tab)
-    const el = tabsRef.current[idx]
-    if (el) {
-      setIndicatorStyle({ left: el.offsetLeft, width: el.offsetWidth })
+    const updateIndicator = () => {
+      const idx = TABS.indexOf(tab)
+      const el = tabsRef.current[idx]
+      if (el) {
+        setIndicatorStyle({ left: el.offsetLeft, width: el.offsetWidth })
+      }
     }
+    updateIndicator()
+    window.addEventListener('resize', updateIndicator)
+    return () => window.removeEventListener('resize', updateIndicator)
   }, [tab])
 
   return (
