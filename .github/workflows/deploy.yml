@@ -1,0 +1,77 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test -- --run
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_GATE_PASSWORD_HASH: ${{ secrets.VITE_GATE_PASSWORD_HASH }}
+
+      - name: Deploy via FTP (zero-downtime)
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+        run: |
+          sudo apt-get install -y lftp
+          LFTP_SETTINGS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:passive-mode yes; set net:max-retries 3; set net:reconnect-interval-base 5;"
+
+          echo "boatbuddy" > ./dist/.site-id
+
+          REMOTE_ID=$(lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" <<LFTP_GUARD
+            $LFTP_SETTINGS
+            cat boatbuddy.predivo.ch/.site-id
+            quit
+          LFTP_GUARD
+          ) 2>/dev/null || REMOTE_ID=""
+          if [ -n "$REMOTE_ID" ] && [ "$REMOTE_ID" != "boatbuddy" ]; then
+            echo "::error::DEPLOY ABORTED — remote .site-id is '$REMOTE_ID', expected 'boatbuddy'. Wrong FTP target!"
+            exit 1
+          fi
+          echo "Site-id guard passed (remote='${REMOTE_ID:-<none>}')"
+
+          # Step 1: Upload new hashed assets alongside old ones
+          lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" <<LFTP_EOF
+            $LFTP_SETTINGS
+            mirror --reverse --no-perms --verbose ./dist/assets/ boatbuddy.predivo.ch/assets/
+            quit
+          LFTP_EOF
+
+          # Step 2: Full mirror with deletion of stale files
+          lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" <<LFTP_EOF
+            $LFTP_SETTINGS
+            mirror --reverse --delete --no-perms --verbose ./dist/ boatbuddy.predivo.ch/
+            quit
+          LFTP_EOF

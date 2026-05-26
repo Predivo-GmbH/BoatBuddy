@@ -1,0 +1,110 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+html {
+  scrollbar-gutter: stable;
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: #F8FAFB;
+  --color-foreground: #0C1B33;
+  --color-muted: #EEF3F7;
+  --color-muted-foreground: #4A6080;
+  --color-border: #C8D9E6;
+  --color-input: #C8D9E6;
+  --color-ring: #0077B6;
+
+  --color-primary: #0C1B33;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #EEF3F7;
+  --color-secondary-foreground: #0C1B33;
+  --color-accent: #0077B6;
+  --color-accent-foreground: #FFFFFF;
+  --color-destructive: #D93F3F;
+  --color-destructive-foreground: #FFFFFF;
+
+  --color-card: #FFFFFF;
+  --color-card-foreground: #0C1B33;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #0C1B33;
+
+  --color-success: #2D9E6B;
+  --color-success-foreground: #FFFFFF;
+  --color-warning: #E09B3D;
+  --color-warning-foreground: #FFFFFF;
+
+  --radius: 0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+}
+
+.dark {
+  --color-background: #0A1628;
+  --color-foreground: #E8F0F7;
+  --color-muted: #112340;
+  --color-muted-foreground: #8AAEC6;
+  --color-border: #1E3A55;
+  --color-input: #1E3A55;
+  --color-ring: #38B6E8;
+
+  --color-primary: #E8F0F7;
+  --color-primary-foreground: #0A1628;
+  --color-secondary: #112340;
+  --color-secondary-foreground: #E8F0F7;
+  --color-accent: #38B6E8;
+  --color-accent-foreground: #0A1628;
+  --color-destructive: #F87171;
+  --color-destructive-foreground: #0A1628;
+
+  --color-card: #0F1F38;
+  --color-card-foreground: #E8F0F7;
+  --color-popover: #0F1F38;
+  --color-popover-foreground: #E8F0F7;
+
+  --color-success: #4ADE80;
+  --color-success-foreground: #0A1628;
+  --color-warning: #FBBF24;
+  --color-warning-foreground: #0A1628;
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-border);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-foreground);
+    background-color: var(--color-background);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+}
