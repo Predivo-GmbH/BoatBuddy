@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Wallet, Calendar, Users, Ship } from 'lucide-react'
+import { LayoutDashboard, Wallet, Calendar, Users, Ship, Moon, Sun } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useDarkMode } from '@/hooks/useDarkMode'
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
@@ -11,6 +12,8 @@ const NAV_ITEMS = [
 ]
 
 export function BottomNav() {
+  const { isDark, toggle } = useDarkMode()
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-sm safe-area-bottom lg:hidden">
       <div className="flex items-center justify-around">
@@ -31,6 +34,13 @@ export function BottomNav() {
             <span>{label}</span>
           </NavLink>
         ))}
+        <button
+          onClick={toggle}
+          className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-muted-foreground transition-colors"
+        >
+          {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          <span>{isDark ? 'Hell' : 'Dunkel'}</span>
+        </button>
       </div>
     </nav>
   )

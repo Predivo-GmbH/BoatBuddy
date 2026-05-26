@@ -243,7 +243,7 @@ export default function DashboardPage() {
               <span className="text-xs font-medium text-muted-foreground">Stunden</span>
             </div>
             <p className="text-lg font-bold tabular-nums text-foreground">
-              {seasonTotalHours} h
+              {seasonTotalHours.toFixed(1)} h
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {seasonLogs.length} Fahrten
