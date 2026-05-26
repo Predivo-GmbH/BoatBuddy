@@ -29,6 +29,10 @@ export function NutzungslogForm() {
     }
 
     const liter = treibstoffLiter ? parseFloat(treibstoffLiter) : undefined
+    if (liter !== undefined && (isNaN(liter) || liter < 0)) {
+      toast.error('Treibstoff darf nicht negativ sein')
+      return
+    }
 
     createNutzungslog.mutate(
       {

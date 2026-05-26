@@ -42,7 +42,7 @@ export function AktivitaetenEditor({ value, onChange }: AktivitaetenEditorProps)
             type="number"
             min="1"
             value={aktivitaet.dauer_min}
-            onChange={e => updateRow(index, { dauer_min: parseInt(e.target.value) || 0 })}
+            onChange={e => updateRow(index, { dauer_min: parseInt(e.target.value) || 1 })}
             className="h-[36px] w-16 rounded-md border-0 bg-transparent px-1 text-center text-sm tabular-nums text-foreground focus:outline-none focus:ring-0"
           />
           <span className="text-xs text-muted-foreground">Min.</span>

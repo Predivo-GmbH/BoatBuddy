@@ -179,71 +179,77 @@ export function GastsessionTabelle() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="table-premium w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/50">
-              <th
-                className="cursor-pointer select-none px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                onClick={() => handleSort('datum')}
-              >
-                Datum {sortIcon('datum')}
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gast</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bezahlt an</th>
-              <th
-                className="cursor-pointer select-none px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                onClick={() => handleSort('betrag')}
-              >
-                Betrag {sortIcon('betrag')}
-              </th>
-              <th className="w-10 px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(s => (
-              <tr key={s.id} className="row-accent border-b border-border/50 transition-colors hover:bg-muted/30">
-                <td className="px-4 py-3 tabular-nums text-muted-foreground">{formatDate(s.datum)}</td>
-                <td className="px-4 py-3 font-medium text-foreground">{s.gast_name}</td>
-                <td className="px-4 py-3">{FAHRER_LABELS[s.bezahlt_an as AlleFahrer] ?? s.bezahlt_an}</td>
-                <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">
-                  {formatCurrency(Number(s.betrag))}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => setEditingSession(s)}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent"
-                      aria-label="Bearbeiten"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteId(s.id)}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Loeschen"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
+      {filtered.length > 0 ? (
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="table-premium w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/50">
+                <th
+                  className="cursor-pointer select-none px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                  onClick={() => handleSort('datum')}
+                >
+                  Datum {sortIcon('datum')}
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gast</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bezahlt an</th>
+                <th
+                  className="cursor-pointer select-none px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                  onClick={() => handleSort('betrag')}
+                >
+                  Betrag {sortIcon('betrag')}
+                </th>
+                <th className="w-10 px-4 py-3"></th>
               </tr>
-            ))}
-          </tbody>
-          {/* Summary row */}
-          <tfoot>
-            <tr className="border-t border-border bg-muted/30">
-              <td className="px-4 py-3 text-xs font-medium text-muted-foreground" colSpan={3}>
-                {filtered.length} {filtered.length === 1 ? 'Session' : 'Sessions'}
-              </td>
-              <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-foreground">
-                {formatCurrency(totalBetrag)}
-              </td>
-              <td className="px-4 py-3"></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filtered.map(s => (
+                <tr key={s.id} className="row-accent border-b border-border/50 transition-colors hover:bg-muted/30">
+                  <td className="px-4 py-3 tabular-nums text-muted-foreground">{formatDate(s.datum)}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">{s.gast_name}</td>
+                  <td className="px-4 py-3">{FAHRER_LABELS[s.bezahlt_an as AlleFahrer] ?? s.bezahlt_an}</td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">
+                    {formatCurrency(Number(s.betrag))}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => setEditingSession(s)}
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent"
+                        aria-label="Bearbeiten"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteId(s.id)}
+                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Loeschen"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {/* Summary row */}
+            <tfoot>
+              <tr className="border-t border-border bg-muted/30">
+                <td className="px-4 py-3 text-xs font-medium text-muted-foreground" colSpan={3}>
+                  {filtered.length} {filtered.length === 1 ? 'Session' : 'Sessions'}
+                </td>
+                <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-foreground">
+                  {formatCurrency(totalBetrag)}
+                </td>
+                <td className="px-4 py-3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      ) : (
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          {search ? `Kein Gast mit "${search}" gefunden.` : 'Keine Sessions für die ausgewählten Filter.'}
+        </p>
+      )}
 
       <ConfirmDialog
         open={deleteId !== null}
@@ -279,11 +285,6 @@ export function GastsessionTabelle() {
         />
       )}
 
-      {filtered.length === 0 && (
-        <p className="py-4 text-center text-sm text-muted-foreground">
-          {search ? `Kein Gast mit "${search}" gefunden.` : 'Keine Sessions für die ausgewählten Filter.'}
-        </p>
-      )}
     </div>
   )
 }
