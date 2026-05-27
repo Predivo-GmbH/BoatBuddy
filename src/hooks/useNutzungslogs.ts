@@ -3,6 +3,20 @@ import { supabase } from '@/lib/supabase'
 import type { Nutzungslog, Aktivitaet } from '@/types'
 import type { Fahrer } from '@/lib/fahrer'
 
+async function adjustGesamtstunden(delta: number) {
+  const { data } = await supabase
+    .from('boot_stats')
+    .select('id, gesamtstunden')
+    .limit(1)
+    .maybeSingle()
+  if (!data) return
+  const current = Number(data.gesamtstunden)
+  await supabase
+    .from('boot_stats')
+    .update({ gesamtstunden: current + delta, aktualisiert_am: new Date().toISOString() })
+    .eq('id', data.id)
+}
+
 export function useNutzungslogs() {
   const queryClient = useQueryClient()
 
@@ -29,29 +43,43 @@ export function useNutzungslogs() {
     }) => {
       const { error } = await supabase.from('nutzungslogs').insert(input)
       if (error) throw new Error(error.message)
+      await adjustGesamtstunden(input.betriebsstunden)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })
+      queryClient.invalidateQueries({ queryKey: ['boot_stats'] })
     },
   })
 
   const updateNutzungslog = useMutation({
     mutationFn: async ({ id, ...fields }: Partial<Nutzungslog> & { id: string }) => {
+      let oldHours = 0
+      if (fields.betriebsstunden !== undefined) {
+        const { data: old } = await supabase.from('nutzungslogs').select('betriebsstunden').eq('id', id).single()
+        if (old) oldHours = Number(old.betriebsstunden)
+      }
       const { error } = await supabase.from('nutzungslogs').update(fields).eq('id', id)
       if (error) throw new Error(error.message)
+      if (fields.betriebsstunden !== undefined) {
+        await adjustGesamtstunden(Number(fields.betriebsstunden) - oldHours)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })
+      queryClient.invalidateQueries({ queryKey: ['boot_stats'] })
     },
   })
 
   const deleteNutzungslog = useMutation({
     mutationFn: async (id: string) => {
+      const { data: log } = await supabase.from('nutzungslogs').select('betriebsstunden').eq('id', id).single()
       const { error } = await supabase.from('nutzungslogs').delete().eq('id', id)
       if (error) throw new Error(error.message)
+      if (log) await adjustGesamtstunden(-Number(log.betriebsstunden))
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })
+      queryClient.invalidateQueries({ queryKey: ['boot_stats'] })
     },
   })
 

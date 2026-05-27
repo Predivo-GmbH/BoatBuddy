@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useBootStats } from '@/hooks/useBootStats'
-import { useNutzungslogs } from '@/hooks/useNutzungslogs'
 import { formatDate } from '@/lib/format'
 import { Ship, Clock, Pencil, Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -10,8 +9,6 @@ const inputClass =
 
 export function BootStatsKarte() {
   const { stats, isLoading, updateBootStats } = useBootStats()
-  const { logs } = useNutzungslogs()
-  const logTotal = useMemo(() => logs.reduce((sum, l) => sum + Number(l.betriebsstunden), 0), [logs])
   const [editing, setEditing] = useState(false)
   const [modell, setModell] = useState('')
   const [kaufdatum, setKaufdatum] = useState('')
@@ -89,9 +86,8 @@ export function BootStatsKarte() {
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Gesamtstunden</label>
             <p className="flex min-h-[44px] items-center text-xl font-bold tabular-nums">
               <Clock className="mr-1.5 h-4 w-4 text-muted-foreground" />
-              {Number(stats.gesamtstunden) + logTotal}h
+              {Number(stats.gesamtstunden)}h
             </p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">(Basis: {Number(stats.gesamtstunden)}h + Logs: {logTotal}h)</p>
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Modell</label>
@@ -118,9 +114,8 @@ export function BootStatsKarte() {
             <p className="text-xs font-medium text-muted-foreground">Gesamtstunden</p>
             <p className="mt-1 flex items-center gap-1.5 text-2xl font-bold tabular-nums text-foreground">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              {Number(stats.gesamtstunden) + logTotal}h
+              {Number(stats.gesamtstunden)}h
             </p>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">(Basis: {Number(stats.gesamtstunden)}h + Logs: {logTotal}h)</p>
           </div>
 
           <div>
