@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
@@ -51,6 +52,36 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
     return () => document.removeEventListener('keydown', handler)
   }, [isVisible, close])
 
+  // Auto-suggest category based on Bezeichnung keywords
+  const KATEGORIE_KEYWORDS: [Kategorie, string[]][] = [
+    ['bootsplatz', ['bootsplatz', 'platz', 'hafen', 'liegeplatz']],
+    ['versicherung', ['versicherung', 'axa', 'police', 'prämie']],
+    ['verkehrssteuer', ['verkehrsamt', 'verkehrssteuer', 'steuer', 'wasserfzg', 'schifffahrt']],
+    ['winterlager', ['winterlager', 'winter', 'einwintern']],
+    ['fruehlingslager', ['frühlingslager', 'fruehlingslager', 'frühling', 'auswintern', 'mmc']],
+    ['vorfuehren', ['vorführen', 'vorfuehren', 'kontrolle', 'schiffskontrolle', 'prüfung']],
+    ['treibstoff', ['treibstoff', 'benzin', 'diesel', 'tanken', 'tankstelle']],
+    ['material', ['material', 'blache', 'zubehör', 'ersatzteil']],
+    ['reparatur', ['reparatur', 'reparieren', 'defekt', 'ersatz']],
+    ['service', ['service', 'wartung', 'ölwechsel', 'werft']],
+  ]
+
+  const suggestKategorie = (text: string): Kategorie | null => {
+    const lower = text.toLowerCase()
+    for (const [kat, keywords] of KATEGORIE_KEYWORDS) {
+      if (keywords.some(kw => lower.includes(kw))) return kat
+    }
+    return null
+  }
+
+  const handleBezeichnungChange = (value: string) => {
+    setBezeichnung(value)
+    if (!isEdit) {
+      const suggested = suggestKategorie(value)
+      if (suggested) setKategorie(suggested)
+    }
+  }
+
   // Close on backdrop click
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current) close()
@@ -100,7 +131,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
     )
   }
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       onClick={handleBackdropClick}
@@ -126,7 +157,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
             <label className="mb-1.5 block text-sm font-medium">Bezeichnung *</label>
             <input
               value={bezeichnung}
-              onChange={e => setBezeichnung(e.target.value)}
+              onChange={e => handleBezeichnungChange(e.target.value)}
               className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder="z.B. Winterservice"
               autoFocus
@@ -197,6 +228,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   )
 }
