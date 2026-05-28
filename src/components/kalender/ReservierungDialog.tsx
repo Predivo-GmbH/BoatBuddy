@@ -3,10 +3,25 @@ import { useReservierungen } from '@/hooks/useReservierungen'
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_BORDER_FARBEN, type Fahrer } from '@/lib/fahrer'
 import { formatDateLong } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { X, Trash2, Clock, Sun } from 'lucide-react'
+import { X, Trash2, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Reservierung } from '@/types'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+
+const DAUER_OPTIONS = [1, 2, 3, 4, 5, 6] as const
+
+function addHours(time: string, hours: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const totalMin = h * 60 + m + hours * 60
+  const endH = Math.floor(totalMin / 60) % 24
+  const endM = totalMin % 60
+  return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`
+}
+
+function formatTimeRange(von: string | null, bis: string | null): string | null {
+  if (!von || !bis) return null
+  return `${von.slice(0, 5)} – ${bis.slice(0, 5)}`
+}
 
 interface ReservierungDialogProps {
   datum: string
@@ -17,7 +32,8 @@ interface ReservierungDialogProps {
 export function ReservierungDialog({ datum, reservierungen, onClose }: ReservierungDialogProps) {
   const [fahrer, setFahrer] = useState<Fahrer>('roger')
   const [notiz, setNotiz] = useState('')
-  const [ganzerTag, setGanzerTag] = useState(true)
+  const [vonZeit, setVonZeit] = useState('10:00')
+  const [dauer, setDauer] = useState(3)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const { createReservierung, deleteReservierung } = useReservierungen()
 
@@ -31,6 +47,7 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
   }, [onClose, isPending])
 
   const existing = reservierungen.filter(r => r.datum === datum)
+  const bisZeit = addHours(vonZeit, dauer)
 
   const handleCreate = () => {
     if (existing.some(r => r.fahrer === fahrer)) {
@@ -38,7 +55,14 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
       return
     }
     createReservierung.mutate(
-      { fahrer, datum, notiz: notiz.trim() || undefined, ganzer_tag: ganzerTag },
+      {
+        fahrer,
+        datum,
+        ganzer_tag: false,
+        von_zeit: vonZeit,
+        bis_zeit: bisZeit,
+        notiz: notiz.trim() || undefined,
+      },
       {
         onSuccess: () => {
           toast.success('Reservierung erstellt')
@@ -93,9 +117,10 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
                     {FAHRER_LABELS[r.fahrer].charAt(0)}
                   </span>
                   <span className="font-medium">{FAHRER_LABELS[r.fahrer]}</span>
-                  {!r.ganzer_tag && (
-                    <span className="rounded bg-muted-foreground/10 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      Halbtag
+                  {formatTimeRange(r.von_zeit, r.bis_zeit) && (
+                    <span className="flex items-center gap-1 rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                      <Clock className="h-3 w-3" />
+                      {formatTimeRange(r.von_zeit, r.bis_zeit)}
                     </span>
                   )}
                   {r.notiz && (
@@ -167,33 +192,36 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
             })}
           </div>
 
-          {/* Ganzer Tag / Halbtag toggle */}
-          <div className="flex rounded-lg bg-muted p-1">
-            <button
-              onClick={() => setGanzerTag(true)}
-              className={cn(
-                'flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all',
-                ganzerTag
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <Sun className="h-3.5 w-3.5" />
-              Ganzer Tag
-            </button>
-            <button
-              onClick={() => setGanzerTag(false)}
-              className={cn(
-                'flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-all',
-                !ganzerTag
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              Halbtag
-            </button>
+          {/* Start time + Duration */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Startzeit</label>
+              <input
+                type="time"
+                value={vonZeit}
+                onChange={e => setVonZeit(e.target.value)}
+                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Dauer</label>
+              <select
+                value={dauer}
+                onChange={e => setDauer(Number(e.target.value))}
+                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                {DAUER_OPTIONS.map(h => (
+                  <option key={h} value={h}>{h} {h === 1 ? 'Stunde' : 'Stunden'}</option>
+                ))}
+              </select>
+            </div>
           </div>
+
+          {/* Computed end time display */}
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" />
+            {vonZeit.slice(0, 5)} – {bisZeit} Uhr
+          </p>
 
           {/* Notiz */}
           <input

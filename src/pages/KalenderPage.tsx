@@ -110,13 +110,10 @@ export default function KalenderPage() {
                       </div>
                     </td>
                     <td className="py-3 pr-4">
-                      <span className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        r.ganzer_tag
-                          ? 'bg-accent/10 text-accent'
-                          : 'bg-muted text-muted-foreground',
-                      )}>
-                        {r.ganzer_tag ? 'Ganzer Tag' : 'Halbtag'}
+                      <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                        {r.von_zeit && r.bis_zeit
+                          ? `${r.von_zeit.slice(0, 5)} – ${r.bis_zeit.slice(0, 5)}`
+                          : 'Ganzer Tag'}
                       </span>
                     </td>
                     {r.notiz && (

@@ -118,21 +118,26 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
               {/* Reservation pills */}
               {reservationsOnDay.length > 0 && (
                 <div className="mt-auto flex flex-wrap gap-0.5">
-                  {reservationsOnDay.map(r => (
-                    <span
-                      key={r.id}
-                      className={cn(
-                        'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold leading-none text-white',
-                        FAHRER_FARBEN[r.fahrer],
-                      )}
-                      title={`${FAHRER_LABELS[r.fahrer]}${r.notiz ? ` — ${r.notiz}` : ''}${!r.ganzer_tag ? ' (Halbtag)' : ''}`}
-                    >
-                      {(FAHRER_LABELS[r.fahrer]?.charAt(0) ?? '?')}
-                      {!r.ganzer_tag && (
-                        <span className="ml-0.5 text-white/70">&frac12;</span>
-                      )}
-                    </span>
-                  ))}
+                  {reservationsOnDay.map(r => {
+                    const timeStr = r.von_zeit && r.bis_zeit
+                      ? `${r.von_zeit.slice(0, 5)}–${r.bis_zeit.slice(0, 5)}`
+                      : null
+                    return (
+                      <span
+                        key={r.id}
+                        className={cn(
+                          'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold leading-none text-white',
+                          FAHRER_FARBEN[r.fahrer],
+                        )}
+                        title={`${FAHRER_LABELS[r.fahrer]}${timeStr ? ` ${timeStr}` : ''}${r.notiz ? ` — ${r.notiz}` : ''}`}
+                      >
+                        {(FAHRER_LABELS[r.fahrer]?.charAt(0) ?? '?')}
+                        {timeStr && (
+                          <span className="ml-0.5 hidden text-[8px] font-medium text-white/80 sm:inline">{timeStr}</span>
+                        )}
+                      </span>
+                    )
+                  })}
                 </div>
               )}
             </button>

@@ -307,13 +307,10 @@ export default function DashboardPage() {
                   >
                     {FAHRER_LABELS[nextReservation.fahrer as AlleFahrer]}
                   </span>
-                  {!nextReservation.ganzer_tag && nextReservation.von_zeit && nextReservation.bis_zeit && (
+                  {nextReservation.von_zeit && nextReservation.bis_zeit && (
                     <span className="text-xs text-muted-foreground">
-                      {nextReservation.von_zeit} – {nextReservation.bis_zeit}
+                      {nextReservation.von_zeit.slice(0, 5)} – {nextReservation.bis_zeit.slice(0, 5)} Uhr
                     </span>
-                  )}
-                  {nextReservation.ganzer_tag && (
-                    <span className="text-xs text-muted-foreground">Ganzer Tag</span>
                   )}
                 </div>
                 {nextReservation.notiz && (
