@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, AKTIVITAET_LABELS, type AlleFahrer, type Fahrer, type AktivitaetTyp } from '@/lib/fahrer'
@@ -8,6 +8,10 @@ import type { Aktivitaet, Nutzungslog } from '@/types'
 import { Trash2, Loader2, Navigation, ArrowUpDown, ArrowUp, ArrowDown, Pencil, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
+
+const inputClass =
+  'min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
 type SortKey = 'datum' | 'betriebsstunden' | 'treibstoff_liter'
 type SortDir = 'asc' | 'desc'
@@ -32,7 +36,7 @@ export function NutzungslogTabelle() {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     } else {
       setSortKey(key)
-      setSortDir(key === 'datum' ? 'desc' : 'desc')
+      setSortDir('desc')
     }
   }
 
@@ -136,7 +140,8 @@ export function NutzungslogTabelle() {
         <select
           value={filterYear}
           onChange={e => setFilterYear(e.target.value)}
-          className="min-h-[36px] w-full appearance-none rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-36"
+          aria-label="Jahr filtern"
+          className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-36"
         >
           <option value="">Alle Jahre</option>
           {availableYears.map(y => (
@@ -153,6 +158,7 @@ export function NutzungslogTabelle() {
               <th
                 className="cursor-pointer select-none px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('datum')}
+                aria-sort={sortKey === 'datum' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
                 Datum {sortIcon('datum')}
               </th>
@@ -160,12 +166,14 @@ export function NutzungslogTabelle() {
               <th
                 className="cursor-pointer select-none px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('betriebsstunden')}
+                aria-sort={sortKey === 'betriebsstunden' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
                 Stunden {sortIcon('betriebsstunden')}
               </th>
               <th
                 className="cursor-pointer select-none px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('treibstoff_liter')}
+                aria-sort={sortKey === 'treibstoff_liter' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
                 Liter {sortIcon('treibstoff_liter')}
               </th>
@@ -198,15 +206,15 @@ export function NutzungslogTabelle() {
                   <div className="flex items-center justify-end gap-1">
                     <button
                       onClick={() => setEditingLog(log)}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent"
-                      aria-label="Bearbeiten"
+                      className="min-h-[44px] min-w-[44px] rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent flex items-center justify-center"
+                      aria-label={`${formatDate(log.datum)} bearbeiten`}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => setDeleteId(log.id)}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Löschen"
+                      className="min-h-[44px] min-w-[44px] rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                      aria-label={`${formatDate(log.datum)} löschen`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -283,9 +291,6 @@ export function NutzungslogTabelle() {
 
 /* ── Inline edit dialog ── */
 
-const inputClass =
-  'min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
-
 function NutzungslogEditDialog({
   log,
   onClose,
@@ -294,7 +299,7 @@ function NutzungslogEditDialog({
 }: {
   log: Nutzungslog
   onClose: () => void
-  onSave: (fields: { datum: string; fahrer: Fahrer; betriebsstunden: number; treibstoff_liter?: number; notiz?: string }) => void
+  onSave: (fields: { datum: string; fahrer: Fahrer; betriebsstunden: number; treibstoff_liter?: number; aktivitaeten: Aktivitaet[]; notiz?: string }) => void
   isPending: boolean
 }) {
   const [datum, setDatum] = useState(log.datum)
@@ -302,9 +307,11 @@ function NutzungslogEditDialog({
   const [betriebsstunden, setBetriebsstunden] = useState(String(log.betriebsstunden))
   const [treibstoffLiter, setTreibstoffLiter] = useState(log.treibstoff_liter != null ? String(log.treibstoff_liter) : '')
   const [notiz, setNotiz] = useState(log.notiz ?? '')
-  const overlayRef = useRef<HTMLDivElement>(null)
+  const trapRef = useFocusTrap<HTMLDivElement>(true)
 
-  const close = useCallback(() => onClose(), [onClose])
+  const close = useCallback(() => {
+    if (!isPending) onClose()
+  }, [isPending, onClose])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -327,110 +334,117 @@ function NutzungslogEditDialog({
       fahrer,
       betriebsstunden: stunden,
       treibstoff_liter: liter,
+      aktivitaeten: log.aktivitaeten ?? [],
       notiz: notiz.trim() || undefined,
     })
   }
 
   return createPortal(
     <div
-      ref={overlayRef}
-      onClick={e => { if (e.target === overlayRef.current) close() }}
+      onClick={e => { if (e.target === e.currentTarget) close() }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
     >
-      <form
-        onSubmit={handleSubmit}
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="nutzungslog-edit-title"
         onClick={e => e.stopPropagation()}
         className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl animate-in zoom-in-95 duration-200"
       >
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Eintrag bearbeiten</h2>
-          <button
-            type="button"
-            onClick={close}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Datum *</label>
-              <input
-                type="date"
-                value={datum}
-                onChange={e => setDatum(e.target.value)}
-                className={inputClass}
-                autoFocus
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Fahrer *</label>
-              <select
-                value={fahrer}
-                onChange={e => setFahrer(e.target.value as Fahrer)}
-                className={inputClass}
+        <form onSubmit={handleSubmit}>
+          <fieldset disabled={isPending} className="contents">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 id="nutzungslog-edit-title" className="text-lg font-semibold">Eintrag bearbeiten</h2>
+              <button
+                type="button"
+                onClick={close}
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Schliessen"
               >
-                {FAHRER.map(f => (
-                  <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
-                ))}
-              </select>
+                <X className="h-5 w-5" />
+              </button>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Betriebsstunden *</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                value={betriebsstunden}
-                onChange={e => setBetriebsstunden(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Treibstoff (L)</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                value={treibstoffLiter}
-                onChange={e => setTreibstoffLiter(e.target.value)}
-                className={inputClass}
-                placeholder="Optional"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Notiz</label>
-            <input
-              value={notiz}
-              onChange={e => setNotiz(e.target.value)}
-              className={inputClass}
-              placeholder="Optional"
-            />
-          </div>
-        </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={close}
-            className="rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="submit"
-            disabled={isPending}
-            className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
-          >
-            {isPending ? 'Aktualisieren...' : 'Aktualisieren'}
-          </button>
-        </div>
-      </form>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Datum *</label>
+                  <input
+                    type="date"
+                    value={datum}
+                    onChange={e => setDatum(e.target.value)}
+                    className={inputClass}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Fahrer *</label>
+                  <select
+                    value={fahrer}
+                    onChange={e => setFahrer(e.target.value as Fahrer)}
+                    className={inputClass}
+                  >
+                    {FAHRER.map(f => (
+                      <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Betriebsstunden *</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={betriebsstunden}
+                    onChange={e => setBetriebsstunden(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Treibstoff (L)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={treibstoffLiter}
+                    onChange={e => setTreibstoffLiter(e.target.value)}
+                    className={inputClass}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Notiz</label>
+                <input
+                  value={notiz}
+                  onChange={e => setNotiz(e.target.value)}
+                  className={inputClass}
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={close}
+                className="rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              >
+                {isPending ? 'Aktualisieren...' : 'Aktualisieren'}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      </div>
     </div>,
     document.body,
   )

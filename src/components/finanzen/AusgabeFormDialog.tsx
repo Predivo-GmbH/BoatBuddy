@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
@@ -6,6 +6,7 @@ import { todayISO } from '@/lib/format'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Ausgabe } from '@/types'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 const KATEGORIE_KEYWORDS: [Kategorie, string[]][] = [
   ['bootsplatz', ['bootsplatz', 'platz', 'hafen', 'liegeplatz']],
@@ -44,7 +45,10 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
   const [notiz, setNotiz] = useState(editAusgabe?.notiz ?? '')
   const [kategorieManuallySet, setKategorieManuallySet] = useState(false)
   const { createAusgabe, updateAusgabe } = useAusgaben()
-  const overlayRef = useRef<HTMLDivElement>(null)
+
+  const isVisible = open || isEdit || !!onClose
+  const isPending = isEdit ? updateAusgabe.isPending : createAusgabe.isPending
+  const trapRef = useFocusTrap<HTMLDivElement>(isVisible)
 
   const reset = () => {
     setBezeichnung('')
@@ -56,16 +60,15 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
   }
 
   const close = useCallback(() => {
+    if (isPending) return
     reset()
     if (onClose) {
       onClose()
     } else {
       setOpen(false)
     }
-  }, [onClose])
+  }, [onClose, isPending])
 
-  // Close on Escape
-  const isVisible = open || isEdit || !!onClose
   useEffect(() => {
     if (!isVisible) return
     const handler = (e: KeyboardEvent) => {
@@ -81,11 +84,6 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
       const suggested = suggestKategorie(value)
       setKategorie(suggested ?? 'sonstiges')
     }
-  }
-
-  // Close on backdrop click
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current) close()
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -134,101 +132,108 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
 
   return createPortal(
     <div
-      ref={overlayRef}
-      onClick={handleBackdropClick}
+      onClick={e => { if (e.target === e.currentTarget) close() }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
     >
-      <form
-        onSubmit={handleSubmit}
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ausgabe-dialog-title"
+        onClick={e => e.stopPropagation()}
         className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl animate-in zoom-in-95 duration-200"
       >
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{isEdit ? 'Ausgabe bearbeiten' : 'Neue Ausgabe'}</h2>
-          <button
-            type="button"
-            onClick={close}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Bezeichnung *</label>
-            <input
-              value={bezeichnung}
-              onChange={e => handleBezeichnungChange(e.target.value)}
-              className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-              placeholder="z.B. Winterservice"
-              autoFocus
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Betrag (CHF) *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={betrag}
-                onChange={e => setBetrag(e.target.value)}
-                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-                placeholder="0.00"
-              />
+        <form onSubmit={handleSubmit}>
+          <fieldset disabled={isPending} className="contents">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 id="ausgabe-dialog-title" className="text-lg font-semibold">{isEdit ? 'Ausgabe bearbeiten' : 'Neue Ausgabe'}</h2>
+              <button
+                type="button"
+                onClick={close}
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Schliessen"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Datum *</label>
-              <input
-                type="date"
-                value={datum}
-                onChange={e => setDatum(e.target.value)}
-                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Kategorie</label>
-            <select
-              value={kategorie}
-              onChange={e => { setKategorie(e.target.value as Kategorie); setKategorieManuallySet(true) }}
-              className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              {KATEGORIEN.map(k => (
-                <option key={k} value={k}>{KATEGORIE_LABELS[k]}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Notiz</label>
-            <input
-              value={notiz}
-              onChange={e => setNotiz(e.target.value)}
-              className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-              placeholder="Optional"
-            />
-          </div>
-        </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={close}
-            className="rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="submit"
-            disabled={isEdit ? updateAusgabe.isPending : createAusgabe.isPending}
-            className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
-          >
-            {isEdit
-              ? (updateAusgabe.isPending ? 'Aktualisieren...' : 'Aktualisieren')
-              : (createAusgabe.isPending ? 'Speichern...' : 'Speichern')}
-          </button>
-        </div>
-      </form>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Bezeichnung *</label>
+                <input
+                  value={bezeichnung}
+                  onChange={e => handleBezeichnungChange(e.target.value)}
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="z.B. Winterservice"
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Betrag (CHF) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={betrag}
+                    onChange={e => setBetrag(e.target.value)}
+                    className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Datum *</label>
+                  <input
+                    type="date"
+                    value={datum}
+                    onChange={e => setDatum(e.target.value)}
+                    className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Kategorie</label>
+                <select
+                  value={kategorie}
+                  onChange={e => { setKategorie(e.target.value as Kategorie); setKategorieManuallySet(true) }}
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  {KATEGORIEN.map(k => (
+                    <option key={k} value={k}>{KATEGORIE_LABELS[k]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Notiz</label>
+                <input
+                  value={notiz}
+                  onChange={e => setNotiz(e.target.value)}
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={close}
+                className="rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              >
+                {isEdit
+                  ? (updateAusgabe.isPending ? 'Aktualisieren...' : 'Aktualisieren')
+                  : (createAusgabe.isPending ? 'Speichern...' : 'Speichern')}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      </div>
     </div>,
     document.body,
   )

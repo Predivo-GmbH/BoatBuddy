@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useReservierungen } from '@/hooks/useReservierungen'
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_BORDER_FARBEN, type Fahrer } from '@/lib/fahrer'
 import { formatDateLong } from '@/lib/format'
@@ -7,6 +8,7 @@ import { X, Trash2, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Reservierung } from '@/types'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 const DAUER_OPTIONS = [1, 2, 3, 4, 5, 6] as const
 
@@ -36,15 +38,21 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
   const [dauer, setDauer] = useState(3)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const { createReservierung, deleteReservierung } = useReservierungen()
+  const trapRef = useFocusTrap<HTMLDivElement>(true)
 
   const isPending = createReservierung.isPending || deleteReservierung.isPending
+
+  const close = useCallback(() => {
+    if (!isPending) onClose()
+  }, [isPending, onClose])
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isPending) onClose()
+      if (e.key === 'Escape') close()
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [onClose, isPending])
+  }, [close])
 
   const existing = reservierungen.filter(r => r.datum === datum)
   const bisZeit = addHours(vonZeit, dauer)
@@ -73,21 +81,31 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
     )
   }
 
-  return (
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    handleCreate()
+  }
+
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={close}
     >
       <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reservierung-dialog-title"
         className="mx-4 w-full max-w-sm origin-center animate-in zoom-in-95 fade-in space-y-4 rounded-xl border border-border bg-card p-6 shadow-xl duration-200"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{formatDateLong(datum)}</h2>
+          <h2 id="reservierung-dialog-title" className="text-lg font-semibold">{formatDateLong(datum)}</h2>
           <button
-            onClick={onClose}
+            onClick={close}
             className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Schliessen"
           >
             <X className="h-5 w-5" />
           </button>
@@ -129,8 +147,8 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
                 </span>
                 <button
                   onClick={() => setDeleteId(r.id)}
-                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                  aria-label="Löschen"
+                  className="min-h-[44px] min-w-[44px] rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                  aria-label={`${FAHRER_LABELS[r.fahrer]} Reservierung löschen`}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -157,21 +175,24 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
         />
 
         {/* Add new */}
-        <div className="space-y-3 border-t border-border pt-4">
+        <form onSubmit={handleSubmit} className="space-y-3 border-t border-border pt-4">
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Neue Reservierung
           </p>
 
           {/* Person selector */}
-          <div className="flex gap-2">
+          <div className="flex gap-2" role="radiogroup" aria-label="Fahrer auswählen">
             {FAHRER.map(f => {
               const isSelected = fahrer === f
               const alreadyBooked = existing.some(r => r.fahrer === f)
               return (
                 <button
                   key={f}
+                  type="button"
                   onClick={() => setFahrer(f)}
                   disabled={alreadyBooked || isPending}
+                  role="radio"
+                  aria-checked={isSelected}
                   className={cn(
                     'flex flex-1 items-center justify-center gap-2 rounded-lg border-l-4 px-3 py-2.5 text-sm font-medium transition-all',
                     FAHRER_BORDER_FARBEN[f],
@@ -239,14 +260,15 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
 
           {/* Submit */}
           <button
-            onClick={handleCreate}
+            type="submit"
             disabled={createReservierung.isPending}
             className="w-full rounded-lg bg-accent px-3 py-2.5 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
             {createReservierung.isPending ? 'Wird gespeichert...' : 'Reservieren'}
           </button>
-        </div>
+        </form>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

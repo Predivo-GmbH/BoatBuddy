@@ -102,6 +102,7 @@ export function AusgabenTabelle() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Suche nach Bezeichnung..."
+            aria-label="Ausgaben durchsuchen"
             className="min-h-[44px] w-full rounded-lg border border-input bg-background pl-10 pr-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
@@ -110,6 +111,7 @@ export function AusgabenTabelle() {
           <select
             value={filterKategorie}
             onChange={e => setFilterKategorie(e.target.value as Kategorie | '')}
+            aria-label="Nach Kategorie filtern"
             className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-48"
           >
             <option value="">Alle Kategorien</option>
@@ -165,15 +167,15 @@ export function AusgabenTabelle() {
                   <div className="flex items-center justify-end gap-1">
                     <button
                       onClick={() => setEditingAusgabe(a)}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent"
-                      aria-label="Bearbeiten"
+                      className="min-h-[44px] min-w-[44px] rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent flex items-center justify-center"
+                      aria-label={`${a.bezeichnung} bearbeiten`}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => setDeleteId(a.id)}
-                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Löschen"
+                      className="min-h-[44px] min-w-[44px] rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                      aria-label={`${a.bezeichnung} löschen`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -190,7 +192,10 @@ export function AusgabenTabelle() {
         onConfirm={() => {
           if (deleteId) {
             deleteAusgabe.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
+              onSuccess: () => {
+                toast.success('Ausgabe gelöscht')
+                setDeleteId(null)
+              },
               onError: () => toast.error('Fehler beim Löschen'),
             })
           }

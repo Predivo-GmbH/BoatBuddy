@@ -16,7 +16,7 @@ export function KontoBilanzCard() {
   const handleSave = () => {
     const betragNum = parseFloat(betrag)
     if (isNaN(betragNum)) {
-      toast.error('Bitte gultigen Betrag eingeben')
+      toast.error('Bitte gültigen Betrag eingeben')
       return
     }
     createSnapshot.mutate(
@@ -62,7 +62,7 @@ export function KontoBilanzCard() {
       )}
 
       {editing && (
-        <div className="mt-4 space-y-2 border-t border-border pt-4">
+        <fieldset disabled={createSnapshot.isPending} className="mt-4 space-y-2 border-t border-border pt-4">
           <input
             type="number"
             step="0.01"
@@ -80,12 +80,11 @@ export function KontoBilanzCard() {
           />
           <button
             onClick={handleSave}
-            disabled={createSnapshot.isPending}
             className="w-full rounded-lg bg-accent px-3 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
             Speichern
           </button>
-        </div>
+        </fieldset>
       )}
     </div>
   )

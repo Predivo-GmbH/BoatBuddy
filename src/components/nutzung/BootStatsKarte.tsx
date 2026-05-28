@@ -81,6 +81,7 @@ export function BootStatsKarte() {
       </div>
 
       {editing ? (
+        <fieldset disabled={updateBootStats.isPending} className="contents">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Gesamtstunden</label>
@@ -108,6 +109,7 @@ export function BootStatsKarte() {
             />
           </div>
         </div>
+        </fieldset>
       ) : (
         <div className="grid gap-4 sm:grid-cols-3">
           <div>

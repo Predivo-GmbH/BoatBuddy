@@ -72,7 +72,7 @@ export function MonatsdiagrammChart() {
       <button
         onClick={() => setJahrOverride(jahr + 1)}
         className="rounded-lg p-2 transition-colors hover:bg-muted"
-        aria-label="Nachstes Jahr"
+        aria-label="Nächstes Jahr"
       >
         <ChevronRight className="h-5 w-5" />
       </button>
@@ -96,8 +96,8 @@ export function MonatsdiagrammChart() {
       <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-          <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
-          <YAxis tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
+          <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }} stroke="var(--color-muted-foreground)" />
+          <YAxis tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }} stroke="var(--color-muted-foreground)" />
           <Tooltip
             contentStyle={{
               backgroundColor: 'var(--color-card)',
@@ -106,11 +106,12 @@ export function MonatsdiagrammChart() {
               fontSize: '0.875rem',
               boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
               padding: '8px 12px',
+              color: 'var(--color-foreground)',
             }}
             formatter={(value) => [formatCurrency(Number(value)), undefined]}
             cursor={{ fill: 'var(--color-muted)', opacity: 0.3 }}
           />
-          <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px' }} />
+          <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px', color: 'var(--color-muted-foreground)' }} />
           <Bar dataKey="Einnahmen" fill="var(--color-success)" radius={[4, 4, 0, 0]} />
           <Bar dataKey="Ausgaben" fill="var(--color-destructive)" radius={[4, 4, 0, 0]} />
         </BarChart>

@@ -67,18 +67,6 @@ export interface Nutzungslog {
   erstellt_am: string
 }
 
-export interface Tanken {
-  id: string
-  datum: string
-  fahrer: AlleFahrer
-  ort: string | null
-  betrag: number
-  liter: number | null
-  motorstunden_stand: number | null
-  notiz: string | null
-  erstellt_am: string
-}
-
 export interface BootStats {
   id: string
   gesamtstunden: number

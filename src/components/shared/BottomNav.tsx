@@ -3,7 +3,7 @@ import { LayoutDashboard, Wallet, Calendar, Users, Ship } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/finanzen', label: 'Finanzen', icon: Wallet },
   { to: '/kalender', label: 'Kalender', icon: Calendar },
   { to: '/gastsessions', label: 'Gäste', icon: Users },

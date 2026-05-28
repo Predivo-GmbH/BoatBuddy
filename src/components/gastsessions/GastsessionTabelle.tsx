@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useGastsessions } from '@/hooks/useGastsessions'
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, type Fahrer, type AlleFahrer } from '@/lib/fahrer'
 import { formatCurrency, formatDate } from '@/lib/format'
@@ -6,7 +7,11 @@ import { cn } from '@/lib/utils'
 import { Trash2, Loader2, Search, Users, ArrowUpDown, ArrowUp, ArrowDown, Pencil, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 import type { Gastsession } from '@/types'
+
+const inputClass =
+  'min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
 type SortKey = 'datum' | 'betrag'
 type SortDir = 'asc' | 'desc'
@@ -111,6 +116,7 @@ export function GastsessionTabelle() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Gast suchen..."
+              aria-label="Gast suchen"
               className="min-h-[44px] w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:max-w-xs"
             />
           </div>
@@ -187,6 +193,7 @@ export function GastsessionTabelle() {
                 <th
                   className="cursor-pointer select-none px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                   onClick={() => handleSort('datum')}
+                  aria-sort={sortKey === 'datum' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
                   Datum {sortIcon('datum')}
                 </th>
@@ -195,6 +202,7 @@ export function GastsessionTabelle() {
                 <th
                   className="cursor-pointer select-none px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                   onClick={() => handleSort('betrag')}
+                  aria-sort={sortKey === 'betrag' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
                   Betrag {sortIcon('betrag')}
                 </th>
@@ -214,15 +222,15 @@ export function GastsessionTabelle() {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => setEditingSession(s)}
-                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent"
-                        aria-label="Bearbeiten"
+                        className="min-h-[44px] min-w-[44px] rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent flex items-center justify-center"
+                        aria-label={`${s.gast_name} bearbeiten`}
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => setDeleteId(s.id)}
-                        className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        aria-label="Löschen"
+                        className="min-h-[44px] min-w-[44px] rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                        aria-label={`${s.gast_name} löschen`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -294,9 +302,6 @@ export function GastsessionTabelle() {
 
 /* ── Inline edit dialog ── */
 
-const inputClass =
-  'min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
-
 function GastsessionEditDialog({
   session,
   onClose,
@@ -312,9 +317,11 @@ function GastsessionEditDialog({
   const [betrag, setBetrag] = useState(String(session.betrag))
   const [bezahltAn, setBezahltAn] = useState<Fahrer>(session.bezahlt_an as Fahrer)
   const [datum, setDatum] = useState(session.datum)
-  const overlayRef = useRef<HTMLDivElement>(null)
+  const trapRef = useFocusTrap<HTMLDivElement>(true)
 
-  const close = useCallback(() => onClose(), [onClose])
+  const close = useCallback(() => {
+    if (!isPending) onClose()
+  }, [isPending, onClose])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -334,91 +341,98 @@ function GastsessionEditDialog({
     onSave({ gast_name: gastName.trim(), betrag: betragNum, bezahlt_an: bezahltAn, datum })
   }
 
-  return (
+  return createPortal(
     <div
-      ref={overlayRef}
-      onClick={e => { if (e.target === overlayRef.current) close() }}
+      onClick={e => { if (e.target === e.currentTarget) close() }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
     >
-      <form
-        onSubmit={handleSubmit}
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gastsession-edit-title"
         onClick={e => e.stopPropagation()}
         className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl animate-in zoom-in-95 duration-200"
       >
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Session bearbeiten</h2>
-          <button
-            type="button"
-            onClick={close}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Gast-Name *</label>
-            <input
-              value={gastName}
-              onChange={e => setGastName(e.target.value)}
-              className={inputClass}
-              autoFocus
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Betrag (CHF) *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={betrag}
-                onChange={e => setBetrag(e.target.value)}
-                className={inputClass}
-              />
+        <form onSubmit={handleSubmit}>
+          <fieldset disabled={isPending} className="contents">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 id="gastsession-edit-title" className="text-lg font-semibold">Session bearbeiten</h2>
+              <button
+                type="button"
+                onClick={close}
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Schliessen"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Datum *</label>
-              <input
-                type="date"
-                value={datum}
-                onChange={e => setDatum(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Bezahlt an</label>
-            <select
-              value={bezahltAn}
-              onChange={e => setBezahltAn(e.target.value as Fahrer)}
-              className={inputClass}
-            >
-              {FAHRER.map(f => (
-                <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
-              ))}
-            </select>
-          </div>
-        </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={close}
-            className="rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="submit"
-            disabled={isPending}
-            className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
-          >
-            {isPending ? 'Aktualisieren...' : 'Aktualisieren'}
-          </button>
-        </div>
-      </form>
-    </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Gast-Name *</label>
+                <input
+                  value={gastName}
+                  onChange={e => setGastName(e.target.value)}
+                  className={inputClass}
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Betrag (CHF) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={betrag}
+                    onChange={e => setBetrag(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Datum *</label>
+                  <input
+                    type="date"
+                    value={datum}
+                    onChange={e => setDatum(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Bezahlt an</label>
+                <select
+                  value={bezahltAn}
+                  onChange={e => setBezahltAn(e.target.value as Fahrer)}
+                  className={inputClass}
+                >
+                  {FAHRER.map(f => (
+                    <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={close}
+                className="rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
+              >
+                {isPending ? 'Aktualisieren...' : 'Aktualisieren'}
+              </button>
+            </div>
+          </fieldset>
+        </form>
+      </div>
+    </div>,
+    document.body,
   )
 }

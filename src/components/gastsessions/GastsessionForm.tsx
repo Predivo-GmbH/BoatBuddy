@@ -141,6 +141,10 @@ export function GastsessionForm() {
               onFocus={() => { if (inputValue.trim()) setDropdownOpen(true) }}
               placeholder={selectedGuests.length === 0 ? 'Name eingeben...' : ''}
               className="flex-1 min-w-[120px] bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+              role="combobox"
+              aria-expanded={dropdownOpen && suggestions.length > 0}
+              aria-autocomplete="list"
+              aria-label="Gast-Name suchen"
             />
           </div>
 

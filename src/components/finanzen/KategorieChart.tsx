@@ -96,10 +96,11 @@ export function KategorieChart() {
                 fontSize: '0.875rem',
                 boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
                 padding: '8px 12px',
+                color: 'var(--color-foreground)',
               }}
               formatter={(value) => [formatCurrency(Number(value)), undefined]}
             />
-            <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px' }} />
+            <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px', color: 'var(--color-muted-foreground)' }} />
           </PieChart>
         </ResponsiveContainer>
         </div>

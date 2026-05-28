@@ -5,6 +5,7 @@ import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Check, X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 
 const MONATE = [
   'Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun',
@@ -14,6 +15,7 @@ const MONATE = [
 export function BeitraegeGrid() {
   const [jahr, setJahr] = useState(new Date().getFullYear())
   const { beitraege, isLoading, createBeitrag, deleteBeitrag } = useBeitraege(jahr)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; label: string } | null>(null)
 
   const getBeitrag = (fahrer: Fahrer, monatIdx: number) => {
     const monatStr = `${jahr}-${String(monatIdx + 1).padStart(2, '0')}-01`
@@ -22,18 +24,22 @@ export function BeitraegeGrid() {
 
   const mutating = createBeitrag.isPending || deleteBeitrag.isPending
 
-  const handleToggle = async (fahrer: Fahrer, monatIdx: number) => {
+  const handleToggle = (fahrer: Fahrer, monatIdx: number) => {
     const existing = getBeitrag(fahrer, monatIdx)
-    const monatStr = `${jahr}-${String(monatIdx + 1).padStart(2, '0')}-01`
 
     if (existing) {
-      deleteBeitrag.mutate(existing.id, {
-        onError: () => toast.error('Fehler beim Löschen'),
+      setDeleteTarget({
+        id: existing.id,
+        label: `${FAHRER_LABELS[fahrer]} – ${MONATE[monatIdx]} ${jahr}`,
       })
     } else {
+      const monatStr = `${jahr}-${String(monatIdx + 1).padStart(2, '0')}-01`
       createBeitrag.mutate(
         { fahrer, betrag: jahr <= 2023 ? 300 : 400, monat: monatStr },
-        { onError: () => toast.error('Fehler beim Erstellen') },
+        {
+          onSuccess: () => toast.success(`Beitrag für ${FAHRER_LABELS[fahrer]} – ${MONATE[monatIdx]} markiert`),
+          onError: () => toast.error('Fehler beim Erstellen'),
+        },
       )
     }
   }
@@ -59,7 +65,7 @@ export function BeitraegeGrid() {
       <div className="flex items-center gap-3">
         <button
           onClick={() => setJahr(j => j - 1)}
-          className="rounded-lg p-2 transition-colors hover:bg-muted"
+          className="min-h-[44px] min-w-[44px] rounded-lg p-2 transition-colors hover:bg-muted flex items-center justify-center"
           aria-label="Vorjahr"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -67,7 +73,7 @@ export function BeitraegeGrid() {
         <span className="min-w-[4rem] text-center text-lg font-semibold tabular-nums">{jahr}</span>
         <button
           onClick={() => setJahr(j => j + 1)}
-          className="rounded-lg p-2 transition-colors hover:bg-muted"
+          className="min-h-[44px] min-w-[44px] rounded-lg p-2 transition-colors hover:bg-muted flex items-center justify-center"
           aria-label="Nächstes Jahr"
         >
           <ChevronRight className="h-5 w-5" />
@@ -126,7 +132,7 @@ export function BeitraegeGrid() {
                                 : 'bg-muted text-muted-foreground hover:bg-muted/80',
                             isFuture && 'opacity-50'
                           )}
-                          title={paid ? 'Bezahlt -- klicken zum Entfernen' : isPast ? 'Ausstehend -- klicken zum Markieren' : 'Zukunftig -- klicken zum Markieren'}
+                          aria-label={`${FAHRER_LABELS[fahrer]} ${MONATE[monatIdx]}: ${paid ? 'Bezahlt' : isPast ? 'Ausstehend' : 'Zukünftig'}`}
                         >
                           {paid ? <Check className="h-4 w-4" /> : <X className="h-3 w-3" />}
                         </button>
@@ -147,6 +153,26 @@ export function BeitraegeGrid() {
           {formatCurrency(beitraege.reduce((sum, b) => sum + Number(b.betrag), 0))}
         </span>
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Beitrag entfernen?"
+        description={`Beitrag für ${deleteTarget?.label ?? ''} als nicht bezahlt markieren?`}
+        confirmLabel="Entfernen"
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteBeitrag.mutate(deleteTarget.id, {
+              onSuccess: () => {
+                toast.success('Beitrag entfernt')
+                setDeleteTarget(null)
+              },
+              onError: () => toast.error('Fehler beim Löschen'),
+            })
+          }
+        }}
+        onCancel={() => setDeleteTarget(null)}
+        isPending={deleteBeitrag.isPending}
+      />
     </div>
   )
 }
