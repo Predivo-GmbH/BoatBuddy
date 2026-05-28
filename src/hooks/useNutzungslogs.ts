@@ -4,17 +4,8 @@ import type { Nutzungslog, Aktivitaet } from '@/types'
 import type { Fahrer } from '@/lib/fahrer'
 
 async function adjustGesamtstunden(delta: number) {
-  const { data } = await supabase
-    .from('boot_stats')
-    .select('id, gesamtstunden')
-    .limit(1)
-    .maybeSingle()
-  if (!data) return
-  const current = Number(data.gesamtstunden)
-  await supabase
-    .from('boot_stats')
-    .update({ gesamtstunden: current + delta, aktualisiert_am: new Date().toISOString() })
-    .eq('id', data.id)
+  const { error } = await supabase.rpc('adjust_gesamtstunden', { delta })
+  if (error) throw new Error(error.message)
 }
 
 export function useNutzungslogs() {

@@ -21,13 +21,14 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const { createReservierung, deleteReservierung } = useReservierungen()
 
+  const isPending = createReservierung.isPending || deleteReservierung.isPending
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !isPending) onClose()
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [onClose])
+  }, [onClose, isPending])
 
   const existing = reservierungen.filter(r => r.datum === datum)
 

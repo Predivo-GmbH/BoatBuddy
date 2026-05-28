@@ -7,6 +7,27 @@ import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Ausgabe } from '@/types'
 
+const KATEGORIE_KEYWORDS: [Kategorie, string[]][] = [
+  ['bootsplatz', ['bootsplatz', 'platz', 'hafen', 'liegeplatz']],
+  ['versicherung', ['versicherung', 'axa', 'police', 'prämie']],
+  ['verkehrssteuer', ['verkehrsamt', 'verkehrssteuer', 'steuer', 'wasserfzg', 'schifffahrt']],
+  ['winterlager', ['winterlager', 'winter', 'einwintern']],
+  ['fruehlingslager', ['frühlingslager', 'fruehlingslager', 'frühling', 'auswintern', 'mmc']],
+  ['vorfuehren', ['vorführen', 'vorfuehren', 'kontrolle', 'schiffskontrolle', 'prüfung']],
+  ['treibstoff', ['treibstoff', 'benzin', 'diesel', 'tanken', 'tankstelle']],
+  ['material', ['material', 'blache', 'zubehör', 'ersatzteil']],
+  ['reparatur', ['reparatur', 'reparieren', 'defekt', 'ersatz']],
+  ['service', ['service', 'wartung', 'ölwechsel', 'werft']],
+]
+
+function suggestKategorie(text: string): Kategorie | null {
+  const lower = text.toLowerCase()
+  for (const [kat, keywords] of KATEGORIE_KEYWORDS) {
+    if (keywords.some(kw => lower.includes(kw))) return kat
+  }
+  return null
+}
+
 interface AusgabeFormDialogProps {
   editAusgabe?: Ausgabe | null
   onClose?: () => void
@@ -21,6 +42,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
   const [kategorie, setKategorie] = useState<Kategorie>(editAusgabe?.kategorie ?? 'sonstiges')
   const [datum, setDatum] = useState(editAusgabe?.datum ?? todayISO())
   const [notiz, setNotiz] = useState(editAusgabe?.notiz ?? '')
+  const [kategorieManuallySet, setKategorieManuallySet] = useState(false)
   const { createAusgabe, updateAusgabe } = useAusgaben()
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -28,6 +50,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
     setBezeichnung('')
     setBetrag('')
     setKategorie('sonstiges')
+    setKategorieManuallySet(false)
     setDatum(todayISO())
     setNotiz('')
   }
@@ -52,33 +75,11 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
     return () => document.removeEventListener('keydown', handler)
   }, [isVisible, close])
 
-  // Auto-suggest category based on Bezeichnung keywords
-  const KATEGORIE_KEYWORDS: [Kategorie, string[]][] = [
-    ['bootsplatz', ['bootsplatz', 'platz', 'hafen', 'liegeplatz']],
-    ['versicherung', ['versicherung', 'axa', 'police', 'prämie']],
-    ['verkehrssteuer', ['verkehrsamt', 'verkehrssteuer', 'steuer', 'wasserfzg', 'schifffahrt']],
-    ['winterlager', ['winterlager', 'winter', 'einwintern']],
-    ['fruehlingslager', ['frühlingslager', 'fruehlingslager', 'frühling', 'auswintern', 'mmc']],
-    ['vorfuehren', ['vorführen', 'vorfuehren', 'kontrolle', 'schiffskontrolle', 'prüfung']],
-    ['treibstoff', ['treibstoff', 'benzin', 'diesel', 'tanken', 'tankstelle']],
-    ['material', ['material', 'blache', 'zubehör', 'ersatzteil']],
-    ['reparatur', ['reparatur', 'reparieren', 'defekt', 'ersatz']],
-    ['service', ['service', 'wartung', 'ölwechsel', 'werft']],
-  ]
-
-  const suggestKategorie = (text: string): Kategorie | null => {
-    const lower = text.toLowerCase()
-    for (const [kat, keywords] of KATEGORIE_KEYWORDS) {
-      if (keywords.some(kw => lower.includes(kw))) return kat
-    }
-    return null
-  }
-
   const handleBezeichnungChange = (value: string) => {
     setBezeichnung(value)
-    if (!isEdit) {
+    if (!isEdit && !kategorieManuallySet) {
       const suggested = suggestKategorie(value)
-      if (suggested) setKategorie(suggested)
+      setKategorie(suggested ?? 'sonstiges')
     }
   }
 
@@ -190,7 +191,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
             <label className="mb-1.5 block text-sm font-medium">Kategorie</label>
             <select
               value={kategorie}
-              onChange={e => setKategorie(e.target.value as Kategorie)}
+              onChange={e => { setKategorie(e.target.value as Kategorie); setKategorieManuallySet(true) }}
               className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
             >
               {KATEGORIEN.map(k => (

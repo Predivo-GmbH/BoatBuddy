@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, AKTIVITAET_LABELS, type AlleFahrer, type Fahrer, type AktivitaetTyp } from '@/lib/fahrer'
 import { formatDate } from '@/lib/format'
@@ -185,7 +186,7 @@ export function NutzungslogTabelle() {
                 </td>
                 <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">{log.betriebsstunden}h</td>
                 <td className="px-4 py-3 text-right tabular-nums">
-                  {log.treibstoff_liter != null ? `${log.treibstoff_liter}L` : '-'}
+                  {log.treibstoff_liter != null ? `${Number(log.treibstoff_liter)}L` : '-'}
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {log.aktivitaeten && log.aktivitaeten.length > 0 ? formatAktivitaeten(log.aktivitaeten) : '-'}
@@ -327,7 +328,7 @@ function NutzungslogEditDialog({
     })
   }
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       onClick={e => { if (e.target === overlayRef.current) close() }}
@@ -427,6 +428,7 @@ function NutzungslogEditDialog({
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   )
 }
