@@ -142,8 +142,8 @@ test.describe('Boot & Eigentümer', () => {
 
   test('Gentleman-Rules tab shows rules', async ({ page }) => {
     await page.getByRole('tab', { name: 'Gentleman-Rules' }).click()
-    // Should show at least one numbered rule
-    await expect(page.locator('ol li, [class*="rule"]').first()).toBeVisible({ timeout: 10_000 })
+    // Should show the first seeded rule
+    await expect(page.getByText('Boot nach jeder Fahrt reinigen')).toBeVisible({ timeout: 10_000 })
   })
 })
 
