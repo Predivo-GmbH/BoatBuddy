@@ -66,7 +66,7 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
       {
         onSuccess: () => {
           toast.success('Reservierung erstellt')
-          setNotiz('')
+          onClose()
         },
         onError: () => toast.error('Fehler beim Erstellen'),
       },
