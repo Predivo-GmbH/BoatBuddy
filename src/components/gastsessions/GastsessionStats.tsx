@@ -8,7 +8,6 @@ import { Users, Wallet } from 'lucide-react'
 const FAHRER_CSS_VARS: Record<AlleFahrer, string> = {
   roger: 'var(--color-roger)',
   dani: 'var(--color-dani)',
-  jan: 'var(--color-jan)',
   pedro: 'var(--color-pedro)',
 }
 
@@ -20,7 +19,6 @@ export function GastsessionStats() {
     const perFahrer: Record<AlleFahrer, { total: number; season: number; count: number; seasonCount: number }> = {
       roger: { total: 0, season: 0, count: 0, seasonCount: 0 },
       dani: { total: 0, season: 0, count: 0, seasonCount: 0 },
-      jan: { total: 0, season: 0, count: 0, seasonCount: 0 },
       pedro: { total: 0, season: 0, count: 0, seasonCount: 0 },
     }
     let total = 0

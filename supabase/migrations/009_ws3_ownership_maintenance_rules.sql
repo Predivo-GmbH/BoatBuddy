@@ -4,7 +4,7 @@
 create table public.eigentuemer (
   id              uuid primary key default gen_random_uuid(),
   fahrer          text not null,
-  anteil_prozent  numeric(5,2) not null default 33.33,
+  anteil_prozent  numeric(5,2) not null default 50,
   einstieg_datum  date,
   notiz           text,
   erstellt_am     timestamptz not null default now()
@@ -13,11 +13,11 @@ create table public.eigentuemer (
 alter table public.eigentuemer enable row level security;
 create policy "anon_all" on public.eigentuemer for all to anon using (true) with check (true);
 
--- Insert default shares (equal split)
+-- Roger paid 40k, Dani paid 15k of the 55k purchase (Sept 2021)
+-- Roger = 40000/55000 = 72.73%, Dani = 15000/55000 = 27.27%
 insert into public.eigentuemer (fahrer, anteil_prozent, einstieg_datum) values
-  ('roger', 33.33, '2021-01-01'),
-  ('dani', 33.33, '2021-01-01'),
-  ('jan', 33.34, '2021-01-01');
+  ('roger', 72.73, '2021-09-01'),
+  ('dani', 27.27, '2021-09-01');
 
 -- Settlement config (single row, like boot_stats)
 create table public.abrechnung_config (
@@ -26,6 +26,7 @@ create table public.abrechnung_config (
   bewertung_datum       date,
   abschreibung_prozent  numeric(5,2) default 10,
   kuendigungsfrist_monate integer default 6,
+  beitrag_pro_monat     numeric(8,2) default 400,
   notiz                 text,
   aktualisiert_am       timestamptz not null default now()
 );
@@ -33,8 +34,10 @@ create table public.abrechnung_config (
 alter table public.abrechnung_config enable row level security;
 create policy "anon_all" on public.abrechnung_config for all to anon using (true) with check (true);
 
-insert into public.abrechnung_config (boot_marktwert, bewertung_datum, abschreibung_prozent, kuendigungsfrist_monate)
-  values (0, now()::date, 10, 6);
+-- Kaufpreis 55000 CHF, purchased Sept 2021
+-- Exit rule from Gentleman-Rules: 1 Saison Kündigungsfrist, bis Ende Juli
+insert into public.abrechnung_config (boot_marktwert, bewertung_datum, abschreibung_prozent, kuendigungsfrist_monate, beitrag_pro_monat)
+  values (55000, '2021-09-05', 10, 6, 400);
 
 -- Maintenance schedule
 create table public.wartung (
@@ -52,14 +55,7 @@ create table public.wartung (
 alter table public.wartung enable row level security;
 create policy "anon_all" on public.wartung for all to anon using (true) with check (true);
 
--- Seed common maintenance tasks
-insert into public.wartung (bezeichnung, intervall_monate, naechstes_datum, zustaendig) values
-  ('Wintereinlagerung', 12, '2026-10-15', null),
-  ('Frühlings-Check / Auswassern', 12, '2026-04-01', null),
-  ('Motoröl & Filter wechseln', 12, '2026-04-01', null),
-  ('Antifouling erneuern', 12, '2026-03-15', null),
-  ('Impeller prüfen/wechseln', 24, '2027-03-15', null),
-  ('Feuerlöscher prüfen', 24, '2027-01-01', null);
+-- No seed data for wartung — users add their own tasks
 
 -- Gentleman-Rules
 create table public.gentleman_rules (
@@ -73,15 +69,21 @@ create table public.gentleman_rules (
 alter table public.gentleman_rules enable row level security;
 create policy "anon_all" on public.gentleman_rules for all to anon using (true) with check (true);
 
--- Seed default rules
+-- Real rules from Excel "Gentleman-Rules" sheet
 insert into public.gentleman_rules (regel, sortierung) values
-  ('Boot nach jeder Fahrt reinigen (Deck abspülen, Sitze trocknen)', 1),
-  ('Treibstoff auffüllen, wenn Tank unter ¼', 2),
-  ('Nutzungslog immer sofort nach der Fahrt ausfüllen', 3),
-  ('Reservierung im Kalender eintragen — keine spontanen Fahrten ohne Check', 4),
-  ('Gäste-Sessions immer erfassen und abrechnen', 5),
-  ('Schäden oder Auffälligkeiten sofort melden (Gruppe)', 6),
-  ('Kein Alkohol für den Fahrer', 7),
-  ('Schwimmwesten für alle Kinder obligatorisch', 8),
-  ('Boot nicht bei Gewitter oder Sturmwarnung nutzen', 9),
-  ('Schlüssel immer am vereinbarten Ort zurücklegen', 10);
+  ('Alle: 400 Fr. / Mt. An Daniel Poletti überweisen: CH78 0844 0259 1629 9200 1 (Bank Cler, ZAK Konto)', 1),
+  ('Alle: Beteiligung zu je 1/2 für Unterhalt, Revision, Winterlager, etc.', 2),
+  ('Alle: Beteiligung zu je 1/2 für Benzin-Kosten (Ausnahmen bei extremer Nutzung wie langes Waken, etc.)', 3),
+  ('Es gelten allgemein Gentleman-Rules', 4),
+  ('Vor Benutzung (wenn möglich frühzeitig) Info in Chat. Für jedes Mitglied sind immer mind. 2 Plätze freizuhalten', 5),
+  ('Boot wird durch Mäts Bühler (mmc Mastercraft GmbH) gewartet etc. (Bei Problemen sofort an Mäts anrufen)', 6),
+  ('Das Boot wird jeden Winter ausgewassert (ca. Oktober/November) und im Frühling eingewassert (ca. April)', 7),
+  ('Allgemeines wird bei einem Bierli geklärt (wer was abklärt etc.)', 8),
+  ('Rückzug aus "Vertrag": 1 Saison Kündigungsfrist, bis Ende Juli. (Bsp: Ende Juli 2024 kündigen und noch bis Ende 2024 bezahlen, dann ist man aus dem Vertrag. Über Bootskosten wird dann noch gesprochen. Valabler "Nachmieter" wird wie bei einer Whg gehandhabt)', 9),
+  ('Bootsschlüssel bleibt auf dem Boot (steckt nicht). Blache jeden Abend übers Boot', 10),
+  ('Das Boot ist für Roger und Dani gedacht. Freunde sind immer willkommen, aber nicht das ganze Dorf ;)', 11),
+  ('Auf dem Boot ist mindestens die vorgeschriebene Minimal-Ausrüstung (Feuerlöscher, Schwimmwesten, etc.)', 12),
+  ('Persönliche Gegenstände werden Abends nach Hause genommen (Badtuch, Getränke, Abfall, etc.)', 13),
+  ('Gelegentliche selbständige Reinigung erhöht die Lebensdauer (Nach jeder Fahrt 5min reinigen)', 14),
+  ('50 Fr. / Kopf Wake/Surf à la discretion', 15),
+  ('Ab 01.01.2024 = 25 Fr./10min Wakesurfing für Gäste', 16);

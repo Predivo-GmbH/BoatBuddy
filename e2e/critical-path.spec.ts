@@ -128,22 +128,23 @@ test.describe('Boot & Eigentümer', () => {
   })
 
   test('Eigentümer tab shows ownership percentages', async ({ page }) => {
-    // Wait for data to load
+    // Wait for data to load — only Roger and Dani (no Jan)
     await expect(page.getByText('Roger')).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('Dani')).toBeVisible()
-    await expect(page.getByText('Jan')).toBeVisible()
+    await expect(page.getByText('72.7%')).toBeVisible()
+    await expect(page.getByText('27.3%')).toBeVisible()
   })
 
-  test('Wartung tab shows maintenance tasks', async ({ page }) => {
+  test('Wartung tab shows empty state or tasks', async ({ page }) => {
     await page.getByRole('tab', { name: 'Wartung' }).click()
-    // Should show seeded maintenance tasks
-    await expect(page.getByText(/Ölwechsel|Impeller|Winterlager|Polster|Batterie|Unterwasser/i).first()).toBeVisible({ timeout: 10_000 })
+    // Wartung starts empty — should show empty state or any user-added tasks
+    await expect(page.getByText(/Alle Aufgaben erledigt|Neue Aufgabe/i).first()).toBeVisible({ timeout: 10_000 })
   })
 
-  test('Gentleman-Rules tab shows rules', async ({ page }) => {
+  test('Gentleman-Rules tab shows real rules from Excel', async ({ page }) => {
     await page.getByRole('tab', { name: 'Gentleman-Rules' }).click()
-    // Should show the first seeded rule
-    await expect(page.getByText('Boot nach jeder Fahrt reinigen')).toBeVisible({ timeout: 10_000 })
+    // Should show the real first rule from the Excel file
+    await expect(page.getByText('400 Fr. / Mt.')).toBeVisible({ timeout: 10_000 })
   })
 })
 

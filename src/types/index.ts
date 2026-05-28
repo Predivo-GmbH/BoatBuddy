@@ -92,6 +92,7 @@ export interface AbrechnungConfig {
   bewertung_datum: string | null
   abschreibung_prozent: number
   kuendigungsfrist_monate: number
+  beitrag_pro_monat: number
   notiz: string | null
   aktualisiert_am: string
 }

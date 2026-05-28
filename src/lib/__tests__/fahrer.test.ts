@@ -7,15 +7,15 @@ import {
 } from '../fahrer'
 
 describe('FAHRER', () => {
-  it('contains exactly 3 active fahrers', () => {
-    expect(FAHRER).toHaveLength(3)
-    expect(FAHRER).toEqual(['roger', 'dani', 'jan'])
+  it('contains exactly 2 active fahrers', () => {
+    expect(FAHRER).toHaveLength(2)
+    expect(FAHRER).toEqual(['roger', 'dani'])
   })
 })
 
 describe('ALLE_FAHRER', () => {
-  it('contains 4 fahrers including historical pedro', () => {
-    expect(ALLE_FAHRER).toHaveLength(4)
+  it('contains 3 fahrers including historical pedro', () => {
+    expect(ALLE_FAHRER).toHaveLength(3)
     expect(ALLE_FAHRER).toContain('pedro')
   })
 

@@ -178,7 +178,7 @@ function EigentuemerTab() {
         </div>
 
         {/* Visual pie-like display */}
-        <div className="grid gap-4 sm:grid-cols-3 mb-4">
+        <div className="grid gap-4 sm:grid-cols-2 mb-4">
           {eigentuemer.map((e) => {
             const label = FAHRER_LABELS[e.fahrer as AlleFahrer] ?? e.fahrer
             return (
@@ -264,12 +264,14 @@ function AbrechnungTab() {
   const [marktwert, setMarktwert] = useState('')
   const [abschreibung, setAbschreibung] = useState('')
   const [kuendigung, setKuendigung] = useState('')
+  const [beitrag, setBeitrag] = useState('')
 
   const startEditing = () => {
     if (!config) return
     setMarktwert(String(config.boot_marktwert))
     setAbschreibung(String(config.abschreibung_prozent))
     setKuendigung(String(config.kuendigungsfrist_monate))
+    setBeitrag(String(config.beitrag_pro_monat))
     setEditing(true)
   }
 
@@ -279,6 +281,7 @@ function AbrechnungTab() {
         boot_marktwert: parseFloat(marktwert) || 0,
         abschreibung_prozent: parseFloat(abschreibung) || 10,
         kuendigungsfrist_monate: parseInt(kuendigung) || 6,
+        beitrag_pro_monat: parseFloat(beitrag) || 400,
         bewertung_datum: new Date().toISOString().slice(0, 10),
       },
       {
@@ -339,7 +342,7 @@ function AbrechnungTab() {
 
         {editing ? (
           <fieldset disabled={updateConfig.isPending} className="contents">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                   Aktueller Marktwert (CHF)
@@ -375,10 +378,22 @@ function AbrechnungTab() {
                   className={inputClass}
                 />
               </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                  Beitrag / Monat (CHF)
+                </label>
+                <input
+                  type="number"
+                  step="50"
+                  value={beitrag}
+                  onChange={(e) => setBeitrag(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
             </div>
           </fieldset>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Marktwert</p>
               <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
@@ -398,6 +413,12 @@ function AbrechnungTab() {
               <p className="text-xs font-medium text-muted-foreground">Kündigungsfrist</p>
               <p className="mt-1 text-lg font-semibold text-foreground">
                 {config?.kuendigungsfrist_monate ?? 6} Monate
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Beitrag / Monat</p>
+              <p className="mt-1 text-lg font-semibold text-foreground">
+                {formatCurrency(Number(config?.beitrag_pro_monat ?? 400))}
               </p>
             </div>
           </div>

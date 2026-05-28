@@ -1,36 +1,32 @@
 // Active fahrers (used in forms/dropdowns)
-export const FAHRER = ['roger', 'dani', 'jan'] as const
+export const FAHRER = ['roger', 'dani'] as const
 export type Fahrer = typeof FAHRER[number]
 
 // All fahrers including historical (for display of old data)
-export const ALLE_FAHRER = ['roger', 'dani', 'jan', 'pedro'] as const
+export const ALLE_FAHRER = ['roger', 'dani', 'pedro'] as const
 export type AlleFahrer = typeof ALLE_FAHRER[number]
 
 export const FAHRER_LABELS: Record<AlleFahrer, string> = {
   roger: 'Roger',
   dani: 'Dani',
-  jan: 'Jan',
   pedro: 'Pedro',
 }
 
 export const FAHRER_FARBEN: Record<AlleFahrer, string> = {
   roger: 'bg-roger',
   dani: 'bg-dani',
-  jan: 'bg-jan',
   pedro: 'bg-pedro',
 }
 
 export const FAHRER_TEXT_FARBEN: Record<AlleFahrer, string> = {
   roger: 'text-roger',
   dani: 'text-dani',
-  jan: 'text-jan',
   pedro: 'text-pedro',
 }
 
 export const FAHRER_BORDER_FARBEN: Record<AlleFahrer, string> = {
   roger: 'border-roger',
   dani: 'border-dani',
-  jan: 'border-jan',
   pedro: 'border-pedro',
 }
 
