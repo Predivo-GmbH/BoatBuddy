@@ -68,7 +68,7 @@ export function BeitraegeGrid() {
         <button
           onClick={() => setJahr(j => j + 1)}
           className="rounded-lg p-2 transition-colors hover:bg-muted"
-          aria-label="Nachstes Jahr"
+          aria-label="Nächstes Jahr"
         >
           <ChevronRight className="h-5 w-5" />
         </button>

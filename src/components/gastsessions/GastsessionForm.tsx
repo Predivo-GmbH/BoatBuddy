@@ -16,6 +16,7 @@ export function GastsessionForm() {
   const [bezahltAn, setBezahltAn] = useState<Fahrer>('roger')
   const [datum, setDatum] = useState(todayISO())
   const { sessions, createGastsession } = useGastsessions()
+  const isSaving = createGastsession.isPending
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Extract unique individual guest names from all historical sessions
@@ -104,6 +105,7 @@ export function GastsessionForm() {
 
   return (
     <form onSubmit={handleSubmit} className="card-premium rounded-xl border border-border bg-card p-5">
+    <fieldset disabled={isSaving} className="contents">
       <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
         Neue Session erfassen
       </h3>
@@ -211,6 +213,7 @@ export function GastsessionForm() {
           Erfassen
         </button>
       </div>
+    </fieldset>
     </form>
   )
 }

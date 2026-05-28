@@ -144,8 +144,11 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
           onConfirm={() => {
             if (deleteId) {
               deleteReservierung.mutate(deleteId, {
-                onSuccess: () => setDeleteId(null),
-                onError: () => toast.error('Fehler'),
+                onSuccess: () => {
+                  toast.success('Reservierung gelöscht')
+                  setDeleteId(null)
+                },
+                onError: () => toast.error('Fehler beim Löschen'),
               })
             }
           }}
@@ -168,7 +171,7 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
                 <button
                   key={f}
                   onClick={() => setFahrer(f)}
-                  disabled={alreadyBooked}
+                  disabled={alreadyBooked || isPending}
                   className={cn(
                     'flex flex-1 items-center justify-center gap-2 rounded-lg border-l-4 px-3 py-2.5 text-sm font-medium transition-all',
                     FAHRER_BORDER_FARBEN[f],
@@ -200,7 +203,8 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
                 type="time"
                 value={vonZeit}
                 onChange={e => setVonZeit(e.target.value)}
-                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                disabled={isPending}
+                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
               />
             </div>
             <div>
@@ -208,7 +212,8 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
               <select
                 value={dauer}
                 onChange={e => setDauer(Number(e.target.value))}
-                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                disabled={isPending}
+                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
               >
                 {DAUER_OPTIONS.map(h => (
                   <option key={h} value={h}>{h} {h === 1 ? 'Stunde' : 'Stunden'}</option>
@@ -228,7 +233,8 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
             value={notiz}
             onChange={e => setNotiz(e.target.value)}
             placeholder="Notiz (optional)"
-            className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            disabled={isPending}
+            className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
           />
 
           {/* Submit */}

@@ -206,7 +206,7 @@ export function NutzungslogTabelle() {
                     <button
                       onClick={() => setDeleteId(log.id)}
                       className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Loeschen"
+                      aria-label="Löschen"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -239,8 +239,11 @@ export function NutzungslogTabelle() {
         onConfirm={() => {
           if (deleteId) {
             deleteNutzungslog.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-              onError: () => toast.error('Fehler'),
+              onSuccess: () => {
+                toast.success('Eintrag gelöscht')
+                setDeleteId(null)
+              },
+              onError: () => toast.error('Fehler beim Löschen'),
             })
           }
         }}

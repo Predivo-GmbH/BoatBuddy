@@ -222,7 +222,7 @@ export function GastsessionTabelle() {
                       <button
                         onClick={() => setDeleteId(s.id)}
                         className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        aria-label="Loeschen"
+                        aria-label="Löschen"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -256,8 +256,11 @@ export function GastsessionTabelle() {
         onConfirm={() => {
           if (deleteId) {
             deleteGastsession.mutate(deleteId, {
-              onSuccess: () => setDeleteId(null),
-              onError: () => toast.error('Fehler'),
+              onSuccess: () => {
+                toast.success('Session gelöscht')
+                setDeleteId(null)
+              },
+              onError: () => toast.error('Fehler beim Löschen'),
             })
           }
         }}

@@ -5,7 +5,7 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { KalenderRaster } from '@/components/kalender/KalenderRaster'
 import { ReservierungDialog } from '@/components/kalender/ReservierungDialog'
 import { useReservierungen } from '@/hooks/useReservierungen'
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FAHRER_FARBEN, FAHRER_LABELS } from '@/lib/fahrer'
 import type { AlleFahrer } from '@/lib/fahrer'
@@ -17,7 +17,7 @@ export default function KalenderPage() {
 
   // Single unfiltered fetch — used for both calendar grid and upcoming list
   // Fixes cross-month click bug where dialog showed empty data for other months
-  const { reservierungen: alleReservierungen } = useReservierungen()
+  const { reservierungen: alleReservierungen, isLoading } = useReservierungen()
 
   const today = todayISO()
   const kommende = alleReservierungen
@@ -70,11 +70,17 @@ export default function KalenderPage() {
           </button>
         </div>
 
-        <KalenderRaster
-          currentDate={currentDate}
-          reservierungen={alleReservierungen}
-          onDayClick={setSelectedDate}
-        />
+        {isLoading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <KalenderRaster
+            currentDate={currentDate}
+            reservierungen={alleReservierungen}
+            onDayClick={setSelectedDate}
+          />
+        )}
       </div>
 
       {/* Upcoming reservations */}

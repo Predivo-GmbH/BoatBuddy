@@ -63,10 +63,11 @@ export function useNutzungslogs() {
 
   const deleteNutzungslog = useMutation({
     mutationFn: async (id: string) => {
-      const { data: log } = await supabase.from('nutzungslogs').select('betriebsstunden').eq('id', id).single()
-      const { error } = await supabase.from('nutzungslogs').delete().eq('id', id)
+      const { data, error } = await supabase.from('nutzungslogs').delete().eq('id', id).select('betriebsstunden')
       if (error) throw new Error(error.message)
-      if (log) await adjustGesamtstunden(-Number(log.betriebsstunden))
+      if (data && data.length > 0) {
+        await adjustGesamtstunden(-Number(data[0].betriebsstunden))
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })

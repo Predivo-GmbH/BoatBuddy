@@ -63,6 +63,7 @@ export function NutzungslogForm() {
       onSubmit={handleSubmit}
       className="card-premium rounded-xl border border-border bg-card p-5 border-t-2 border-t-accent"
     >
+    <fieldset disabled={createNutzungslog.isPending} className="contents">
       <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
         Neuen Eintrag erfassen
       </h3>
@@ -154,6 +155,7 @@ export function NutzungslogForm() {
           </div>
         </div>
       )}
+    </fieldset>
     </form>
   )
 }
