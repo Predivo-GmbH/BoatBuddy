@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
+import { PageSkeleton } from '@/components/shared/PageSkeleton'
 import { AusgabeFormDialog } from '@/components/finanzen/AusgabeFormDialog'
 import {
   Wallet,
@@ -79,6 +80,15 @@ export default function DashboardPage() {
 
   const isLoading = kontoLoading || resvLoading || sessionsLoading || statsLoading || ausgabenLoading || logsLoading
 
+  if (isLoading) {
+    return (
+      <div>
+        <PageHeader title="Dashboard" subtitle="Alles auf einen Blick" />
+        <PageSkeleton cards={4} table />
+      </div>
+    )
+  }
+
   return (
     <div className="section-fade-in">
       <PageHeader title="Dashboard" subtitle="Alles auf einen Blick" />
@@ -148,7 +158,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Actions — centered */}
-      <div className="grid gap-3 grid-cols-3 mb-8">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3 mb-8">
         <button
           onClick={() => setShowAusgabeForm(true)}
           className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"

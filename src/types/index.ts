@@ -76,3 +76,42 @@ export interface BootStats {
   notiz: string | null
   aktualisiert_am: string
 }
+
+export interface Eigentuemer {
+  id: string
+  fahrer: string
+  anteil_prozent: number
+  einstieg_datum: string | null
+  notiz: string | null
+  erstellt_am: string
+}
+
+export interface AbrechnungConfig {
+  id: string
+  boot_marktwert: number
+  bewertung_datum: string | null
+  abschreibung_prozent: number
+  kuendigungsfrist_monate: number
+  notiz: string | null
+  aktualisiert_am: string
+}
+
+export interface Wartung {
+  id: string
+  bezeichnung: string
+  intervall_monate: number | null
+  naechstes_datum: string | null
+  zustaendig: string | null
+  erledigt: boolean
+  erledigt_am: string | null
+  notiz: string | null
+  erstellt_am: string
+}
+
+export interface GentlemanRule {
+  id: string
+  regel: string
+  sortierung: number
+  aktiv: boolean
+  erstellt_am: string
+}

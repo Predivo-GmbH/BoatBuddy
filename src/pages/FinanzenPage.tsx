@@ -8,6 +8,7 @@ import { AusgabeFormDialog } from '@/components/finanzen/AusgabeFormDialog'
 import { BeitraegeGrid } from '@/components/finanzen/BeitraegeGrid'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useBeitraege } from '@/hooks/useBeitraege'
+import { useTabKeyboard } from '@/hooks/useTabKeyboard'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { DollarSign, Wallet } from 'lucide-react'
@@ -17,6 +18,7 @@ type Tab = typeof TABS[number]
 
 export default function FinanzenPage() {
   const [tab, setTab] = useState<Tab>('Übersicht')
+  const tabKeyDown = useTabKeyboard(TABS, tab, setTab)
   const currentYear = new Date().getFullYear()
   const { ausgaben } = useAusgaben()
   const { beitraege } = useBeitraege(currentYear)
@@ -55,7 +57,7 @@ export default function FinanzenPage() {
       <PageHeader title="Finanzen" />
 
       {/* Pill-style tab navigation with animated indicator */}
-      <div className="relative mb-6 flex gap-1 rounded-xl bg-muted p-1">
+      <div className="relative mb-6 flex gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="Finanzen-Tabs">
         <div
           className="absolute top-1 bottom-1 rounded-lg bg-card shadow-sm transition-all duration-300 ease-out"
           style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
@@ -63,8 +65,12 @@ export default function FinanzenPage() {
         {TABS.map((t, i) => (
           <button
             key={t}
+            role="tab"
+            aria-selected={tab === t}
+            tabIndex={tab === t ? 0 : -1}
             ref={el => { tabsRef.current[i] = el }}
             onClick={() => setTab(t)}
+            onKeyDown={tabKeyDown}
             className={cn(
               'relative z-10 flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors',
               tab === t

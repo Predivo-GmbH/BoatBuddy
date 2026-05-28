@@ -5,7 +5,8 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { KalenderRaster } from '@/components/kalender/KalenderRaster'
 import { ReservierungDialog } from '@/components/kalender/ReservierungDialog'
 import { useReservierungen } from '@/hooks/useReservierungen'
-import { ChevronLeft, ChevronRight, CalendarDays, Loader2 } from 'lucide-react'
+import { CalendarSkeleton } from '@/components/shared/PageSkeleton'
+import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FAHRER_FARBEN, FAHRER_LABELS } from '@/lib/fahrer'
 import type { AlleFahrer } from '@/lib/fahrer'
@@ -71,8 +72,8 @@ export default function KalenderPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="py-4">
+            <CalendarSkeleton />
           </div>
         ) : (
           <KalenderRaster

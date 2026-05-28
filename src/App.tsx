@@ -12,6 +12,7 @@ const FinanzenPage = lazy(() => import('@/pages/FinanzenPage'))
 const KalenderPage = lazy(() => import('@/pages/KalenderPage'))
 const GastsessionsPage = lazy(() => import('@/pages/GastsessionsPage'))
 const NutzungslogPage = lazy(() => import('@/pages/NutzungslogPage'))
+const BootPage = lazy(() => import('@/pages/BootPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 const queryClient = new QueryClient({
@@ -39,6 +40,7 @@ function App() {
                 <Route path="kalender" element={<KalenderPage />} />
                 <Route path="gastsessions" element={<GastsessionsPage />} />
                 <Route path="nutzung" element={<NutzungslogPage />} />
+                <Route path="boot" element={<BootPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Route>
             </Routes>

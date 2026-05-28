@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/kalender', label: 'Kalender', icon: Calendar },
   { to: '/gastsessions', label: 'Gast-Sessions', icon: Users },
   { to: '/nutzung', label: 'Nutzungslog', icon: Ship },
+  { to: '/boot', label: 'Boot & Regeln', icon: Anchor },
 ]
 
 interface SidebarProps {
@@ -41,7 +42,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground lg:hidden"
+            className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-md text-muted-foreground hover:text-foreground lg:hidden"
             aria-label="Menu schliessen"
           >
             <X className="h-5 w-5" />

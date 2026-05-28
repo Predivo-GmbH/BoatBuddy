@@ -4,13 +4,14 @@ import { StatCard } from '@/components/shared/StatCard'
 import { BootStatsKarte } from '@/components/nutzung/BootStatsKarte'
 import { NutzungslogForm } from '@/components/nutzung/NutzungslogForm'
 import { NutzungslogTabelle } from '@/components/nutzung/NutzungslogTabelle'
+import { PageSkeleton } from '@/components/shared/PageSkeleton'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
 import { FAHRER_LABELS, FAHRER_FARBEN, ALLE_FAHRER, type AlleFahrer } from '@/lib/fahrer'
 import { cn } from '@/lib/utils'
 import { Clock, Fuel, Navigation, TrendingUp, Zap } from 'lucide-react'
 
 export default function NutzungslogPage() {
-  const { logs } = useNutzungslogs()
+  const { logs, isLoading } = useNutzungslogs()
 
   const currentYear = new Date().getFullYear()
 
@@ -55,6 +56,15 @@ export default function NutzungslogPage() {
       .sort((a, b) => b.liter - a.liter)
     return { fuelPerFahrer: entries, fuelTotal: entries.reduce((s, x) => s + x.liter, 0) }
   }, [logs])
+
+  if (isLoading) {
+    return (
+      <div>
+        <PageHeader title="Nutzungslog" subtitle="Fahrten, Stunden & Treibstoff" />
+        <PageSkeleton cards={4} table />
+      </div>
+    )
+  }
 
   return (
     <div className="section-fade-in">

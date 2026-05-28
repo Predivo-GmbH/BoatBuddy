@@ -1,13 +1,14 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Wallet, Calendar, Users, Ship } from 'lucide-react'
+import { LayoutDashboard, Wallet, Calendar, Users, Ship, Anchor } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
   { to: '/finanzen', label: 'Finanzen', icon: Wallet },
   { to: '/kalender', label: 'Kalender', icon: Calendar },
   { to: '/gastsessions', label: 'Gäste', icon: Users },
-  { to: '/nutzung', label: 'Boot', icon: Ship },
+  { to: '/nutzung', label: 'Nutzung', icon: Ship },
+  { to: '/boot', label: 'Regeln', icon: Anchor },
 ]
 
 export function BottomNav() {
@@ -20,7 +21,7 @@ export function BottomNav() {
             to={to}
             className={({ isActive }) =>
               cn(
-                'flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-colors',
+                'flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[52px] text-[10px] font-medium transition-colors active:scale-95',
                 isActive
                   ? 'text-accent'
                   : 'text-muted-foreground'
@@ -28,7 +29,7 @@ export function BottomNav() {
             }
           >
             <Icon className="h-5 w-5" />
-            <span>{label}</span>
+            <span className="truncate max-w-[56px] text-center">{label}</span>
           </NavLink>
         ))}
       </div>
