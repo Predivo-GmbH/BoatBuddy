@@ -12,7 +12,7 @@ export function useTabKeyboard<T extends string>(
   return useCallback(
     (e: React.KeyboardEvent) => {
       const idx = tabs.indexOf(current)
-      let next = idx
+      let next: number
 
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         next = (idx + 1) % tabs.length
