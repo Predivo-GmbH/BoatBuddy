@@ -12,6 +12,7 @@ import { EinnahmenTabelle } from '@/components/finanzen/EinnahmenTabelle'
 import { AbrechnungCard } from '@/components/finanzen/AbrechnungCard'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useBeitraege } from '@/hooks/useBeitraege'
+import { useGastsessions } from '@/hooks/useGastsessions'
 import { useTabKeyboard } from '@/hooks/useTabKeyboard'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -34,6 +35,7 @@ export default function FinanzenPage() {
   const currentYear = new Date().getFullYear()
   const { ausgaben } = useAusgaben()
   const { beitraege } = useBeitraege(currentYear)
+  const { sessions } = useGastsessions()
 
   const ausgabenYear = useMemo(() => {
     const filtered = ausgaben.filter(a => a.datum.startsWith(String(currentYear)))
@@ -43,10 +45,16 @@ export default function FinanzenPage() {
     }
   }, [ausgaben, currentYear])
 
-  const beitraegeYear = useMemo(() => ({
-    total: beitraege.reduce((sum, b) => sum + Number(b.betrag), 0),
-    months: new Set(beitraege.filter(b => b.monat.endsWith('-01')).map(b => b.monat.slice(0, 7))).size,
-  }), [beitraege])
+  const einnahmenYear = useMemo(() => {
+    const yearStr = String(currentYear)
+    const beitraegeTotal = beitraege.reduce((sum, b) => sum + Number(b.betrag), 0)
+    const gastsessionTotal = sessions
+      .filter(s => s.auf_konto_eingezahlt && s.datum.startsWith(yearStr))
+      .reduce((sum, s) => sum + Number(s.betrag), 0)
+    const total = beitraegeTotal + gastsessionTotal
+    const count = beitraege.length + sessions.filter(s => s.auf_konto_eingezahlt && s.datum.startsWith(yearStr)).length
+    return { total, count }
+  }, [beitraege, sessions, currentYear])
 
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([])
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
@@ -170,13 +178,13 @@ export default function FinanzenPage() {
             <div className="card-premium card-glow card-gradient-blue p-5">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Wallet className="h-4 w-4" />
-                Beiträge {currentYear}
+                Einnahmen {currentYear}
               </div>
               <p className="mt-3 text-2xl sm:text-3xl font-bold tabular-nums text-foreground">
-                {formatCurrency(beitraegeYear.total)}
+                {formatCurrency(einnahmenYear.total)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {beitraegeYear.months} {beitraegeYear.months === 1 ? 'Monat' : 'Monate'} bezahlt
+                {einnahmenYear.count} {einnahmenYear.count === 1 ? 'Posten' : 'Posten'}
               </p>
             </div>
           </div>
