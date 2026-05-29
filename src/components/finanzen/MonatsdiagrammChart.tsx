@@ -121,18 +121,18 @@ export function MonatsdiagrammChart() {
         </BarChart>
       </ResponsiveContainer>
       </div>
-      <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/50 p-3 text-sm">
-        <div>
-          <p className="text-muted-foreground">Einnahmen</p>
-          <p className="font-semibold tabular-nums text-success">{formatCurrency(totalEinnahmen)}</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 rounded-lg bg-muted/50 p-3 text-sm">
+        <div className="min-w-0">
+          <p className="text-[11px] sm:text-sm text-muted-foreground">Einnahmen</p>
+          <p className="font-semibold tabular-nums text-success text-xs sm:text-sm">{formatCurrency(totalEinnahmen)}</p>
         </div>
-        <div>
-          <p className="text-muted-foreground">Ausgaben</p>
-          <p className="font-semibold tabular-nums text-destructive">{formatCurrency(totalAusgaben)}</p>
+        <div className="min-w-0">
+          <p className="text-[11px] sm:text-sm text-muted-foreground">Ausgaben</p>
+          <p className="font-semibold tabular-nums text-destructive text-xs sm:text-sm">{formatCurrency(totalAusgaben)}</p>
         </div>
-        <div>
-          <p className="text-muted-foreground">Saldo</p>
-          <p className={`font-semibold tabular-nums ${saldo >= 0 ? 'text-success' : 'text-destructive'}`}>
+        <div className="min-w-0">
+          <p className="text-[11px] sm:text-sm text-muted-foreground">Saldo</p>
+          <p className={`font-semibold tabular-nums text-xs sm:text-sm ${saldo >= 0 ? 'text-success' : 'text-destructive'}`}>
             {saldo >= 0 ? '+' : ''}{formatCurrency(saldo)}
           </p>
         </div>

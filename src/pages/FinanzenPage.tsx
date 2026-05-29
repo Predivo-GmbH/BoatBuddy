@@ -95,7 +95,7 @@ export default function FinanzenPage() {
                 <DollarSign className="h-4 w-4" />
                 Ausgaben {currentYear}
               </div>
-              <p className="mt-3 text-3xl font-bold tabular-nums text-foreground">
+              <p className="mt-3 text-2xl sm:text-3xl font-bold tabular-nums text-foreground">
                 {formatCurrency(ausgabenYear.total)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -107,7 +107,7 @@ export default function FinanzenPage() {
                 <Wallet className="h-4 w-4" />
                 Beiträge {currentYear}
               </div>
-              <p className="mt-3 text-3xl font-bold tabular-nums text-foreground">
+              <p className="mt-3 text-2xl sm:text-3xl font-bold tabular-nums text-foreground">
                 {formatCurrency(beitraegeYear.total)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">

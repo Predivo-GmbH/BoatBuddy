@@ -52,7 +52,7 @@ export function KontoBilanzCard() {
         </button>
       </div>
       <p className={cn(
-        'mt-3 text-3xl font-bold tabular-nums',
+        'mt-3 text-2xl sm:text-3xl font-bold tabular-nums',
         isPositive ? 'text-success' : 'text-destructive'
       )}>
         {latestKontostand ? formatCurrency(Number(latestKontostand.betrag)) : '--'}

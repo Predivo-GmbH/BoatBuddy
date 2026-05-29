@@ -90,61 +90,49 @@ export function BeitraegeGrid() {
         </span>
       </div>
 
-      {/* Grid */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="py-2.5 pr-4 text-left font-medium text-muted-foreground">Fahrer</th>
-              {MONATE.map(m => (
-                <th key={m} className="px-1 py-2.5 text-center font-medium text-muted-foreground sm:px-2">{m}</th>
-              ))}
-              <th className="py-2.5 pl-4 text-right font-medium text-muted-foreground">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {FAHRER.map(fahrer => {
-              const total = Array.from({ length: 12 }, (_, i) => getBeitrag(fahrer, i)).filter((b): b is NonNullable<typeof b> => !!b).reduce((sum, b) => sum + Number(b.betrag), 0)
-              return (
-                <tr key={fahrer} className="border-b border-border/50">
-                  <td className="py-2.5 pr-4">
-                    <span className="inline-flex items-center gap-2 text-sm font-medium">
-                      <span className={cn('h-2.5 w-2.5 rounded-full', FAHRER_FARBEN[fahrer])} />
-                      {FAHRER_LABELS[fahrer]}
-                    </span>
-                  </td>
-                  {Array.from({ length: 12 }, (_, monatIdx) => {
-                    const paid = !!getBeitrag(fahrer, monatIdx)
-                    const isPast = new Date(jahr, monatIdx + 1, 0) < new Date()
-                    const isFuture = !isPast && !paid
-                    return (
-                      <td key={monatIdx} className="px-1 py-2.5 text-center sm:px-2">
-                        <button
-                          disabled={mutating}
-                          onClick={() => handleToggle(fahrer, monatIdx)}
-                          className={cn(
-                            'inline-flex h-10 w-10 items-center justify-center rounded-lg transition-all',
-                            'sm:h-9 sm:w-9',
-                            paid
-                              ? 'bg-success/20 text-success shadow-sm hover:bg-success/30'
-                              : isPast
-                                ? 'bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20 hover:bg-destructive/20'
-                                : 'bg-muted text-muted-foreground hover:bg-muted/80',
-                            isFuture && 'opacity-50'
-                          )}
-                          aria-label={`${FAHRER_LABELS[fahrer]} ${MONATE[monatIdx]}: ${paid ? 'Bezahlt' : isPast ? 'Ausstehend' : 'Zukünftig'}`}
-                        >
-                          {paid ? <Check className="h-4 w-4" /> : <X className="h-3 w-3" />}
-                        </button>
-                      </td>
-                    )
-                  })}
-                  <td className="py-2.5 pl-4 text-right font-semibold tabular-nums">{formatCurrency(total)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      {/* Grid — card layout per driver */}
+      <div className="space-y-4">
+        {FAHRER.map(fahrer => {
+          const total = Array.from({ length: 12 }, (_, i) => getBeitrag(fahrer, i)).filter((b): b is NonNullable<typeof b> => !!b).reduce((sum, b) => sum + Number(b.betrag), 0)
+          return (
+            <div key={fahrer} className="rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="inline-flex items-center gap-2 text-sm font-medium">
+                  <span className={cn('h-2.5 w-2.5 rounded-full', FAHRER_FARBEN[fahrer])} />
+                  {FAHRER_LABELS[fahrer]}
+                </span>
+                <span className="text-sm font-semibold tabular-nums">{formatCurrency(total)}</span>
+              </div>
+              <div className="grid grid-cols-6 gap-1">
+                {Array.from({ length: 12 }, (_, monatIdx) => {
+                  const paid = !!getBeitrag(fahrer, monatIdx)
+                  const isPast = new Date(jahr, monatIdx + 1, 0) < new Date()
+                  const isFuture = !isPast && !paid
+                  return (
+                    <button
+                      key={monatIdx}
+                      disabled={mutating}
+                      onClick={() => handleToggle(fahrer, monatIdx)}
+                      className={cn(
+                        'flex flex-col items-center justify-center rounded-lg py-1.5 transition-all min-h-[44px]',
+                        paid
+                          ? 'bg-success/20 text-success shadow-sm hover:bg-success/30'
+                          : isPast
+                            ? 'bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20 hover:bg-destructive/20'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                        isFuture && 'opacity-50'
+                      )}
+                      aria-label={`${FAHRER_LABELS[fahrer]} ${MONATE[monatIdx]}: ${paid ? 'Bezahlt' : isPast ? 'Ausstehend' : 'Zukünftig'}`}
+                    >
+                      <span className="text-[10px] font-medium leading-none mb-0.5">{MONATE[monatIdx]}</span>
+                      {paid ? <Check className="h-3.5 w-3.5" /> : <X className="h-3 w-3" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
       </div>
 
       {/* Summary */}

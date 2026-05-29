@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Sun, Moon } from 'lucide-react'
 import { BoatIcon } from './BoatIcon'
 import { Sidebar } from './Sidebar'
@@ -10,6 +10,12 @@ import { useDarkMode } from '@/hooks/useDarkMode'
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { isDark, toggle } = useDarkMode()
+  const mainRef = useRef<HTMLElement>(null)
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0)
+  }, [pathname])
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -33,7 +39,7 @@ export function AppLayout() {
         </header>
 
         {/* Main content — extra bottom padding on mobile for bottom nav */}
-        <main className="flex-1 overflow-y-auto p-4 pb-20 sm:p-6 lg:pb-6 scrollbar-thin">
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-4 pb-20 sm:p-6 lg:pb-6 scrollbar-thin">
           <Outlet />
         </main>
 

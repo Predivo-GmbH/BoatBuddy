@@ -221,7 +221,7 @@ function EigentuemerTab() {
                   </fieldset>
                 ) : (
                   <>
-                    <p className="text-3xl font-bold tabular-nums text-foreground">
+                    <p className="text-2xl sm:text-3xl font-bold tabular-nums text-foreground">
                       {formatCurrency(Math.round((Number(e.anteil_prozent) / 100) * bootWert))}
                     </p>
                     <p className="text-sm text-muted-foreground mt-0.5">
@@ -385,7 +385,7 @@ function AbrechnungTab() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Marktwert</p>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
+              <p className="mt-1 text-xl sm:text-2xl font-bold tabular-nums text-foreground">
                 {formatCurrency(currentValue)}
               </p>
               {config?.bewertung_datum && (

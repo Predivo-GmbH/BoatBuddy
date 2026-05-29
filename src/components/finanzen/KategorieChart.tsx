@@ -84,15 +84,15 @@ export function KategorieChart() {
           Keine Ausgaben {selectedYear ? `in ${selectedYear}` : ''} erfasst
         </div>
       ) : (
-        <div className="h-64 w-full">
+        <div className="h-80 sm:h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
               cx="50%"
-              cy="50%"
-              innerRadius={50}
-              outerRadius={80}
+              cy="40%"
+              innerRadius={45}
+              outerRadius={75}
               paddingAngle={2}
               dataKey="value"
             >

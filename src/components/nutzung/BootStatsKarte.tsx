@@ -114,7 +114,7 @@ export function BootStatsKarte() {
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs font-medium text-muted-foreground">Gesamtstunden</p>
-            <p className="mt-1 flex items-center gap-1.5 text-2xl font-bold tabular-nums text-foreground">
+            <p className="mt-1 flex items-center gap-1.5 text-xl sm:text-2xl font-bold tabular-nums text-foreground">
               <Clock className="h-4 w-4 text-muted-foreground" />
               {Number(stats.gesamtstunden)}h
             </p>

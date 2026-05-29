@@ -67,7 +67,7 @@ export function GastsessionStats() {
               <Wallet className="h-4 w-4 text-accent" />
             </div>
           </div>
-          <p className="mt-2 text-2xl font-bold tabular-nums text-foreground">
+          <p className="mt-2 text-xl sm:text-2xl font-bold tabular-nums text-foreground break-words">
             {formatCurrency(stats.perFahrer[f].total)}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -90,7 +90,7 @@ export function GastsessionStats() {
             <Users className="h-4 w-4 text-accent" />
           </div>
         </div>
-        <p className="mt-2 text-2xl font-bold tabular-nums text-foreground">
+        <p className="mt-2 text-xl sm:text-2xl font-bold tabular-nums text-foreground break-words">
           {formatCurrency(stats.total)}
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">

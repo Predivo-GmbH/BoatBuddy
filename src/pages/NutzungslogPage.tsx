@@ -171,11 +171,11 @@ export default function NutzungslogPage() {
               {fuelPerFahrer.map(({ fahrer, amount }) => {
                 const pct = fuelTotal > 0 ? (amount / fuelTotal) * 100 : 0
                 return (
-                  <div key={fahrer} className="flex items-center gap-3">
+                  <div key={fahrer} className="flex items-center gap-2 sm:gap-3">
                     <span
                       className={cn('h-2.5 w-2.5 flex-shrink-0 rounded-full', FAHRER_FARBEN[fahrer])}
                     />
-                    <span className="w-16 text-sm font-medium text-foreground">
+                    <span className="w-12 sm:w-16 text-xs sm:text-sm font-medium text-foreground truncate">
                       {FAHRER_LABELS[fahrer]}
                     </span>
                     <div className="flex-1 overflow-hidden rounded-full bg-muted/40 h-2">
@@ -184,10 +184,10 @@ export default function NutzungslogPage() {
                         style={{ width: `${pct.toFixed(1)}%` }}
                       />
                     </div>
-                    <span className="w-24 text-right text-sm tabular-nums text-muted-foreground">
+                    <span className="shrink-0 text-right text-xs sm:text-sm tabular-nums text-muted-foreground">
                       {formatCurrency(amount)}
                     </span>
-                    <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
+                    <span className="w-8 sm:w-10 text-right text-[11px] sm:text-xs tabular-nums text-muted-foreground">
                       {pct.toFixed(0)}%
                     </span>
                   </div>
