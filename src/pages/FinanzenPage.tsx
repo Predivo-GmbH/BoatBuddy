@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 import { DollarSign, Wallet } from 'lucide-react'
 import type { Ausgabe } from '@/types'
 
-const TABS = ['Übersicht', 'Ausgaben', 'Beiträge'] as const
+const TABS = ['Übersicht', 'Ausgaben', 'Einnahmen'] as const
 type Tab = typeof TABS[number]
 
 export default function FinanzenPage() {
@@ -145,7 +145,7 @@ export default function FinanzenPage() {
         </div>
       )}
 
-      {tab === 'Beiträge' && (
+      {tab === 'Einnahmen' && (
         <div className="section-fade-in">
           <div className="card-premium p-5">
             <BeitraegeGrid />
