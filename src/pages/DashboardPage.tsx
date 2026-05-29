@@ -215,7 +215,7 @@ export default function DashboardPage() {
           <StatCard
             label="Betriebsstunden"
             value={stats ? `${Number(stats.gesamtstunden)} h` : '0 h'}
-            subtitle={undefined}
+            subtitle={`Saison ${currentYear}: ${seasonTotalHours.toFixed(1)} h`}
             icon={Ship}
             accentColor="card-accent-top-warning"
             gradient="amber"
