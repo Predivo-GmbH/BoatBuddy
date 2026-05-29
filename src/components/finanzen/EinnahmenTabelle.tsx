@@ -6,7 +6,7 @@ import { formatCurrency, formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { ArrowUpDown, ArrowUp, ArrowDown, Loader2, ChevronLeft, ChevronRight, Filter } from 'lucide-react'
 
-type EinnahmeTyp = 'beitrag' | 'gastsession'
+type EinnahmeTyp = 'beitrag' | 'sonderzahlung' | 'gastsession'
 
 interface EinnahmeRow {
   id: string
@@ -19,11 +19,13 @@ interface EinnahmeRow {
 
 const TYP_LABELS: Record<EinnahmeTyp, string> = {
   beitrag: 'Beitrag',
+  sonderzahlung: 'Sonderzahlung',
   gastsession: 'Gast-Session',
 }
 
 const TYP_COLORS: Record<EinnahmeTyp, string> = {
   beitrag: 'bg-success/10 text-success',
+  sonderzahlung: 'bg-[#F59E0B]/10 text-[#F59E0B]',
   gastsession: 'bg-accent/10 text-accent',
 }
 
@@ -44,12 +46,16 @@ export function EinnahmenTabelle() {
   const rows = useMemo(() => {
     const result: EinnahmeRow[] = []
 
+    const standardBetrag = jahr <= 2023 ? 300 : 400
     for (const b of beitraege) {
+      const isExtraordinary = Number(b.betrag) !== standardBetrag || !b.monat.endsWith('-01')
       result.push({
         id: `b-${b.id}`,
         datum: b.monat,
-        bezeichnung: `Monatsbeitrag ${FAHRER_LABELS[b.fahrer] ?? b.fahrer}`,
-        typ: 'beitrag',
+        bezeichnung: isExtraordinary
+          ? `Sonderzahlung ${FAHRER_LABELS[b.fahrer] ?? b.fahrer}`
+          : `Monatsbeitrag ${FAHRER_LABELS[b.fahrer] ?? b.fahrer}`,
+        typ: isExtraordinary ? 'sonderzahlung' : 'beitrag',
         person: FAHRER_LABELS[b.fahrer as AlleFahrer] ?? b.fahrer,
         betrag: Number(b.betrag),
       })
@@ -58,11 +64,10 @@ export function EinnahmenTabelle() {
     const jahrStr = String(jahr)
     for (const s of sessions) {
       if (!s.auf_konto_eingezahlt) continue
-      const sDatum = s.eingezahlt_am ?? s.datum
-      if (!sDatum.startsWith(jahrStr)) continue
+      if (!s.datum.startsWith(jahrStr)) continue
       result.push({
         id: `g-${s.id}`,
-        datum: sDatum,
+        datum: s.datum,
         bezeichnung: `Gast-Session: ${s.gast_name}`,
         typ: 'gastsession',
         person: FAHRER_LABELS[s.bezahlt_an as AlleFahrer] ?? s.bezahlt_an,
@@ -148,6 +153,7 @@ export function EinnahmenTabelle() {
           >
             <option value="">Alle Typen</option>
             <option value="beitrag">Beiträge</option>
+            <option value="sonderzahlung">Sonderzahlungen</option>
             <option value="gastsession">Gast-Sessions</option>
           </select>
         </div>

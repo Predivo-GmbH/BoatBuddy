@@ -137,7 +137,7 @@ export function BeitraegeGrid() {
 
       {/* Summary */}
       <div className="flex justify-end text-sm text-muted-foreground">
-        Total eingezahlt: <span className="ml-1 font-semibold text-foreground tabular-nums">
+        Total Beiträge: <span className="ml-1 font-semibold text-foreground tabular-nums">
           {formatCurrency(beitraege.reduce((sum, b) => sum + Number(b.betrag), 0))}
         </span>
       </div>

@@ -45,7 +45,7 @@ export default function FinanzenPage() {
 
   const beitraegeYear = useMemo(() => ({
     total: beitraege.reduce((sum, b) => sum + Number(b.betrag), 0),
-    months: new Set(beitraege.map(b => b.monat)).size,
+    months: new Set(beitraege.filter(b => b.monat.endsWith('-01')).map(b => b.monat.slice(0, 7))).size,
   }), [beitraege])
 
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([])
