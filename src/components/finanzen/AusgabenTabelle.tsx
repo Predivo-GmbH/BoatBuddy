@@ -33,6 +33,7 @@ export function AusgabenTabelle() {
   const [editingAusgabe, setEditingAusgabe] = useState<Ausgabe | null>(null)
   const [search, setSearch] = useState('')
   const [filterKategorie, setFilterKategorie] = useState<Kategorie | ''>('')
+  const [filterYear, setFilterYear] = useState<string>('')
   const [sortKey, setSortKey] = useState<SortKey>('datum')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -57,6 +58,10 @@ export function AusgabenTabelle() {
       items = items.filter(a => a.kategorie === filterKategorie)
     }
 
+    if (filterYear) {
+      items = items.filter(a => a.datum.startsWith(filterYear))
+    }
+
     items.sort((a, b) => {
       let cmp = 0
       if (sortKey === 'datum') {
@@ -72,7 +77,13 @@ export function AusgabenTabelle() {
     })
 
     return items
-  }, [ausgaben, search, filterKategorie, sortKey, sortDir])
+  }, [ausgaben, search, filterKategorie, filterYear, sortKey, sortDir])
+
+  const availableYears = useMemo(() => {
+    const years = [...new Set(ausgaben.map(a => parseInt(a.datum.slice(0, 4), 10)))]
+    years.sort((a, b) => b - a)
+    return years
+  }, [ausgaben])
 
   const sortIcon = (column: SortKey) => {
     if (sortKey !== column) return <ArrowUpDown className="ml-1 inline h-3.5 w-3.5 opacity-40" />
@@ -121,6 +132,17 @@ export function AusgabenTabelle() {
             ))}
           </select>
         </div>
+        <select
+          value={filterYear}
+          onChange={e => setFilterYear(e.target.value)}
+          aria-label="Nach Jahr filtern"
+          className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-36"
+        >
+          <option value="">Alle Jahre</option>
+          {availableYears.map(y => (
+            <option key={y} value={String(y)}>{y}</option>
+          ))}
+        </select>
       </div>
 
       {/* Table */}
@@ -213,7 +235,7 @@ export function AusgabenTabelle() {
       )}
 
       {/* Result count */}
-      {(search || filterKategorie) && (
+      {(search || filterKategorie || filterYear) && (
         <p className="text-xs text-muted-foreground">
           {filtered.length} von {ausgaben.length} Ausgaben angezeigt
         </p>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { FAHRER, FAHRER_LABELS, KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
@@ -45,7 +45,21 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
   const [bezahltVon, setBezahltVon] = useState(editAusgabe?.bezahlt_von ?? 'bootkonto')
   const [notiz, setNotiz] = useState(editAusgabe?.notiz ?? '')
   const [kategorieManuallySet, setKategorieManuallySet] = useState(false)
-  const { createAusgabe, updateAusgabe } = useAusgaben()
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const suggestionsRef = useRef<HTMLUListElement>(null)
+  const { ausgaben, createAusgabe, updateAusgabe } = useAusgaben()
+
+  const pastBezeichnungen = useMemo(() => {
+    const unique = [...new Set(ausgaben.map(a => a.bezeichnung))]
+    unique.sort((a, b) => a.localeCompare(b))
+    return unique
+  }, [ausgaben])
+
+  const filteredSuggestions = useMemo(() => {
+    if (!bezeichnung.trim()) return []
+    const q = bezeichnung.toLowerCase()
+    return pastBezeichnungen.filter(b => b.toLowerCase().includes(q) && b !== bezeichnung)
+  }, [bezeichnung, pastBezeichnungen])
 
   const isVisible = open || isEdit || !!onClose
   const isPending = isEdit ? updateAusgabe.isPending : createAusgabe.isPending
@@ -160,15 +174,36 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
             </div>
 
             <div className="space-y-4">
-              <div>
+              <div className="relative">
                 <label className="mb-1.5 block text-sm font-medium">Bezeichnung *</label>
                 <input
                   value={bezeichnung}
-                  onChange={e => handleBezeichnungChange(e.target.value)}
+                  onChange={e => { handleBezeichnungChange(e.target.value); setShowSuggestions(true) }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => { setTimeout(() => setShowSuggestions(false), 150) }}
                   className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="z.B. Winterservice"
+                  autoComplete="off"
                   autoFocus
                 />
+                {showSuggestions && filteredSuggestions.length > 0 && (
+                  <ul
+                    ref={suggestionsRef}
+                    className="absolute left-0 right-0 top-full z-10 mt-1 max-h-40 overflow-y-auto rounded-lg border border-border bg-card shadow-lg"
+                  >
+                    {filteredSuggestions.map(s => (
+                      <li key={s}>
+                        <button
+                          type="button"
+                          onMouseDown={e => { e.preventDefault(); handleBezeichnungChange(s); setShowSuggestions(false) }}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
+                        >
+                          {s}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
