@@ -35,8 +35,8 @@ export function KontoBilanzCard() {
 
   return (
     <div className={cn(
-      'card-premium p-5',
-      isPositive ? 'card-accent-top-success' : 'card-accent-top-destructive'
+      'card-premium card-glow p-5',
+      isPositive ? 'card-accent-top-success card-gradient-green' : 'card-accent-top-destructive card-gradient-red'
     )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">

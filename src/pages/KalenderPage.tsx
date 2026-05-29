@@ -29,10 +29,10 @@ export default function KalenderPage() {
   const isCurrentMonth = isSameMonth(currentDate, new Date())
 
   return (
-    <div className="section-fade-in space-y-6">
+    <div className="slide-up space-y-6">
       <PageHeader title="Kalender" />
 
-      <div className="card-premium rounded-lg border border-border bg-card p-4 sm:p-6">
+      <div className="card-premium card-glow rounded-lg border border-border bg-card p-4 sm:p-6">
         {/* Month navigation */}
         <div className="mb-6 flex items-center justify-between">
           <button
@@ -85,7 +85,7 @@ export default function KalenderPage() {
       </div>
 
       {/* Upcoming reservations */}
-      <div className="card-premium rounded-lg border border-border bg-card p-4 sm:p-6">
+      <div className="card-premium card-glow rounded-lg border border-border bg-card p-4 sm:p-6">
         <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Kommende Reservierungen
         </h2>
@@ -99,7 +99,7 @@ export default function KalenderPage() {
             <table className="w-full text-sm">
               <tbody>
                 {kommende.map(r => (
-                  <tr key={r.id} onClick={() => setSelectedDate(r.datum)} className="cursor-pointer row-accent border-b border-border/50 last:border-0 hover:bg-muted/50">
+                  <tr key={r.id} onClick={() => setSelectedDate(r.datum)} className="cursor-pointer row-lift border-b border-border/50 last:border-0 hover:bg-muted/50">
                     <td className="py-3 pr-4 text-foreground">
                       {formatDateLong(r.datum)}
                     </td>

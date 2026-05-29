@@ -148,8 +148,8 @@ function EigentuemerTab() {
   }
 
   return (
-    <div className="section-fade-in space-y-6">
-      <div className="card-premium rounded-xl border border-border bg-card p-5">
+    <div className="slide-up space-y-6">
+      <div className="card-premium card-glow rounded-xl border border-border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -309,9 +309,9 @@ function AbrechnungTab() {
   }
 
   return (
-    <div className="section-fade-in space-y-6">
+    <div className="slide-up space-y-6">
       {/* Settlement Config */}
-      <div className="card-premium rounded-xl border border-border bg-card p-5">
+      <div className="card-premium card-glow rounded-xl border border-border bg-card p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground flex items-center gap-2">
             <Calculator className="h-4 w-4" />
@@ -410,7 +410,7 @@ function AbrechnungTab() {
 
       {/* Boot Info Summary */}
       {stats && (
-        <div className="card-premium rounded-xl border border-border bg-card p-5">
+        <div className="card-premium card-glow rounded-xl border border-border bg-card p-5">
           <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-3">Boot-Info</h3>
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
@@ -486,7 +486,7 @@ function WartungTab() {
   }
 
   return (
-    <div className="section-fade-in space-y-6">
+    <div className="slide-up space-y-6">
       {/* Overdue Warning */}
       {overdueTasks.length > 0 && (
         <div className="flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
@@ -541,7 +541,7 @@ function WartungTab() {
       )}
 
       {/* Pending Tasks */}
-      <div className="card-premium rounded-xl border border-border bg-card p-5">
+      <div className="card-premium card-glow rounded-xl border border-border bg-card p-5">
         <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-3 flex items-center gap-2">
           <Wrench className="h-4 w-4" />
           Anstehende Wartung ({pendingTasks.length})
@@ -705,8 +705,8 @@ function GentlemanRulesTab() {
   const activeRules = rules.filter((r) => r.aktiv)
 
   return (
-    <div className="section-fade-in space-y-6">
-      <div className="card-premium rounded-xl border border-border bg-card p-5">
+    <div className="slide-up space-y-6">
+      <div className="card-premium card-glow rounded-xl border border-border bg-card p-5">
         <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-4 flex items-center gap-2">
           <ScrollText className="h-4 w-4" />
           Gentleman-Rules ({activeRules.length})

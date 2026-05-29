@@ -183,48 +183,45 @@ export default function DashboardPage() {
       </div>
 
       {/* 4 Stat Cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8">
-        <div className="stagger-child" style={{ '--stagger': 1 } as React.CSSProperties}>
-          <StatCard
-            label={`Ausgaben ${currentYear}`}
-            value={formatCurrency(seasonTotalExpenses)}
-            subtitle={`${seasonAusgaben.length} Posten`}
-            icon={DollarSign}
-          />
-        </div>
-        <Link to="/finanzen" className="stagger-child block" style={{ '--stagger': 2 } as React.CSSProperties}>
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 slide-up-stagger">
+        <StatCard
+          label={`Ausgaben ${currentYear}`}
+          value={formatCurrency(seasonTotalExpenses)}
+          subtitle={`${seasonAusgaben.length} Posten`}
+          icon={DollarSign}
+          gradient="red"
+        />
+        <Link to="/finanzen" className="block">
           <StatCard
             label="Bootkonto"
             value={latestKontostand ? formatCurrency(latestKontostand.betrag) : '--'}
             subtitle={latestKontostand ? `Stand: ${formatDate(latestKontostand.datum)}` : 'Nicht erfasst'}
             icon={Wallet}
+            gradient="green"
           />
         </Link>
-        <div className="stagger-child" style={{ '--stagger': 3 } as React.CSSProperties}>
-          <StatCard
-            label={`Gast-Sessions ${currentYear}`}
-            value={String(seasonSessions.length)}
-            subtitle={`${formatCurrency(seasonSessionsTotal)} Einnahmen`}
-            icon={Users}
-          />
-        </div>
-        <div className="stagger-child" style={{ '--stagger': 4 } as React.CSSProperties}>
-          <StatCard
-            label="Betriebsstunden"
-            value={stats ? `${Number(stats.gesamtstunden)} h` : '0 h'}
-            subtitle={undefined}
-            icon={Ship}
-            accentColor="card-accent-top-warning"
-          />
-        </div>
+        <StatCard
+          label={`Gast-Sessions ${currentYear}`}
+          value={String(seasonSessions.length)}
+          subtitle={`${formatCurrency(seasonSessionsTotal)} Einnahmen`}
+          icon={Users}
+          gradient="blue"
+        />
+        <StatCard
+          label="Betriebsstunden"
+          value={stats ? `${Number(stats.gesamtstunden)} h` : '0 h'}
+          subtitle={undefined}
+          icon={Ship}
+          accentColor="card-accent-top-warning"
+          gradient="amber"
+        />
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 mb-8">
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 mb-8 slide-up-stagger">
         <button
           onClick={() => setShowFahrtForm(true)}
-          className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
-          style={{ '--stagger': 5 } as React.CSSProperties}
+          className="action-card rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent group text-center press-scale"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 group-hover:bg-accent/20 transition-colors">
             <Anchor className="h-5 w-5 text-accent" />
@@ -237,8 +234,7 @@ export default function DashboardPage() {
 
         <button
           onClick={() => setShowAusgabeForm(true)}
-          className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
-          style={{ '--stagger': 6 } as React.CSSProperties}
+          className="action-card rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent group text-center press-scale"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-colors">
             <Plus className="h-5 w-5 text-red-400" />
@@ -251,8 +247,7 @@ export default function DashboardPage() {
 
         <Link
           to="/kalender"
-          className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
-          style={{ '--stagger': 7 } as React.CSSProperties}
+          className="action-card rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent group text-center"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
             <CalendarPlus className="h-5 w-5 text-blue-400" />
@@ -265,8 +260,7 @@ export default function DashboardPage() {
 
         <Link
           to="/gastsessions"
-          className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
-          style={{ '--stagger': 8 } as React.CSSProperties}
+          className="action-card rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent group text-center"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors">
             <UserPlus className="h-5 w-5 text-emerald-400" />
@@ -350,15 +344,12 @@ export default function DashboardPage() {
       )}
 
       {/* Season Overview */}
-      <div className="mb-8">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 stagger-child" style={{ '--stagger': 8 } as React.CSSProperties}>
+      <div className="mb-8 slide-up">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
           Saison {currentYear}
         </h2>
-        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-          <div
-            className="card-premium rounded-xl border border-border bg-card p-4 stagger-child"
-            style={{ '--stagger': 5 } as React.CSSProperties}
-          >
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 slide-up-stagger">
+          <div className="card-premium card-glow card-gradient-red rounded-xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-4 w-4 text-red-400" />
               <span className="text-xs font-medium text-muted-foreground">Ausgaben</span>
@@ -371,10 +362,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div
-            className="card-premium rounded-xl border border-border bg-card p-4 stagger-child"
-            style={{ '--stagger': 6 } as React.CSSProperties}
-          >
+          <div className="card-premium card-glow card-gradient-blue rounded-xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2">
               <Users className="h-4 w-4 text-blue-400" />
               <span className="text-xs font-medium text-muted-foreground">Gast-Sessions</span>
@@ -387,10 +375,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div
-            className="card-premium rounded-xl border border-border bg-card p-4 stagger-child"
-            style={{ '--stagger': 7 } as React.CSSProperties}
-          >
+          <div className="card-premium card-glow card-gradient-amber rounded-xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2">
               <Clock className="h-4 w-4 text-amber-400" />
               <span className="text-xs font-medium text-muted-foreground">Stunden</span>
@@ -403,10 +388,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div
-            className="card-premium rounded-xl border border-border bg-card p-4 stagger-child"
-            style={{ '--stagger': 8 } as React.CSSProperties}
-          >
+          <div className="card-premium card-glow card-gradient-green rounded-xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2">
               <Fuel className="h-4 w-4 text-emerald-400" />
               <span className="text-xs font-medium text-muted-foreground">Treibstoff</span>
@@ -422,12 +404,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Next Booking + Recent Expenses */}
-      <div className="grid gap-6 lg:grid-cols-2 mb-8">
+      <div className="grid gap-6 lg:grid-cols-2 mb-8 slide-up-stagger">
         {/* Letzte Fahrten Card */}
-        <div
-          className="card-premium rounded-xl border border-border bg-card p-5 stagger-child"
-          style={{ '--stagger': 9 } as React.CSSProperties}
-        >
+        <div className="card-premium card-glow rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Letzte Fahrten
@@ -448,7 +427,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {logs.slice(0, 5).map((l) => (
-                <div key={l.id} className="flex items-center justify-between border-b border-border/50 last:border-0 py-2">
+                <div key={l.id} className="flex items-center justify-between border-b border-border/50 last:border-0 py-2 row-lift rounded-md px-1">
                   <div>
                     <p className="text-sm font-medium text-foreground">{formatDate(l.datum)}</p>
                     <div className="flex items-center gap-2 mt-0.5">
@@ -471,10 +450,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Expenses Card */}
-        <div
-          className="card-premium rounded-xl border border-border bg-card p-5 stagger-child"
-          style={{ '--stagger': 10 } as React.CSSProperties}
-        >
+        <div className="card-premium card-glow rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Letzte Ausgaben
@@ -495,7 +471,7 @@ export default function DashboardPage() {
             <table className="w-full text-sm">
               <tbody>
                 {letzteAusgaben.map((a) => (
-                  <tr key={a.id} className="border-b border-border/50 last:border-0">
+                  <tr key={a.id} className="border-b border-border/50 last:border-0 row-lift rounded-md">
                     <td className="py-2 pr-3 align-middle">
                       <p className="font-medium text-foreground truncate max-w-[180px]">{a.bezeichnung}</p>
                       <p className="text-[11px] text-muted-foreground">{formatDate(a.datum)}</p>

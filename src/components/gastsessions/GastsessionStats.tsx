@@ -49,11 +49,11 @@ export function GastsessionStats() {
   }, [sessions])
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 slide-up-stagger">
       {ALLE_FAHRER.filter(f => stats.perFahrer[f].count > 0).map(f => (
         <div
           key={f}
-          className="card-premium card-accent-top rounded-xl border border-border bg-card p-4"
+          className="card-premium card-glow card-accent-top rounded-xl border border-border bg-card p-4"
           style={{ '--tw-accent-top-color': FAHRER_CSS_VARS[f] } as React.CSSProperties}
         >
           <div className="flex items-center justify-between">
@@ -63,7 +63,7 @@ export function GastsessionStats() {
                 {FAHRER_LABELS[f]}
               </p>
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 icon-bounce">
               <Wallet className="h-4 w-4 text-accent" />
             </div>
           </div>
@@ -81,7 +81,7 @@ export function GastsessionStats() {
         </div>
       ))}
 
-      <div className="card-premium card-accent-top rounded-xl border border-border bg-card p-4">
+      <div className="card-premium card-glow card-accent-top card-gradient-blue rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-medium uppercase tracking-[0.05em] text-muted-foreground">
             Gesamt

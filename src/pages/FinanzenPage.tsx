@@ -87,10 +87,10 @@ export default function FinanzenPage() {
       </div>
 
       {tab === 'Übersicht' && (
-        <div className="section-fade-in space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-6 slide-up">
+          <div className="grid gap-4 md:grid-cols-3 slide-up-stagger">
             <KontoBilanzCard />
-            <div className="card-premium p-5">
+            <div className="card-premium card-glow card-gradient-red p-5">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <DollarSign className="h-4 w-4" />
                 Ausgaben {currentYear}
@@ -102,7 +102,7 @@ export default function FinanzenPage() {
                 {ausgabenYear.count} {ausgabenYear.count === 1 ? 'Ausgabe' : 'Ausgaben'}
               </p>
             </div>
-            <div className="card-premium p-5">
+            <div className="card-premium card-glow card-gradient-blue p-5">
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Wallet className="h-4 w-4" />
                 Beiträge {currentYear}
@@ -116,12 +116,12 @@ export default function FinanzenPage() {
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="card-premium p-5">
+          <div className="grid gap-6 lg:grid-cols-2 slide-up-stagger">
+            <div className="card-premium card-glow p-5">
               <h3 className="mb-4 text-sm font-semibold text-muted-foreground">Einnahmen vs. Ausgaben</h3>
               <MonatsdiagrammChart />
             </div>
-            <div className="card-premium p-5">
+            <div className="card-premium card-glow p-5">
               <h3 className="mb-4 text-sm font-semibold text-muted-foreground">Ausgaben nach Kategorie</h3>
               <KategorieChart />
             </div>

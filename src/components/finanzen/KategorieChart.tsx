@@ -93,8 +93,11 @@ export function KategorieChart() {
               cy="40%"
               innerRadius={45}
               outerRadius={75}
-              paddingAngle={2}
+              paddingAngle={3}
               dataKey="value"
+              strokeWidth={0}
+              animationDuration={800}
+              animationEasing="ease-out"
             >
               {data.map((entry) => (
                 <Cell key={entry.key} fill={COLORS[entry.key] ?? '#8AAEC6'} />
@@ -104,10 +107,10 @@ export function KategorieChart() {
               contentStyle={{
                 backgroundColor: 'var(--color-card)',
                 border: '1px solid var(--color-border)',
-                borderRadius: '0.5rem',
+                borderRadius: '0.75rem',
                 fontSize: '0.875rem',
-                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-                padding: '8px 12px',
+                boxShadow: '0 8px 24px -4px rgba(0,0,0,0.12)',
+                padding: '10px 14px',
                 color: 'var(--color-foreground)',
               }}
               formatter={(value, name) => [formatCurrency(Number(value)), name]}

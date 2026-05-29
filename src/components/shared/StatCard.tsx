@@ -7,19 +7,25 @@ interface StatCardProps {
   subtitle?: string
   icon: LucideIcon
   accentColor?: string
+  gradient?: 'green' | 'red' | 'blue' | 'amber' | 'none'
   className?: string
 }
 
-export function StatCard({ label, value, subtitle, icon: Icon, accentColor, className }: StatCardProps) {
+export function StatCard({ label, value, subtitle, icon: Icon, accentColor, gradient, className }: StatCardProps) {
+  const gradientClass = gradient && gradient !== 'none'
+    ? `card-gradient-${gradient}`
+    : ''
+
   return (
     <div className={cn(
-      'card-premium rounded-xl border border-border bg-card p-4',
+      'card-premium card-glow rounded-xl border border-border bg-card p-4 transition-all',
       accentColor ?? 'card-accent-top',
+      gradientClass,
       className
     )}>
       <div className="flex items-start justify-between gap-2">
         <p className="text-[11px] font-medium tracking-[0.05em] text-muted-foreground uppercase leading-tight">{label}</p>
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 icon-bounce">
           <Icon className="h-4 w-4 text-accent" />
         </div>
       </div>

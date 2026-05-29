@@ -100,39 +100,49 @@ export function MonatsdiagrammChart() {
       <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-          <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }} stroke="var(--color-muted-foreground)" />
-          <YAxis tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }} stroke="var(--color-muted-foreground)" />
+          <defs>
+            <linearGradient id="gradEinnahmen" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-success)" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="var(--color-success)" stopOpacity={0.4} />
+            </linearGradient>
+            <linearGradient id="gradAusgaben" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-destructive)" stopOpacity={0.9} />
+              <stop offset="100%" stopColor="var(--color-destructive)" stopOpacity={0.4} />
+            </linearGradient>
+          </defs>
+          <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }} stroke="var(--color-border)" tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }} stroke="var(--color-border)" tickLine={false} axisLine={false} />
           <Tooltip
             contentStyle={{
               backgroundColor: 'var(--color-card)',
               border: '1px solid var(--color-border)',
-              borderRadius: '0.5rem',
+              borderRadius: '0.75rem',
               fontSize: '0.875rem',
-              boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
-              padding: '8px 12px',
+              boxShadow: '0 8px 24px -4px rgba(0,0,0,0.12)',
+              padding: '10px 14px',
               color: 'var(--color-foreground)',
             }}
             formatter={(value) => [formatCurrency(Number(value)), undefined]}
-            cursor={{ fill: 'var(--color-muted)', opacity: 0.3 }}
+            cursor={{ fill: 'var(--color-muted)', opacity: 0.15 }}
           />
           <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px', color: 'var(--color-muted-foreground)' }} />
-          <Bar dataKey="Einnahmen" fill="var(--color-success)" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="Ausgaben" fill="var(--color-destructive)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="Einnahmen" fill="url(#gradEinnahmen)" radius={[6, 6, 0, 0]} animationDuration={800} animationEasing="ease-out" />
+          <Bar dataKey="Ausgaben" fill="url(#gradAusgaben)" radius={[6, 6, 0, 0]} animationDuration={800} animationEasing="ease-out" />
         </BarChart>
       </ResponsiveContainer>
       </div>
-      <div className="grid grid-cols-3 gap-2 sm:gap-3 rounded-lg bg-muted/50 p-3 text-sm">
-        <div className="min-w-0">
-          <p className="text-[11px] sm:text-sm text-muted-foreground">Einnahmen</p>
-          <p className="font-semibold tabular-nums text-success text-xs sm:text-sm">{formatCurrency(totalEinnahmen)}</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 rounded-xl bg-muted/30 p-3 text-sm border border-border/50">
+        <div className="min-w-0 text-center">
+          <p className="text-[11px] sm:text-xs text-muted-foreground mb-0.5">Einnahmen</p>
+          <p className="font-bold tabular-nums text-success text-sm sm:text-base">{formatCurrency(totalEinnahmen)}</p>
         </div>
-        <div className="min-w-0">
-          <p className="text-[11px] sm:text-sm text-muted-foreground">Ausgaben</p>
-          <p className="font-semibold tabular-nums text-destructive text-xs sm:text-sm">{formatCurrency(totalAusgaben)}</p>
+        <div className="min-w-0 text-center border-x border-border/50">
+          <p className="text-[11px] sm:text-xs text-muted-foreground mb-0.5">Ausgaben</p>
+          <p className="font-bold tabular-nums text-destructive text-sm sm:text-base">{formatCurrency(totalAusgaben)}</p>
         </div>
-        <div className="min-w-0">
-          <p className="text-[11px] sm:text-sm text-muted-foreground">Saldo</p>
-          <p className={`font-semibold tabular-nums text-xs sm:text-sm ${saldo >= 0 ? 'text-success' : 'text-destructive'}`}>
+        <div className="min-w-0 text-center">
+          <p className="text-[11px] sm:text-xs text-muted-foreground mb-0.5">Saldo</p>
+          <p className={`font-bold tabular-nums text-sm sm:text-base ${saldo >= 0 ? 'text-success' : 'text-destructive'}`}>
             {saldo >= 0 ? '+' : ''}{formatCurrency(saldo)}
           </p>
         </div>

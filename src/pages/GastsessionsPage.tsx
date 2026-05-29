@@ -5,12 +5,12 @@ import { GastsessionTabelle } from '@/components/gastsessions/GastsessionTabelle
 
 export default function GastsessionsPage() {
   return (
-    <div className="section-fade-in">
+    <div className="slide-up">
       <PageHeader
         title="Gast-Sessions"
         subtitle="Wakesurfen-Sessions mit Gästen"
       />
-      <div className="space-y-6">
+      <div className="space-y-6 slide-up-stagger">
         <GastsessionStats />
         <GastsessionForm />
         <GastsessionTabelle />

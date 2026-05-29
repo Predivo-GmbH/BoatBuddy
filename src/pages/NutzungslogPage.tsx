@@ -80,7 +80,7 @@ export default function NutzungslogPage() {
   }
 
   return (
-    <div className="section-fade-in">
+    <div className="slide-up">
       <PageHeader
         title="Nutzungslog"
         subtitle="Fahrten, Stunden & Treibstoff"
@@ -92,30 +92,34 @@ export default function NutzungslogPage() {
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Saison {currentYear}
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 slide-up-stagger">
             <StatCard
               label={`Stunden ${currentYear}`}
               value={`${seasonStats.totalHours.toFixed(1)}h`}
               subtitle="Betriebsstunden diese Saison"
               icon={Clock}
+              gradient="blue"
             />
             <StatCard
               label="Treibstoff"
               value={formatCurrency(seasonStats.fuelCost)}
               subtitle={`${seasonStats.fuelCount} Tankfüllungen`}
               icon={Fuel}
+              gradient="amber"
             />
             <StatCard
               label="Fahrten"
               value={seasonStats.trips.toString()}
               subtitle={`Saison ${currentYear}`}
               icon={Navigation}
+              gradient="green"
             />
             <StatCard
               label="Durchschnitt"
               value={`${seasonStats.avgHours.toFixed(1)}h`}
               subtitle="Stunden pro Fahrt"
               icon={TrendingUp}
+              gradient="red"
             />
           </div>
         </div>
@@ -125,7 +129,7 @@ export default function NutzungslogPage() {
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             Gesamt (Alle Jahre)
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 slide-up-stagger">
             <StatCard
               label="Stunden total"
               value={`${allTimeStats.totalHours.toFixed(1)}h`}
@@ -163,7 +167,7 @@ export default function NutzungslogPage() {
 
         {/* Fuel cost per driver */}
         {fuelPerFahrer.length > 0 && (
-          <div className="card-premium rounded-xl border border-border bg-card p-5">
+          <div className="card-premium card-glow rounded-xl border border-border bg-card p-5">
             <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
               Treibstoffkosten pro Fahrer
             </h3>
@@ -180,7 +184,7 @@ export default function NutzungslogPage() {
                     </span>
                     <div className="flex-1 overflow-hidden rounded-full bg-muted/40 h-2">
                       <div
-                        className="h-full rounded-full bg-accent/70 transition-all"
+                        className="h-full rounded-full bg-accent/70 bar-grow"
                         style={{ width: `${pct.toFixed(1)}%` }}
                       />
                     </div>
