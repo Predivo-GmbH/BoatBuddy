@@ -109,7 +109,7 @@ export function KategorieChart() {
                 padding: '8px 12px',
                 color: 'var(--color-foreground)',
               }}
-              formatter={(value) => [formatCurrency(Number(value)), undefined]}
+              formatter={(value, name) => [formatCurrency(Number(value)), name]}
             />
             <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px', color: 'var(--color-muted-foreground)' }} />
           </PieChart>
