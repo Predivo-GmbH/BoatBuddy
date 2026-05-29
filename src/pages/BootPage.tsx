@@ -29,6 +29,7 @@ import {
 const TABS = ['Eigentümer', 'Abrechnung', 'Wartung', 'Gentleman-Rules'] as const
 type Tab = (typeof TABS)[number]
 const TAB_ICONS = [Users, Calculator, Wrench, ScrollText] as const
+const TAB_SHORT: Record<Tab, string> = { 'Eigentümer': 'Eigner', 'Abrechnung': 'Abrechn.', 'Wartung': 'Wartung', 'Gentleman-Rules': 'Regeln' }
 
 const inputClass =
   'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
@@ -81,7 +82,8 @@ export default function BootPage() {
               )}
             >
               <Icon className="h-4 w-4 hidden sm:block" />
-              {t}
+              <span className="sm:hidden">{TAB_SHORT[t]}</span>
+              <span className="hidden sm:inline">{t}</span>
             </button>
           )
         })}
