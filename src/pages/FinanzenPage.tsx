@@ -8,6 +8,7 @@ import { AusgabeFormDialog } from '@/components/finanzen/AusgabeFormDialog'
 import { InvoiceUpload } from '@/components/finanzen/InvoiceUpload'
 import { PhoneUploadModal } from '@/components/finanzen/PhoneUploadModal'
 import { BeitraegeGrid } from '@/components/finanzen/BeitraegeGrid'
+import { EinnahmenTabelle } from '@/components/finanzen/EinnahmenTabelle'
 import { AbrechnungCard } from '@/components/finanzen/AbrechnungCard'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useBeitraege } from '@/hooks/useBeitraege'
@@ -229,9 +230,15 @@ export default function FinanzenPage() {
       )}
 
       {tab === 'Einnahmen' && (
-        <div className="section-fade-in">
+        <div className="section-fade-in space-y-6">
           <div className="card-premium p-5">
             <BeitraegeGrid />
+          </div>
+          <div className="card-premium p-5">
+            <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Alle Einnahmen aufs Konto
+            </h3>
+            <EinnahmenTabelle />
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useBeitraege } from '@/hooks/useBeitraege'
+import { useGastsessions } from '@/hooks/useGastsessions'
 import { formatCurrency } from '@/lib/format'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -11,6 +12,7 @@ const MONATE = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 export function MonatsdiagrammChart() {
   const { ausgaben } = useAusgaben()
+  const { sessions } = useGastsessions()
 
   // Fetch all beitraege months to detect latest year
   const { data: beitraegeMonths = [] } = useQuery({
@@ -47,15 +49,23 @@ export function MonatsdiagrammChart() {
   const data = useMemo(() => {
     return MONATE.map((name, i) => {
       const monatStr = `${jahr}-${String(i + 1).padStart(2, '0')}`
-      const einnahmen = beitraege
+      // Einnahmen: beitraege + gastsessions deposited to bank
+      const beitraegeSum = beitraege
         .filter(b => b.monat.startsWith(monatStr))
         .reduce((sum, b) => sum + Number(b.betrag), 0)
-      const kosten = ausgaben
-        .filter(a => a.datum.startsWith(monatStr))
+      const gastsessionSum = sessions
+        .filter(s => s.auf_konto_eingezahlt && (s.eingezahlt_am ?? s.datum).startsWith(monatStr))
+        .reduce((sum, s) => sum + Number(s.betrag), 0)
+      // Ausgaben: only what affected the bank account (bootkonto + reimbursed)
+      const bootkonto = ausgaben
+        .filter(a => a.bezahlt_von === 'bootkonto' && a.datum.startsWith(monatStr))
         .reduce((sum, a) => sum + Number(a.betrag), 0)
-      return { name, Einnahmen: einnahmen, Ausgaben: kosten }
+      const erstattungen = ausgaben
+        .filter(a => a.bezahlt_von !== 'bootkonto' && a.erstattet && (a.erstattet_am ?? a.datum).startsWith(monatStr))
+        .reduce((sum, a) => sum + Number(a.betrag), 0)
+      return { name, Einnahmen: beitraegeSum + gastsessionSum, Ausgaben: bootkonto + erstattungen }
     })
-  }, [ausgaben, beitraege, jahr])
+  }, [ausgaben, beitraege, sessions, jahr])
 
   const hasData = data.some(d => d.Einnahmen > 0 || d.Ausgaben > 0)
 
