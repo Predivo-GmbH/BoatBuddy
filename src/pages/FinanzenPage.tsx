@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { KontoBilanzCard } from '@/components/finanzen/KontoBilanzCard'
 import { MonatsdiagrammChart } from '@/components/finanzen/MonatsdiagrammChart'
@@ -14,7 +14,10 @@ import { useBeitraege } from '@/hooks/useBeitraege'
 import { useTabKeyboard } from '@/hooks/useTabKeyboard'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { DollarSign, Wallet, Smartphone } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { DollarSign, Wallet, Camera, Smartphone } from 'lucide-react'
 import type { Ausgabe } from '@/types'
 
 const TABS = ['Übersicht', 'Ausgaben', 'Einnahmen'] as const
@@ -24,6 +27,8 @@ export default function FinanzenPage() {
   const [tab, setTab] = useState<Tab>('Übersicht')
   const [extractedAusgabe, setExtractedAusgabe] = useState<Ausgabe | null>(null)
   const [phoneUploadOpen, setPhoneUploadOpen] = useState(false)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const queryClient = useQueryClient()
   const tabKeyDown = useTabKeyboard(TABS, tab, setTab)
   const currentYear = new Date().getFullYear()
   const { ausgaben } = useAusgaben()
@@ -57,6 +62,62 @@ export default function FinanzenPage() {
     window.addEventListener('resize', updateIndicator)
     return () => window.removeEventListener('resize', updateIndicator)
   }, [tab])
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
+
+  const handleMobileCameraCapture = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (cameraInputRef.current) cameraInputRef.current.value = ''
+    if (!file) return
+
+    try {
+      toast.info('Foto wird hochgeladen...')
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+      const storagePath = `${crypto.randomUUID()}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('dokumente')
+        .upload(storagePath, file, { contentType: file.type })
+      if (uploadError) throw new Error(`Upload fehlgeschlagen: ${uploadError.message}`)
+
+      const { data: ausgabe, error: insertError } = await supabase
+        .from('ausgaben')
+        .insert({
+          bezeichnung: 'Handy-Foto',
+          betrag: 0,
+          kategorie: 'sonstiges',
+          datum: new Date().toISOString().split('T')[0],
+          bezahlt_von: 'bootkonto',
+          dokument_pfad: storagePath,
+          verarbeitungs_status: 'verarbeitung',
+        })
+        .select()
+        .single()
+      if (insertError || !ausgabe) throw new Error(`DB-Eintrag fehlgeschlagen: ${insertError?.message}`)
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      fetch(`${supabaseUrl}/functions/v1/extract-expense`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}`, 'apikey': anonKey },
+        body: JSON.stringify({ ausgabe_id: ausgabe.id, storage_path: storagePath }),
+      }).catch(() => {})
+
+      queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
+      queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
+      toast.success('Foto hochgeladen — KI-Extraktion läuft')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Upload fehlgeschlagen')
+    }
+  }, [queryClient])
+
+  const handlePhotoClick = useCallback(() => {
+    if (isMobile) {
+      cameraInputRef.current?.click()
+    } else {
+      setPhoneUploadOpen(true)
+    }
+  }, [isMobile])
 
   return (
     <>
@@ -137,13 +198,22 @@ export default function FinanzenPage() {
       {tab === 'Ausgaben' && (
         <div className="section-fade-in space-y-4">
           <InvoiceUpload onExtracted={setExtractedAusgabe} />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleMobileCameraCapture}
+            className="hidden"
+            aria-label="Foto aufnehmen"
+          />
           <div className="flex justify-end gap-2">
             <button
-              onClick={() => setPhoneUploadOpen(true)}
+              onClick={handlePhotoClick}
               className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
             >
-              <Smartphone className="h-4 w-4" />
-              Foto mit Handy
+              {isMobile ? <Camera className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
+              {isMobile ? 'Foto aufnehmen' : 'Foto mit Handy'}
             </button>
             <AusgabeFormDialog />
           </div>
