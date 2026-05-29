@@ -429,7 +429,7 @@ function AbrechnungTab() {
                     <span className="text-sm font-medium text-foreground">{label}</span>
                     <span className="text-xs text-muted-foreground">({Number(e.anteil_prozent).toFixed(1)}%)</span>
                   </div>
-                  <span className="text-lg font-bold tabular-nums text-foreground">{formatCurrency(payout)}</span>
+                  <span className="text-lg font-bold tabular-nums text-foreground">{formatCurrency(Math.round(payout))}</span>
                 </div>
               )
             })}
