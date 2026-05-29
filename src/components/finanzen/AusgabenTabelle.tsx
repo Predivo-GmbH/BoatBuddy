@@ -14,7 +14,7 @@ const KATEGORIE_COLORS: Record<Kategorie, string> = {
   versicherung: 'bg-[#2D9E6B]/10 text-[#2D9E6B]',
   verkehrssteuer: 'bg-[#F59E0B]/10 text-[#F59E0B]',
   winterlager: 'bg-[#6366F1]/10 text-[#6366F1]',
-  fruehlingslager: 'bg-[#10B981]/10 text-[#10B981]',
+  fruehlingslager: 'bg-[#F472B6]/10 text-[#F472B6]',
   vorfuehren: 'bg-[#64748B]/10 text-[#64748B]',
   treibstoff: 'bg-[#E09B3D]/10 text-[#E09B3D]',
   material: 'bg-[#06B6D4]/10 text-[#06B6D4]',

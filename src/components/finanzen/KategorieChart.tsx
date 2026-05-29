@@ -10,7 +10,7 @@ const COLORS: Record<string, string> = {
   versicherung: '#2D9E6B',
   verkehrssteuer: '#F59E0B',
   winterlager: '#6366F1',
-  fruehlingslager: '#10B981',
+  fruehlingslager: '#F472B6',
   vorfuehren: '#64748B',
   treibstoff: '#E09B3D',
   material: '#06B6D4',
