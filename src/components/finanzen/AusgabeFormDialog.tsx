@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useAusgaben } from '@/hooks/useAusgaben'
-import { KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
+import { FAHRER, FAHRER_LABELS, KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -42,6 +42,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
   const [betrag, setBetrag] = useState(editAusgabe ? String(editAusgabe.betrag) : '')
   const [kategorie, setKategorie] = useState<Kategorie>(editAusgabe?.kategorie ?? 'sonstiges')
   const [datum, setDatum] = useState(editAusgabe?.datum ?? todayISO())
+  const [bezahltVon, setBezahltVon] = useState(editAusgabe?.bezahlt_von ?? 'bootkonto')
   const [notiz, setNotiz] = useState(editAusgabe?.notiz ?? '')
   const [kategorieManuallySet, setKategorieManuallySet] = useState(false)
   const { createAusgabe, updateAusgabe } = useAusgaben()
@@ -54,6 +55,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
     setBezeichnung('')
     setBetrag('')
     setKategorie('sonstiges')
+    setBezahltVon('bootkonto')
     setKategorieManuallySet(false)
     setDatum(todayISO())
     setNotiz('')
@@ -96,7 +98,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
 
     if (isEdit && editAusgabe) {
       updateAusgabe.mutate(
-        { id: editAusgabe.id, bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, notiz: notiz.trim() || undefined },
+        { id: editAusgabe.id, bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, bezahlt_von: bezahltVon, notiz: notiz.trim() || undefined },
         {
           onSuccess: () => {
             toast.success('Ausgabe aktualisiert')
@@ -107,7 +109,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
       )
     } else {
       createAusgabe.mutate(
-        { bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, notiz: notiz.trim() || undefined },
+        { bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, bezahlt_von: bezahltVon, notiz: notiz.trim() || undefined },
         {
           onSuccess: () => {
             toast.success('Ausgabe gespeichert')
@@ -200,6 +202,19 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
                 >
                   {KATEGORIEN.map(k => (
                     <option key={k} value={k}>{KATEGORIE_LABELS[k]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Bezahlt von</label>
+                <select
+                  value={bezahltVon}
+                  onChange={e => setBezahltVon(e.target.value)}
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  <option value="bootkonto">Bootkonto</option>
+                  {FAHRER.map(f => (
+                    <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
                   ))}
                 </select>
               </div>

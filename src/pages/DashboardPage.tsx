@@ -16,6 +16,8 @@ import {
   CalendarPlus,
   UserPlus,
   ChevronRight,
+  Anchor,
+  Loader2,
 } from 'lucide-react'
 import { useKontostand } from '@/hooks/useKontostand'
 import { useReservierungen } from '@/hooks/useReservierungen'
@@ -24,8 +26,9 @@ import { useBootStats } from '@/hooks/useBootStats'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
 import { formatCurrency, formatDate, formatDateLong, todayISO } from '@/lib/format'
-import { FAHRER_LABELS, FAHRER_FARBEN, FAHRER_TEXT_FARBEN } from '@/lib/fahrer'
-import type { AlleFahrer } from '@/lib/fahrer'
+import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_TEXT_FARBEN } from '@/lib/fahrer'
+import type { AlleFahrer, Fahrer } from '@/lib/fahrer'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
@@ -77,6 +80,32 @@ export default function DashboardPage() {
   }, [ausgaben])
 
   const [showAusgabeForm, setShowAusgabeForm] = useState(false)
+  const [showFahrtForm, setShowFahrtForm] = useState(false)
+  const [fahrtFahrer, setFahrtFahrer] = useState<Fahrer>('roger')
+  const [fahrtStunden, setFahrtStunden] = useState('')
+  const [fahrtTreibstoff, setFahrtTreibstoff] = useState('')
+  const { createNutzungslog } = useNutzungslogs()
+
+  const handleQuickLog = () => {
+    const stunden = parseFloat(fahrtStunden)
+    if (isNaN(stunden) || stunden <= 0) {
+      toast.error('Bitte Betriebsstunden angeben')
+      return
+    }
+    const liter = fahrtTreibstoff ? parseFloat(fahrtTreibstoff) : undefined
+    createNutzungslog.mutate(
+      { datum: todayISO(), fahrer: fahrtFahrer, betriebsstunden: stunden, treibstoff_liter: liter, aktivitaeten: [] },
+      {
+        onSuccess: () => {
+          toast.success('Fahrt erfasst')
+          setShowFahrtForm(false)
+          setFahrtStunden('')
+          setFahrtTreibstoff('')
+        },
+        onError: () => toast.error('Fehler beim Speichern'),
+      },
+    )
+  }
 
   const isLoading = kontoLoading || resvLoading || sessionsLoading || statsLoading || ausgabenLoading || logsLoading
 
@@ -93,27 +122,64 @@ export default function DashboardPage() {
     <div className="section-fade-in">
       <PageHeader title="Dashboard" subtitle="Alles auf einen Blick" />
 
-      {/* Hero Balance Card */}
+      {/* Next Reservation — hero card */}
       <div
         className="card-premium card-accent-top-success rounded-xl border border-border bg-card p-6 mb-6 stagger-child"
         style={{ '--stagger': 0 } as React.CSSProperties}
       >
-        <div className="flex items-center gap-3 mb-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
-            <Wallet className="h-5 w-5 text-emerald-500" />
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-accent" />
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              Nächste Reservierung
+            </h2>
           </div>
-          <p className="text-sm font-medium text-muted-foreground">Bootkonto</p>
+          <Link
+            to="/kalender"
+            className="text-xs font-medium text-accent hover:underline flex items-center gap-0.5"
+          >
+            Kalender <ChevronRight className="h-3 w-3" />
+          </Link>
         </div>
-        {isLoading ? (
-          <div className="h-10 w-48 skeleton-shimmer rounded-lg" />
+        {nextReservation ? (
+          <div className="flex items-center gap-4">
+            <div
+              className={cn(
+                'h-14 w-1.5 rounded-full',
+                FAHRER_FARBEN[nextReservation.fahrer as AlleFahrer]
+              )}
+            />
+            <div>
+              <p className="text-2xl font-bold text-foreground">
+                {formatDateLong(nextReservation.datum)}
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <span
+                  className={cn(
+                    'text-sm font-medium',
+                    FAHRER_TEXT_FARBEN[nextReservation.fahrer as AlleFahrer]
+                  )}
+                >
+                  {FAHRER_LABELS[nextReservation.fahrer as AlleFahrer]}
+                </span>
+                {nextReservation.von_zeit && nextReservation.bis_zeit && (
+                  <span className="text-xs text-muted-foreground">
+                    {nextReservation.von_zeit.slice(0, 5)} – {nextReservation.bis_zeit.slice(0, 5)} Uhr
+                  </span>
+                )}
+              </div>
+              {nextReservation.notiz && (
+                <p className="text-xs text-muted-foreground mt-1">{nextReservation.notiz}</p>
+              )}
+            </div>
+          </div>
         ) : (
-          <p className="text-4xl font-bold tabular-nums text-foreground">
-            {latestKontostand ? formatCurrency(latestKontostand.betrag) : 'CHF 0.00'}
-          </p>
+          <div className="flex flex-col items-center justify-center py-4 text-muted-foreground">
+            <Calendar className="h-8 w-8 mb-2 opacity-30" />
+            <p className="text-sm">Keine Reservierungen geplant</p>
+            <Link to="/kalender" className="mt-2 text-xs text-accent hover:underline">Boot reservieren</Link>
+          </div>
         )}
-        <p className="mt-1 text-xs text-muted-foreground">
-          Stand: {latestKontostand ? formatDateLong(latestKontostand.datum) : '--'}
-        </p>
       </div>
 
       {/* 4 Stat Cards */}
@@ -126,18 +192,14 @@ export default function DashboardPage() {
             icon={DollarSign}
           />
         </div>
-        <div className="stagger-child" style={{ '--stagger': 2 } as React.CSSProperties}>
+        <Link to="/finanzen" className="stagger-child block" style={{ '--stagger': 2 } as React.CSSProperties}>
           <StatCard
-            label="Nächste Reservierung"
-            value={nextReservation ? formatDate(nextReservation.datum) : '--'}
-            subtitle={
-              nextReservation
-                ? FAHRER_LABELS[nextReservation.fahrer as AlleFahrer]
-                : 'Keine geplant'
-            }
-            icon={Calendar}
+            label="Bootkonto"
+            value={latestKontostand ? formatCurrency(latestKontostand.betrag) : '--'}
+            subtitle={latestKontostand ? `Stand: ${formatDate(latestKontostand.datum)}` : 'Nicht erfasst'}
+            icon={Wallet}
           />
-        </div>
+        </Link>
         <div className="stagger-child" style={{ '--stagger': 3 } as React.CSSProperties}>
           <StatCard
             label={`Gast-Sessions ${currentYear}`}
@@ -157,12 +219,26 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick Actions — centered */}
-      <div className="grid gap-3 grid-cols-1 sm:grid-cols-3 mb-8">
+      {/* Quick Actions */}
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 mb-8">
+        <button
+          onClick={() => setShowFahrtForm(true)}
+          className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
+          style={{ '--stagger': 5 } as React.CSSProperties}
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 group-hover:bg-accent/20 transition-colors">
+            <Anchor className="h-5 w-5 text-accent" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">Fahrt loggen</p>
+            <p className="text-[11px] text-muted-foreground">Heutige Fahrt</p>
+          </div>
+        </button>
+
         <button
           onClick={() => setShowAusgabeForm(true)}
           className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
-          style={{ '--stagger': 5 } as React.CSSProperties}
+          style={{ '--stagger': 6 } as React.CSSProperties}
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-colors">
             <Plus className="h-5 w-5 text-red-400" />
@@ -176,31 +252,98 @@ export default function DashboardPage() {
         <Link
           to="/kalender"
           className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
-          style={{ '--stagger': 6 } as React.CSSProperties}
+          style={{ '--stagger': 7 } as React.CSSProperties}
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
             <CalendarPlus className="h-5 w-5 text-blue-400" />
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">Reservierung</p>
-            <p className="text-[11px] text-muted-foreground">Boot reservieren</p>
+            <p className="text-[11px] text-muted-foreground">Boot buchen</p>
           </div>
         </Link>
 
         <Link
           to="/gastsessions"
           className="card-premium rounded-xl border-2 border-dashed border-border bg-card p-4 flex flex-col items-center justify-center gap-2 hover:border-accent transition-colors group stagger-child text-center"
-          style={{ '--stagger': 7 } as React.CSSProperties}
+          style={{ '--stagger': 8 } as React.CSSProperties}
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 group-hover:bg-emerald-500/20 transition-colors">
             <UserPlus className="h-5 w-5 text-emerald-400" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">Session erfassen</p>
-            <p className="text-[11px] text-muted-foreground">Gastsession buchen</p>
+            <p className="text-sm font-semibold text-foreground">Gastsession</p>
+            <p className="text-[11px] text-muted-foreground">Session buchen</p>
           </div>
         </Link>
       </div>
+
+      {/* Quick Trip Log Dialog */}
+      {showFahrtForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowFahrtForm(false)}>
+          <div className="w-full max-w-sm rounded-xl bg-card border border-border p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Fahrt loggen</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Fahrer</label>
+                <select
+                  value={fahrtFahrer}
+                  onChange={e => setFahrtFahrer(e.target.value as Fahrer)}
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  {FAHRER.map(f => (
+                    <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Betriebsstunden *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={fahrtStunden}
+                  onChange={e => setFahrtStunden(e.target.value)}
+                  placeholder="z.B. 2.5"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Treibstoff (Liter)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={fahrtTreibstoff}
+                  onChange={e => setFahrtTreibstoff(e.target.value)}
+                  placeholder="Optional"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setShowFahrtForm(false)}
+                className="flex-1 min-h-[44px] rounded-lg border border-input px-3 text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleQuickLog}
+                disabled={createNutzungslog.isPending}
+                className="flex-1 min-h-[44px] rounded-lg bg-accent px-3 text-sm font-semibold text-accent-foreground hover:bg-accent/90 transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-2"
+              >
+                {createNutzungslog.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Erfassen
+              </button>
+            </div>
+            <p className="mt-3 text-[11px] text-muted-foreground text-center">
+              Für Details (Aktivitäten, Notizen) → <Link to="/nutzung" className="text-accent hover:underline">Nutzungslog</Link>
+            </p>
+          </div>
+        </div>
+      )}
 
       {showAusgabeForm && (
         <AusgabeFormDialog onClose={() => setShowAusgabeForm(false)} autoOpen />
@@ -280,58 +423,49 @@ export default function DashboardPage() {
 
       {/* Next Booking + Recent Expenses */}
       <div className="grid gap-6 lg:grid-cols-2 mb-8">
-        {/* Next Booking Card */}
+        {/* Letzte Fahrten Card */}
         <div
           className="card-premium rounded-xl border border-border bg-card p-5 stagger-child"
           style={{ '--stagger': 9 } as React.CSSProperties}
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Nächste Buchung
+              Letzte Fahrten
             </h2>
             <Link
-              to="/kalender"
+              to="/nutzung"
               className="text-xs font-medium text-accent hover:underline flex items-center gap-0.5"
             >
-              Kalender <ChevronRight className="h-3 w-3" />
+              Alle anzeigen <ChevronRight className="h-3 w-3" />
             </Link>
           </div>
-          {nextReservation ? (
-            <div className="flex items-center gap-4">
-              <div
-                className={cn(
-                  'h-12 w-1.5 rounded-full',
-                  FAHRER_FARBEN[nextReservation.fahrer as AlleFahrer]
-                )}
-              />
-              <div>
-                <p className="text-lg font-semibold text-foreground">
-                  {formatDateLong(nextReservation.datum)}
-                </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span
-                    className={cn(
-                      'text-sm font-medium',
-                      FAHRER_TEXT_FARBEN[nextReservation.fahrer as AlleFahrer]
-                    )}
-                  >
-                    {FAHRER_LABELS[nextReservation.fahrer as AlleFahrer]}
-                  </span>
-                  {nextReservation.von_zeit && nextReservation.bis_zeit && (
-                    <span className="text-xs text-muted-foreground">
-                      {nextReservation.von_zeit.slice(0, 5)} – {nextReservation.bis_zeit.slice(0, 5)} Uhr
-                    </span>
-                  )}
-                </div>
-                {nextReservation.notiz && (
-                  <p className="text-xs text-muted-foreground mt-1">{nextReservation.notiz}</p>
-                )}
-              </div>
+          {logs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+              <Ship className="h-8 w-8 mb-2 opacity-30" />
+              <p className="text-sm">Noch keine Fahrten erfasst</p>
+              <Link to="/nutzung" className="mt-2 text-xs text-accent hover:underline">Erste Fahrt loggen</Link>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
-              <Calendar className="h-8 w-8 mb-2 opacity-30" />
-              <p className="text-sm">Keine Reservierungen geplant</p>
+            <div className="space-y-2">
+              {logs.slice(0, 5).map((l) => (
+                <div key={l.id} className="flex items-center justify-between border-b border-border/50 last:border-0 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{formatDate(l.datum)}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={cn('text-xs font-medium', FAHRER_TEXT_FARBEN[l.fahrer as AlleFahrer])}>
+                        {FAHRER_LABELS[l.fahrer as AlleFahrer] ?? l.fahrer}
+                      </span>
+                      {l.notiz && <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{l.notiz}</span>}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold tabular-nums text-foreground">{Number(l.betriebsstunden).toFixed(1)} h</p>
+                    {l.treibstoff_liter && (
+                      <p className="text-[11px] text-muted-foreground tabular-nums">{Number(l.treibstoff_liter).toFixed(1)} L</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
