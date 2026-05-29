@@ -47,11 +47,11 @@ export default function NutzungslogPage() {
 
     const aFuelCost = fuelAusgaben.reduce((sum, a) => sum + Number(a.betrag), 0)
     const aFuelCount = fuelAusgaben.length
-    const aAvgFuel = aFuelCount > 0 ? aFuelCost / aFuelCount : 0
+    const aFuelPerHour = aHours > 0 ? aFuelCost / aHours : 0
 
     return {
       seasonStats: { totalHours: sHours, fuelCost: sFuelCost, fuelCount: sFuelCount, trips: sTrips, avgHours: sAvgHours },
-      allTimeStats: { totalHours: aHours, fuelCost: aFuelCost, fuelCount: aFuelCount, trips: aTrips, avgFuel: aAvgFuel },
+      allTimeStats: { totalHours: aHours, fuelCost: aFuelCost, fuelCount: aFuelCount, trips: aTrips, fuelPerHour: aFuelPerHour },
     }
   }, [logs, fuelAusgaben, currentYear])
 
@@ -148,10 +148,10 @@ export default function NutzungslogPage() {
               accentColor="border-t-2 border-t-muted"
             />
             <StatCard
-              label="Ø Tankfüllung"
-              value={formatCurrency(allTimeStats.avgFuel)}
-              subtitle="Pro Tankvorgang"
-              icon={Fuel}
+              label="Ø pro Stunde"
+              value={formatCurrency(allTimeStats.fuelPerHour)}
+              subtitle="Treibstoff pro Betriebsstunde"
+              icon={TrendingUp}
               accentColor="border-t-2 border-t-muted"
             />
           </div>
