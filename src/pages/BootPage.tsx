@@ -263,7 +263,6 @@ function EigentuemerTab() {
 
 function AbrechnungTab() {
   const { config, isLoading, updateConfig } = useAbrechnung()
-  const { eigentuemer } = useEigentuemer()
   const { stats } = useBootStats()
   const [editing, setEditing] = useState(false)
   const [marktwert, setMarktwert] = useState('')
@@ -408,34 +407,6 @@ function AbrechnungTab() {
           </div>
         )}
       </div>
-
-      {/* Settlement Simulator */}
-      {currentValue > 0 && eigentuemer.length > 0 && (
-        <div className="card-premium rounded-xl border border-border bg-card p-5">
-          <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-4">
-            Austrittssimulation
-          </h3>
-          <p className="text-sm text-muted-foreground mb-3">
-            Bei einem Austritt wird der Anteil am aktuellen Marktwert ausbezahlt:
-          </p>
-          <div className="space-y-2">
-            {eigentuemer.map((e) => {
-              const payout = (Number(e.anteil_prozent) / 100) * currentValue
-              const label = FAHRER_LABELS[e.fahrer as AlleFahrer] ?? e.fahrer
-              return (
-                <div key={e.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className={cn('h-2.5 w-2.5 rounded-full', FAHRER_FARBEN[e.fahrer as AlleFahrer])} />
-                    <span className="text-sm font-medium text-foreground">{label}</span>
-                    <span className="text-xs text-muted-foreground">({Number(e.anteil_prozent).toFixed(1)}%)</span>
-                  </div>
-                  <span className="text-lg font-bold tabular-nums text-foreground">{formatCurrency(Math.round(payout))}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Boot Info Summary */}
       {stats && (

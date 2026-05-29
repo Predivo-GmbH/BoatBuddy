@@ -42,11 +42,12 @@ async function fetchWithRetry(url: string, init: RequestInit, label: string): Pr
 }
 
 const BOAT_CATEGORIES = [
-  'bootsplatz', 'versicherung', 'verkehrssteuer', 'winterlager', 'fruehlingslager',
+  'bootskauf', 'bootsplatz', 'versicherung', 'verkehrssteuer', 'winterlager', 'fruehlingslager',
   'vorfuehren', 'treibstoff', 'material', 'reparatur', 'service', 'sonstiges',
 ] as const
 
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  bootskauf: ['bootskauf', 'bootkauf', 'kaufvertrag', 'ankauf'],
   bootsplatz: ['bootsplatz', 'platz', 'hafen', 'liegeplatz', 'hafengebühr'],
   versicherung: ['versicherung', 'axa', 'police', 'prämie', 'deckung'],
   verkehrssteuer: ['verkehrsamt', 'verkehrssteuer', 'steuer', 'schifffahrt', 'wasserfzg'],
@@ -162,7 +163,7 @@ Extract ONLY what is present in the text. Return valid JSON with these fields:
   "bezeichnung": "Short description of the expense (e.g. 'AXA Versicherung 2025', 'Winterlagerpaket')",
   "betrag": 1234.56,
   "datum": "2025-01-15",
-  "kategorie": "one of: bootsplatz, versicherung, verkehrssteuer, winterlager, fruehlingslager, vorfuehren, treibstoff, material, reparatur, service, sonstiges",
+  "kategorie": "one of: bootskauf, bootsplatz, versicherung, verkehrssteuer, winterlager, fruehlingslager, vorfuehren, treibstoff, material, reparatur, service, sonstiges",
   "notiz": "Any additional relevant details (bill number, reference, etc.)",
   "confidence": 0.95
 }

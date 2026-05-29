@@ -31,12 +31,13 @@ export const FAHRER_BORDER_FARBEN: Record<AlleFahrer, string> = {
 }
 
 export const KATEGORIEN = [
-  'bootsplatz', 'versicherung', 'verkehrssteuer', 'winterlager', 'fruehlingslager',
+  'bootskauf', 'bootsplatz', 'versicherung', 'verkehrssteuer', 'winterlager', 'fruehlingslager',
   'vorfuehren', 'treibstoff', 'material', 'reparatur', 'service', 'sonstiges'
 ] as const
 export type Kategorie = typeof KATEGORIEN[number]
 
 export const KATEGORIE_LABELS: Record<Kategorie, string> = {
+  bootskauf: 'Bootskauf',
   bootsplatz: 'Bootsplatz',
   versicherung: 'Versicherung',
   verkehrssteuer: 'Verkehrssteuer',

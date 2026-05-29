@@ -10,6 +10,7 @@ import { AusgabeFormDialog } from './AusgabeFormDialog'
 import type { Ausgabe } from '@/types'
 
 const KATEGORIE_COLORS: Record<Kategorie, string> = {
+  bootskauf: 'bg-[#7C3AED]/10 text-[#7C3AED]',
   bootsplatz: 'bg-[#0EA5E9]/10 text-[#0EA5E9]',
   versicherung: 'bg-[#2D9E6B]/10 text-[#2D9E6B]',
   verkehrssteuer: 'bg-[#F59E0B]/10 text-[#F59E0B]',

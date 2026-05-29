@@ -6,6 +6,7 @@ import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const COLORS: Record<string, string> = {
+  bootskauf: '#7C3AED',
   bootsplatz: '#0EA5E9',
   versicherung: '#2D9E6B',
   verkehrssteuer: '#F59E0B',
