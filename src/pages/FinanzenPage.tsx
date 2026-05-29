@@ -62,7 +62,7 @@ export default function FinanzenPage() {
       {/* Pill-style tab navigation with animated indicator */}
       <div className="relative mb-6 flex gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="Finanzen-Tabs">
         <div
-          className="absolute top-1 bottom-1 rounded-lg bg-card shadow-sm transition-all duration-300 ease-out"
+          className="absolute top-1 bottom-1 rounded-lg bg-card shadow-sm border border-border transition-all duration-300 ease-out"
           style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
         />
         {TABS.map((t, i) => (
@@ -77,7 +77,7 @@ export default function FinanzenPage() {
             className={cn(
               'relative z-10 flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors',
               tab === t
-                ? 'text-foreground'
+                ? 'text-accent font-semibold'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
