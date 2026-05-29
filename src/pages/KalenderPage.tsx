@@ -30,7 +30,7 @@ export default function KalenderPage() {
 
   return (
     <div className="slide-up space-y-6">
-      <PageHeader title="Kalender" />
+      <PageHeader title="Kalender" subtitle="Reservierungen & Verfügbarkeit" />
 
       <div className="card-premium card-glow rounded-lg border border-border bg-card p-4 sm:p-6">
         {/* Month navigation */}

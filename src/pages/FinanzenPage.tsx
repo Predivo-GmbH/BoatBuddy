@@ -57,7 +57,7 @@ export default function FinanzenPage() {
 
   return (
     <>
-      <PageHeader title="Finanzen" />
+      <PageHeader title="Finanzen" subtitle="Kontostand, Ausgaben & Beiträge" />
 
       {/* Pill-style tab navigation with animated indicator */}
       <div className="relative mb-6 flex gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="Finanzen-Tabs">
