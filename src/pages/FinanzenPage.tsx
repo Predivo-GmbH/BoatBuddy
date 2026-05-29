@@ -6,6 +6,7 @@ import { KategorieChart } from '@/components/finanzen/KategorieChart'
 import { AusgabenTabelle } from '@/components/finanzen/AusgabenTabelle'
 import { AusgabeFormDialog } from '@/components/finanzen/AusgabeFormDialog'
 import { InvoiceUpload } from '@/components/finanzen/InvoiceUpload'
+import { PhoneUploadModal } from '@/components/finanzen/PhoneUploadModal'
 import { BeitraegeGrid } from '@/components/finanzen/BeitraegeGrid'
 import { AbrechnungCard } from '@/components/finanzen/AbrechnungCard'
 import { useAusgaben } from '@/hooks/useAusgaben'
@@ -13,7 +14,7 @@ import { useBeitraege } from '@/hooks/useBeitraege'
 import { useTabKeyboard } from '@/hooks/useTabKeyboard'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { DollarSign, Wallet } from 'lucide-react'
+import { DollarSign, Wallet, Smartphone } from 'lucide-react'
 import type { Ausgabe } from '@/types'
 
 const TABS = ['Übersicht', 'Ausgaben', 'Einnahmen'] as const
@@ -22,6 +23,7 @@ type Tab = typeof TABS[number]
 export default function FinanzenPage() {
   const [tab, setTab] = useState<Tab>('Übersicht')
   const [extractedAusgabe, setExtractedAusgabe] = useState<Ausgabe | null>(null)
+  const [phoneUploadOpen, setPhoneUploadOpen] = useState(false)
   const tabKeyDown = useTabKeyboard(TABS, tab, setTab)
   const currentYear = new Date().getFullYear()
   const { ausgaben } = useAusgaben()
@@ -135,9 +137,17 @@ export default function FinanzenPage() {
       {tab === 'Ausgaben' && (
         <div className="section-fade-in space-y-4">
           <InvoiceUpload onExtracted={setExtractedAusgabe} />
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setPhoneUploadOpen(true)}
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-input px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+            >
+              <Smartphone className="h-4 w-4" />
+              Foto mit Handy
+            </button>
             <AusgabeFormDialog />
           </div>
+          <PhoneUploadModal open={phoneUploadOpen} onOpenChange={setPhoneUploadOpen} />
           <AusgabenTabelle />
           {extractedAusgabe && (
             <AusgabeFormDialog

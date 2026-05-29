@@ -13,6 +13,7 @@ const KalenderPage = lazy(() => import('@/pages/KalenderPage'))
 const GastsessionsPage = lazy(() => import('@/pages/GastsessionsPage'))
 const NutzungslogPage = lazy(() => import('@/pages/NutzungslogPage'))
 const BootPage = lazy(() => import('@/pages/BootPage'))
+const PhoneUploadPage = lazy(() => import('@/pages/PhoneUploadPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 const queryClient = new QueryClient({
@@ -29,24 +30,26 @@ function App() {
     <ErrorBoundary>
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
     <QueryClientProvider client={queryClient}>
-      <PasswordGate>
-        <BrowserRouter>
-          <Suspense fallback={<div className="flex h-screen items-center justify-center text-muted-foreground">Laden...</div>}>
-            <Routes>
-              <Route element={<AppLayout />}>
-                <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<DashboardPage />} />
-                <Route path="finanzen" element={<FinanzenPage />} />
-                <Route path="kalender" element={<KalenderPage />} />
-                <Route path="gastsessions" element={<GastsessionsPage />} />
-                <Route path="nutzung" element={<NutzungslogPage />} />
-                <Route path="boot" element={<BootPage />} />
-                <Route path="*" element={<NotFoundPage />} />
-              </Route>
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </PasswordGate>
+      <BrowserRouter>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center text-muted-foreground">Laden...</div>}>
+          <Routes>
+            {/* Public route — no PasswordGate */}
+            <Route path="phone-upload" element={<PhoneUploadPage />} />
+
+            {/* All other routes behind PasswordGate */}
+            <Route element={<PasswordGate><AppLayout /></PasswordGate>}>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="finanzen" element={<FinanzenPage />} />
+              <Route path="kalender" element={<KalenderPage />} />
+              <Route path="gastsessions" element={<GastsessionsPage />} />
+              <Route path="nutzung" element={<NutzungslogPage />} />
+              <Route path="boot" element={<BootPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
       <Toaster position="top-right" richColors />
     </QueryClientProvider>
     </ThemeProvider>
