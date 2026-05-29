@@ -20,9 +20,17 @@ const COLORS: Record<string, string> = {
 }
 
 export function KategorieChart() {
-  const currentYear = new Date().getFullYear()
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
   const { ausgaben } = useAusgaben()
+
+  const years = useMemo(() => {
+    const set = new Set<number>()
+    for (const a of ausgaben) {
+      const y = parseInt(a.datum.slice(0, 4), 10)
+      if (!isNaN(y)) set.add(y)
+    }
+    return Array.from(set).sort((a, b) => b - a)
+  }, [ausgaben])
 
   const filtered = useMemo(() => {
     if (selectedYear === null) return ausgaben
@@ -43,7 +51,7 @@ export function KategorieChart() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
+      <div className="flex flex-wrap gap-1 rounded-lg bg-muted p-1 w-fit">
         <button
           onClick={() => setSelectedYear(null)}
           className={cn(
@@ -55,17 +63,20 @@ export function KategorieChart() {
         >
           Alle Jahre
         </button>
-        <button
-          onClick={() => setSelectedYear(currentYear)}
-          className={cn(
-            'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
-            selectedYear === currentYear
-              ? 'bg-card text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          {currentYear}
-        </button>
+        {years.map(y => (
+          <button
+            key={y}
+            onClick={() => setSelectedYear(y)}
+            className={cn(
+              'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+              selectedYear === y
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {y}
+          </button>
+        ))}
       </div>
       {data.length === 0 ? (
         <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">

@@ -59,6 +59,10 @@ export function MonatsdiagrammChart() {
 
   const hasData = data.some(d => d.Einnahmen > 0 || d.Ausgaben > 0)
 
+  const totalEinnahmen = data.reduce((sum, d) => sum + d.Einnahmen, 0)
+  const totalAusgaben = data.reduce((sum, d) => sum + d.Ausgaben, 0)
+  const saldo = totalEinnahmen - totalAusgaben
+
   const yearNav = (
     <div className="flex items-center gap-3">
       <button
@@ -116,6 +120,22 @@ export function MonatsdiagrammChart() {
           <Bar dataKey="Ausgaben" fill="var(--color-destructive)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
+      </div>
+      <div className="grid grid-cols-3 gap-3 rounded-lg bg-muted/50 p-3 text-sm">
+        <div>
+          <p className="text-muted-foreground">Einnahmen</p>
+          <p className="font-semibold tabular-nums text-success">{formatCurrency(totalEinnahmen)}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Ausgaben</p>
+          <p className="font-semibold tabular-nums text-destructive">{formatCurrency(totalAusgaben)}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Saldo</p>
+          <p className={`font-semibold tabular-nums ${saldo >= 0 ? 'text-success' : 'text-destructive'}`}>
+            {saldo >= 0 ? '+' : ''}{formatCurrency(saldo)}
+          </p>
+        </div>
       </div>
     </div>
   )
