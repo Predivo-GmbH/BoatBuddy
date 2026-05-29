@@ -30,6 +30,7 @@ import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_TEXT_FARBEN } from '@/lib/
 import type { AlleFahrer, Fahrer } from '@/lib/fahrer'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { OffenePostenCard } from '@/components/dashboard/OffenePostenCard'
 
 export default function DashboardPage() {
   const { data: kontoData, isLoading: kontoLoading } = useKontoberechnung()
@@ -185,6 +186,9 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Open Items — actionable from Dashboard */}
+      <OffenePostenCard />
 
       {/* 4 Stat Cards */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 slide-up-stagger">

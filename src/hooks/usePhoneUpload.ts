@@ -45,7 +45,6 @@ export function usePhoneUpload() {
     cleanup()
 
     // Create ausgabe from the uploaded photo
-    const fileName = storagePath.split('/').pop() ?? 'photo.jpg'
     const { data: ausgabe, error } = await supabase
       .from('ausgaben')
       .insert({
@@ -91,7 +90,7 @@ export function usePhoneUpload() {
     return ausgabe
   }, [cleanup, queryClient])
 
-  const startPolling = useCallback((sessionId: string, sessionToken: string) => {
+  const startPolling = useCallback((sessionId: string, _sessionToken: string) => {
     pollingRef.current = setInterval(async () => {
       const { data } = await supabase
         .from('phone_upload_sessions')
