@@ -48,6 +48,12 @@ export function PhoneUploadModal({ open, onOpenChange }: PhoneUploadModalProps) 
     return () => clearInterval(interval)
   }, [session?.expiresAt, cancelSession, onOpenChange])
 
+  const handleClose = useCallback(() => {
+    cancelSession()
+    setQrDataUrl('')
+    onOpenChange(false)
+  }, [cancelSession, onOpenChange])
+
   // Auto-close after successful upload
   useEffect(() => {
     if (session?.status === 'uploaded') {
@@ -56,13 +62,7 @@ export function PhoneUploadModal({ open, onOpenChange }: PhoneUploadModalProps) 
       }, 2500)
       return () => clearTimeout(timeout)
     }
-  }, [session?.status])
-
-  const handleClose = useCallback(() => {
-    cancelSession()
-    setQrDataUrl('')
-    onOpenChange(false)
-  }, [cancelSession, onOpenChange])
+  }, [session?.status, handleClose])
 
   // Close on backdrop click
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {

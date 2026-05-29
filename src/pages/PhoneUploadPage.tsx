@@ -53,7 +53,7 @@ export default function PhoneUploadPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const urlToken = params.get('token')
-    if (!urlToken) { setState('invalid'); return }
+    if (!urlToken) { requestAnimationFrame(() => setState('invalid')); return }
 
     supabase
       .from('phone_upload_sessions')

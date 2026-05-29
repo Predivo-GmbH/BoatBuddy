@@ -90,6 +90,7 @@ export function usePhoneUpload() {
     return ausgabe
   }, [cleanup, queryClient])
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const startPolling = useCallback((sessionId: string, _sessionToken: string) => {
     pollingRef.current = setInterval(async () => {
       const { data } = await supabase
