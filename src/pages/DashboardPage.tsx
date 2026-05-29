@@ -184,13 +184,15 @@ export default function DashboardPage() {
 
       {/* 4 Stat Cards */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 slide-up-stagger">
-        <StatCard
-          label={`Ausgaben ${currentYear}`}
-          value={formatCurrency(seasonTotalExpenses)}
-          subtitle={`${seasonAusgaben.length} Posten`}
-          icon={DollarSign}
-          gradient="red"
-        />
+        <Link to="/finanzen" className="block">
+          <StatCard
+            label={`Ausgaben ${currentYear}`}
+            value={formatCurrency(seasonTotalExpenses)}
+            subtitle={`${seasonAusgaben.length} Posten`}
+            icon={DollarSign}
+            gradient="red"
+          />
+        </Link>
         <Link to="/finanzen" className="block">
           <StatCard
             label="Bootkonto"
@@ -200,21 +202,25 @@ export default function DashboardPage() {
             gradient="green"
           />
         </Link>
-        <StatCard
-          label={`Gast-Sessions ${currentYear}`}
-          value={String(seasonSessions.length)}
-          subtitle={`${formatCurrency(seasonSessionsTotal)} Einnahmen`}
-          icon={Users}
-          gradient="blue"
-        />
-        <StatCard
-          label="Betriebsstunden"
-          value={stats ? `${Number(stats.gesamtstunden)} h` : '0 h'}
-          subtitle={undefined}
-          icon={Ship}
-          accentColor="card-accent-top-warning"
-          gradient="amber"
-        />
+        <Link to="/gastsessions" className="block">
+          <StatCard
+            label={`Gast-Sessions ${currentYear}`}
+            value={String(seasonSessions.length)}
+            subtitle={`${formatCurrency(seasonSessionsTotal)} Einnahmen`}
+            icon={Users}
+            gradient="blue"
+          />
+        </Link>
+        <Link to="/nutzung" className="block">
+          <StatCard
+            label="Betriebsstunden"
+            value={stats ? `${Number(stats.gesamtstunden)} h` : '0 h'}
+            subtitle={undefined}
+            icon={Ship}
+            accentColor="card-accent-top-warning"
+            gradient="amber"
+          />
+        </Link>
       </div>
 
       {/* Quick Actions */}
@@ -349,7 +355,7 @@ export default function DashboardPage() {
           Saison {currentYear}
         </h2>
         <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 slide-up-stagger">
-          <div className="card-premium card-glow card-gradient-red rounded-xl border border-border p-4">
+          <Link to="/finanzen" className="card-premium card-glow card-gradient-red rounded-xl border border-border p-4 block hover:border-accent/50 transition-colors">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-4 w-4 text-red-400" />
               <span className="text-xs font-medium text-muted-foreground">Ausgaben</span>
@@ -360,9 +366,9 @@ export default function DashboardPage() {
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {seasonAusgaben.length} Posten
             </p>
-          </div>
+          </Link>
 
-          <div className="card-premium card-glow card-gradient-blue rounded-xl border border-border p-4">
+          <Link to="/gastsessions" className="card-premium card-glow card-gradient-blue rounded-xl border border-border p-4 block hover:border-accent/50 transition-colors">
             <div className="flex items-center gap-2 mb-2">
               <Users className="h-4 w-4 text-blue-400" />
               <span className="text-xs font-medium text-muted-foreground">Gast-Sessions</span>
@@ -373,9 +379,9 @@ export default function DashboardPage() {
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {formatCurrency(seasonSessionsTotal)} Einnahmen
             </p>
-          </div>
+          </Link>
 
-          <div className="card-premium card-glow card-gradient-amber rounded-xl border border-border p-4">
+          <Link to="/nutzung" className="card-premium card-glow card-gradient-amber rounded-xl border border-border p-4 block hover:border-accent/50 transition-colors">
             <div className="flex items-center gap-2 mb-2">
               <Clock className="h-4 w-4 text-amber-400" />
               <span className="text-xs font-medium text-muted-foreground">Stunden</span>
@@ -386,9 +392,9 @@ export default function DashboardPage() {
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {seasonLogs.length} Fahrten
             </p>
-          </div>
+          </Link>
 
-          <div className="card-premium card-glow card-gradient-green rounded-xl border border-border p-4">
+          <Link to="/nutzung" className="card-premium card-glow card-gradient-green rounded-xl border border-border p-4 block hover:border-accent/50 transition-colors">
             <div className="flex items-center gap-2 mb-2">
               <Fuel className="h-4 w-4 text-emerald-400" />
               <span className="text-xs font-medium text-muted-foreground">Treibstoff</span>
@@ -399,7 +405,7 @@ export default function DashboardPage() {
             <p className="text-[11px] text-muted-foreground mt-0.5">
               Saison {currentYear}
             </p>
-          </div>
+          </Link>
         </div>
       </div>
 
