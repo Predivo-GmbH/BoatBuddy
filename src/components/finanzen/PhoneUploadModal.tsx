@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X, Smartphone, Loader2, CheckCircle } from 'lucide-react'
 import { usePhoneUpload } from '@/hooks/usePhoneUpload'
 import QRCode from 'qrcode'
@@ -82,7 +83,7 @@ export function PhoneUploadModal({ open, onOpenChange }: PhoneUploadModalProps) 
   const minutes = Math.floor(timeLeft / 60)
   const seconds = timeLeft % 60
 
-  return (
+  return createPortal(
     <div
       ref={backdropRef}
       onClick={handleBackdropClick}
@@ -139,6 +140,7 @@ export function PhoneUploadModal({ open, onOpenChange }: PhoneUploadModalProps) 
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

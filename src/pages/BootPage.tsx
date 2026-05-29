@@ -57,7 +57,7 @@ export default function BootPage() {
     <>
       <PageHeader title="Boot & Eigentümer" subtitle="Anteile, Abrechnung, Wartung & Regeln" />
 
-      <div className="relative mb-6 flex gap-1 overflow-x-auto rounded-xl bg-muted p-1 scrollbar-none" role="tablist" aria-label="Boot-Tabs">
+      <div className="relative mb-6 flex gap-1 rounded-xl bg-muted p-1" role="tablist" aria-label="Boot-Tabs">
         <div
           className="absolute top-1 bottom-1 rounded-lg bg-card shadow-sm transition-all duration-300 ease-out"
           style={{ left: indicatorStyle.left, width: indicatorStyle.width }}
@@ -76,7 +76,7 @@ export default function BootPage() {
               onClick={() => setTab(t)}
               onKeyDown={tabKeyDown}
               className={cn(
-                'relative z-10 flex shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors whitespace-nowrap',
+                'relative z-10 flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 tab === t ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
