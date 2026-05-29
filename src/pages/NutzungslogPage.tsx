@@ -58,7 +58,7 @@ export default function NutzungslogPage() {
   const { fuelPerFahrer, fuelTotal } = useMemo(() => {
     const map: Partial<Record<AlleFahrer, number>> = {}
     for (const a of fuelAusgaben) {
-      const f = (a.bezahlt_von ?? 'bootskasse') as AlleFahrer
+      const f = (a.bezahlt_von ?? 'bootkonto') as AlleFahrer
       if (ALLE_FAHRER.includes(f as typeof ALLE_FAHRER[number])) {
         map[f] = (map[f] ?? 0) + Number(a.betrag)
       }
