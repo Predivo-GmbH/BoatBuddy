@@ -40,6 +40,16 @@ export function useReservierungen(monat?: number, jahr?: number) {
     },
   })
 
+  const updateReservierung = useMutation({
+    mutationFn: async ({ id, ...fields }: Partial<Reservierung> & { id: string }) => {
+      const { error } = await supabase.from('reservierungen').update(fields).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservierungen'] })
+    },
+  })
+
   const deleteReservierung = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('reservierungen').delete().eq('id', id)
@@ -50,5 +60,5 @@ export function useReservierungen(monat?: number, jahr?: number) {
     },
   })
 
-  return { reservierungen, isLoading, error, createReservierung, deleteReservierung }
+  return { reservierungen, isLoading, error, createReservierung, updateReservierung, deleteReservierung }
 }

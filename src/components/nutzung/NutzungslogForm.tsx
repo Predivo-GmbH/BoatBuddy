@@ -12,7 +12,7 @@ const inputClass =
 
 export function NutzungslogForm() {
   const [datum, setDatum] = useState(todayISO())
-  const [fahrer, setFahrer] = useState<Fahrer>('roger')
+  const [fahrer, setFahrer] = useState<Fahrer | ''>('')
   const [betriebsstunden, setBetriebsstunden] = useState('')
   const [treibstoffLiter, setTreibstoffLiter] = useState('')
   const [aktivitaeten, setAktivitaeten] = useState<Aktivitaet[]>([])
@@ -22,6 +22,10 @@ export function NutzungslogForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!fahrer) {
+      toast.error('Bitte einen Fahrer auswählen')
+      return
+    }
     const stunden = parseFloat(betriebsstunden)
     if (isNaN(stunden) || stunden <= 0) {
       toast.error('Bitte Betriebsstunden angeben')
@@ -46,6 +50,7 @@ export function NutzungslogForm() {
       {
         onSuccess: () => {
           toast.success('Eintrag gespeichert')
+          setFahrer('')
           setBetriebsstunden('')
           setTreibstoffLiter('')
           setAktivitaeten([])
@@ -86,6 +91,7 @@ export function NutzungslogForm() {
             onChange={e => setFahrer(e.target.value as Fahrer)}
             className={inputClass}
           >
+            <option value="" disabled>Fahrer wählen</option>
             {FAHRER.map(f => (
               <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
             ))}

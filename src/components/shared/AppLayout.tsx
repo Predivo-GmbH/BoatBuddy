@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Anchor, Sun, Moon } from 'lucide-react'
+import { Sun, Moon } from 'lucide-react'
+import { BoatIcon } from './BoatIcon'
 import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { Footer } from './Footer'
@@ -19,7 +20,7 @@ export function AppLayout() {
         {/* Mobile header */}
         <header className="flex h-12 items-center justify-between border-b border-border bg-card px-4 lg:hidden">
           <div className="flex items-center">
-            <Anchor className="h-4 w-4 text-accent" />
+            <BoatIcon className="h-4 w-4 text-accent" />
             <span className="ml-2 text-base font-semibold text-foreground">BoatBuddy</span>
           </div>
           <button

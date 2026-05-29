@@ -1,16 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
-  <!-- Boat hull -->
-  <path d="M4 32 C4 32 8 40 24 40 C40 40 44 32 44 32 L40 32 C40 32 38 36 24 36 C10 36 8 32 8 32 Z" fill="#0C1B33"/>
-  <!-- Boat deck -->
-  <rect x="10" y="28" width="28" height="4" rx="2" fill="#0077B6"/>
-  <!-- Mast -->
-  <rect x="23" y="6" width="2" height="24" rx="1" fill="#0C1B33"/>
-  <!-- Sail -->
-  <path d="M24 8 L24 26 L38 26 Z" fill="#0077B6" opacity="0.8"/>
-  <path d="M24 10 L24 26 L12 26 Z" fill="#0077B6" opacity="0.5"/>
-  <!-- Flag -->
-  <path d="M24 6 L24 12 L30 9 Z" fill="#E09B3D"/>
+  <!-- Wake tower -->
+  <path d="M18 12 L24 6 L30 12" stroke="#0077B6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <line x1="24" y1="6" x2="24" y2="20" stroke="#0077B6" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Hull -->
+  <path d="M6 28 L10 20 L38 20 L42 28 Z" fill="#0C1B33"/>
+  <!-- Windshield -->
+  <path d="M16 20 L18 15 L26 15 L28 20" fill="#0077B6" opacity="0.5"/>
+  <!-- Hull bottom curve -->
+  <path d="M6 28 C6 28 10 34 24 34 C38 34 42 28 42 28" fill="#0C1B33" opacity="0.7"/>
   <!-- Water waves -->
-  <path d="M2 42 Q8 38 14 42 Q20 46 26 42 Q32 38 38 42 Q44 46 48 42" stroke="#0077B6" stroke-width="2" fill="none" opacity="0.5"/>
-  <path d="M0 46 Q6 42 12 46 Q18 48 24 46 Q30 42 36 46 Q42 48 48 46" stroke="#0077B6" stroke-width="1.5" fill="none" opacity="0.3"/>
+  <path d="M2 40 Q8 36 14 40 Q20 44 26 40 Q32 36 38 40 Q44 44 48 40" stroke="#0077B6" stroke-width="2" fill="none" opacity="0.5"/>
+  <path d="M0 44 Q6 41 12 44 Q18 47 24 44 Q30 41 36 44 Q42 47 48 44" stroke="#0077B6" stroke-width="1.5" fill="none" opacity="0.3"/>
 </svg>

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Anchor } from 'lucide-react'
+import { BoatIcon } from './BoatIcon'
 
 const GATE_PASSWORD_HASH = import.meta.env.VITE_GATE_PASSWORD_HASH as string
 const STORAGE_KEY = 'boatbuddy-unlocked'
@@ -37,7 +37,7 @@ export function PasswordGate({ children }: { children: ReactNode }) {
       <form onSubmit={handleSubmit} className="mx-4 w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-6 sm:p-8">
         <div className="space-y-2 text-center">
           <div className="flex items-center justify-center gap-2">
-            <Anchor className="h-6 w-6 text-accent" />
+            <BoatIcon className="h-6 w-6 text-accent" />
             <h1 className="text-xl font-semibold text-foreground">BoatBuddy</h1>
           </div>
           <p className="text-sm text-muted-foreground">Passwort eingeben um fortzufahren</p>

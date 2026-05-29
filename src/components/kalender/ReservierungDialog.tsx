@@ -4,7 +4,7 @@ import { useReservierungen } from '@/hooks/useReservierungen'
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_BORDER_FARBEN, type Fahrer } from '@/lib/fahrer'
 import { formatDateLong } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { X, Trash2, Clock } from 'lucide-react'
+import { X, Trash2, Pencil, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Reservierung } from '@/types'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -32,15 +32,16 @@ interface ReservierungDialogProps {
 }
 
 export function ReservierungDialog({ datum, reservierungen, onClose }: ReservierungDialogProps) {
-  const [fahrer, setFahrer] = useState<Fahrer>('roger')
+  const [fahrer, setFahrer] = useState<Fahrer | ''>('')
   const [notiz, setNotiz] = useState('')
   const [vonZeit, setVonZeit] = useState('10:00')
   const [dauer, setDauer] = useState(3)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const { createReservierung, deleteReservierung } = useReservierungen()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const { createReservierung, updateReservierung, deleteReservierung } = useReservierungen()
   const trapRef = useFocusTrap<HTMLDivElement>(true)
 
-  const isPending = createReservierung.isPending || deleteReservierung.isPending
+  const isPending = createReservierung.isPending || updateReservierung.isPending || deleteReservierung.isPending
 
   const close = useCallback(() => {
     if (!isPending) onClose()
@@ -57,7 +58,58 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
   const existing = reservierungen.filter(r => r.datum === datum)
   const bisZeit = addHours(vonZeit, dauer)
 
-  const handleCreate = () => {
+  const handleEdit = (r: Reservierung) => {
+    setEditingId(r.id)
+    setFahrer(r.fahrer)
+    setVonZeit(r.von_zeit?.slice(0, 5) ?? '10:00')
+    if (r.von_zeit && r.bis_zeit) {
+      const [vH, vM] = r.von_zeit.split(':').map(Number)
+      const [bH, bM] = r.bis_zeit.split(':').map(Number)
+      const diff = Math.round(((bH * 60 + bM) - (vH * 60 + vM)) / 60)
+      setDauer(DAUER_OPTIONS.includes(diff as typeof DAUER_OPTIONS[number]) ? diff : 3)
+    } else {
+      setDauer(3)
+    }
+    setNotiz(r.notiz ?? '')
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setFahrer('')
+    setVonZeit('10:00')
+    setDauer(3)
+    setNotiz('')
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!fahrer) {
+      toast.error('Bitte einen Fahrer auswählen')
+      return
+    }
+
+    if (editingId) {
+      updateReservierung.mutate(
+        {
+          id: editingId,
+          fahrer,
+          ganzer_tag: false,
+          von_zeit: vonZeit,
+          bis_zeit: bisZeit,
+          notiz: notiz.trim() || undefined,
+        },
+        {
+          onSuccess: () => {
+            toast.success('Reservierung aktualisiert')
+            cancelEdit()
+          },
+          onError: () => toast.error('Fehler beim Aktualisieren'),
+        },
+      )
+      return
+    }
+
     if (existing.some(r => r.fahrer === fahrer)) {
       toast.error(`${FAHRER_LABELS[fahrer]} hat an diesem Tag bereits reserviert`)
       return
@@ -79,11 +131,6 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
         onError: () => toast.error('Fehler beim Erstellen'),
       },
     )
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    handleCreate()
   }
 
   return createPortal(
@@ -145,13 +192,22 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
                     <span className="text-muted-foreground">— {r.notiz}</span>
                   )}
                 </span>
-                <button
-                  onClick={() => setDeleteId(r.id)}
-                  className="min-h-[44px] min-w-[44px] rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                  aria-label={`${FAHRER_LABELS[r.fahrer]} Reservierung löschen`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => handleEdit(r)}
+                    className="min-h-[44px] min-w-[44px] rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent flex items-center justify-center"
+                    aria-label={`${FAHRER_LABELS[r.fahrer]} Reservierung bearbeiten`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setDeleteId(r.id)}
+                    className="min-h-[44px] min-w-[44px] rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                    aria-label={`${FAHRER_LABELS[r.fahrer]} Reservierung löschen`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -176,15 +232,26 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
 
         {/* Add new */}
         <form onSubmit={handleSubmit} className="space-y-3 border-t border-border pt-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Neue Reservierung
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              {editingId ? 'Reservierung bearbeiten' : 'Neue Reservierung'}
+            </p>
+            {editingId && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Abbrechen
+              </button>
+            )}
+          </div>
 
           {/* Person selector */}
           <div className="flex gap-2" role="radiogroup" aria-label="Fahrer auswählen">
             {FAHRER.map(f => {
               const isSelected = fahrer === f
-              const alreadyBooked = existing.some(r => r.fahrer === f)
+              const alreadyBooked = existing.some(r => r.fahrer === f && r.id !== editingId)
               return (
                 <button
                   key={f}
@@ -261,10 +328,10 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
           {/* Submit */}
           <button
             type="submit"
-            disabled={createReservierung.isPending}
+            disabled={isPending || !fahrer}
             className="w-full rounded-lg bg-accent px-3 py-2.5 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
-            {createReservierung.isPending ? 'Wird gespeichert...' : 'Reservieren'}
+            {isPending ? 'Wird gespeichert...' : editingId ? 'Speichern' : 'Reservieren'}
           </button>
         </form>
       </div>

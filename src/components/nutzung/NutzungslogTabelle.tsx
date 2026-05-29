@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
-import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, AKTIVITAET_LABELS, type AlleFahrer, type Fahrer, type AktivitaetTyp } from '@/lib/fahrer'
+import { FAHRER, ALLE_FAHRER, FAHRER_LABELS, FAHRER_FARBEN, AKTIVITAET_LABELS, type AlleFahrer, type Fahrer, type AktivitaetTyp } from '@/lib/fahrer'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Aktivitaet, Nutzungslog } from '@/types'
@@ -120,7 +120,7 @@ export function NutzungslogTabelle() {
           >
             Alle
           </button>
-          {FAHRER.map(f => (
+          {ALLE_FAHRER.map(f => (
             <button
               key={f}
               onClick={() => setFilterFahrer(filterFahrer === f ? '' : f)}

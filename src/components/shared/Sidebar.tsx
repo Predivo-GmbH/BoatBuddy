@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
-import { Anchor, LayoutDashboard, Wallet, Calendar, Users, Ship, X, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, Wallet, Calendar, Users, Ship, Anchor, X, Sun, Moon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { BoatIcon } from './BoatIcon'
 import { useDarkMode } from '@/hooks/useDarkMode'
 
 const NAV_ITEMS = [
@@ -37,7 +38,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         {/* Logo */}
         <div className="flex h-14 items-center justify-between border-b border-border px-4">
           <div className="flex items-center gap-2">
-            <Anchor className="h-5 w-5 text-accent" />
+            <BoatIcon className="h-5 w-5 text-accent" />
             <span className="text-lg font-semibold text-foreground">BoatBuddy</span>
           </div>
           <button
