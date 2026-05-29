@@ -99,6 +99,8 @@ export default function BootPage() {
 
 function EigentuemerTab() {
   const { eigentuemer, isLoading, updateEigentuemer } = useEigentuemer()
+  const { config: abrechnungConfig } = useAbrechnung()
+  const bootWert = Number(abrechnungConfig?.boot_marktwert ?? 55000)
   const [editing, setEditing] = useState(false)
   const [drafts, setDrafts] = useState<Record<string, { anteil: string; datum: string }>>({})
 
@@ -220,7 +222,10 @@ function EigentuemerTab() {
                 ) : (
                   <>
                     <p className="text-3xl font-bold tabular-nums text-foreground">
-                      {Number(e.anteil_prozent).toFixed(1)}%
+                      {formatCurrency(Math.round((Number(e.anteil_prozent) / 100) * bootWert))}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {Number(e.anteil_prozent).toFixed(1)}% von {formatCurrency(bootWert)}
                     </p>
                     {e.einstieg_datum && (
                       <p className="text-xs text-muted-foreground mt-1">Seit {formatDate(e.einstieg_datum)}</p>
@@ -262,14 +267,12 @@ function AbrechnungTab() {
   const { stats } = useBootStats()
   const [editing, setEditing] = useState(false)
   const [marktwert, setMarktwert] = useState('')
-  const [abschreibung, setAbschreibung] = useState('')
   const [kuendigung, setKuendigung] = useState('')
   const [beitrag, setBeitrag] = useState('')
 
   const startEditing = () => {
     if (!config) return
     setMarktwert(String(config.boot_marktwert))
-    setAbschreibung(String(config.abschreibung_prozent))
     setKuendigung(String(config.kuendigungsfrist_monate))
     setBeitrag(String(config.beitrag_pro_monat))
     setEditing(true)
@@ -279,7 +282,6 @@ function AbrechnungTab() {
     updateConfig.mutate(
       {
         boot_marktwert: parseFloat(marktwert) || 0,
-        abschreibung_prozent: parseFloat(abschreibung) || 10,
         kuendigungsfrist_monate: parseInt(kuendigung) || 6,
         beitrag_pro_monat: parseFloat(beitrag) || 400,
         bewertung_datum: new Date().toISOString().slice(0, 10),
@@ -342,7 +344,7 @@ function AbrechnungTab() {
 
         {editing ? (
           <fieldset disabled={updateConfig.isPending} className="contents">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
                   Aktueller Marktwert (CHF)
@@ -352,18 +354,6 @@ function AbrechnungTab() {
                   step="100"
                   value={marktwert}
                   onChange={(e) => setMarktwert(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                  Jährl. Abschreibung (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  value={abschreibung}
-                  onChange={(e) => setAbschreibung(e.target.value)}
                   className={inputClass}
                 />
               </div>
@@ -393,7 +383,7 @@ function AbrechnungTab() {
             </div>
           </fieldset>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Marktwert</p>
               <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
@@ -402,12 +392,6 @@ function AbrechnungTab() {
               {config?.bewertung_datum && (
                 <p className="text-[11px] text-muted-foreground">Stand {formatDate(config.bewertung_datum)}</p>
               )}
-            </div>
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">Abschreibung</p>
-              <p className="mt-1 text-lg font-semibold text-foreground">
-                {Number(config?.abschreibung_prozent ?? 10)}% p.a.
-              </p>
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground">Kündigungsfrist</p>
