@@ -10,19 +10,27 @@ const inputClass =
 export function BootStatsKarte() {
   const { stats, isLoading, updateBootStats } = useBootStats()
   const [editing, setEditing] = useState(false)
+  const [gesamtstunden, setGesamtstunden] = useState('')
   const [modell, setModell] = useState('')
   const [kaufdatum, setKaufdatum] = useState('')
 
   const startEditing = () => {
     if (!stats) return
+    setGesamtstunden(String(Number(stats.gesamtstunden)))
     setModell(stats.modell ?? '')
     setKaufdatum(stats.kaufdatum ?? '')
     setEditing(true)
   }
 
   const saveEdits = () => {
+    const stunden = parseFloat(gesamtstunden)
+    if (isNaN(stunden) || stunden < 0) {
+      toast.error('Bitte gültige Gesamtstunden angeben')
+      return
+    }
     updateBootStats.mutate(
       {
+        gesamtstunden: stunden,
         modell: modell.trim() || null,
         kaufdatum: kaufdatum || null,
       },
@@ -85,10 +93,15 @@ export function BootStatsKarte() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Gesamtstunden</label>
-            <p className="flex min-h-[44px] items-center text-xl font-bold tabular-nums">
-              <Clock className="mr-1.5 h-4 w-4 text-muted-foreground" />
-              {Number(stats.gesamtstunden)}h
-            </p>
+            <input
+              type="number"
+              step="0.5"
+              min="0"
+              value={gesamtstunden}
+              onChange={e => setGesamtstunden(e.target.value)}
+              placeholder="z.B. 939"
+              className={inputClass}
+            />
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Modell</label>
