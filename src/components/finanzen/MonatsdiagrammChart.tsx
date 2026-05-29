@@ -122,7 +122,7 @@ export function MonatsdiagrammChart() {
               padding: '10px 14px',
               color: 'var(--color-foreground)',
             }}
-            formatter={(value) => [formatCurrency(Number(value)), undefined]}
+            formatter={(value, name) => [formatCurrency(Number(value)), name]}
             cursor={{ fill: 'var(--color-muted)', opacity: 0.15 }}
           />
           <Legend wrapperStyle={{ fontSize: '0.875rem', paddingTop: '8px', color: 'var(--color-muted-foreground)' }} />
