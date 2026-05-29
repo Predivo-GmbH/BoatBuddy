@@ -5,6 +5,7 @@ import { MonatsdiagrammChart } from '@/components/finanzen/MonatsdiagrammChart'
 import { KategorieChart } from '@/components/finanzen/KategorieChart'
 import { AusgabenTabelle } from '@/components/finanzen/AusgabenTabelle'
 import { AusgabeFormDialog } from '@/components/finanzen/AusgabeFormDialog'
+import { InvoiceUpload } from '@/components/finanzen/InvoiceUpload'
 import { BeitraegeGrid } from '@/components/finanzen/BeitraegeGrid'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useBeitraege } from '@/hooks/useBeitraege'
@@ -12,12 +13,14 @@ import { useTabKeyboard } from '@/hooks/useTabKeyboard'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { DollarSign, Wallet } from 'lucide-react'
+import type { Ausgabe } from '@/types'
 
 const TABS = ['Übersicht', 'Ausgaben', 'Beiträge'] as const
 type Tab = typeof TABS[number]
 
 export default function FinanzenPage() {
   const [tab, setTab] = useState<Tab>('Übersicht')
+  const [extractedAusgabe, setExtractedAusgabe] = useState<Ausgabe | null>(null)
   const tabKeyDown = useTabKeyboard(TABS, tab, setTab)
   const currentYear = new Date().getFullYear()
   const { ausgaben } = useAusgaben()
@@ -128,10 +131,17 @@ export default function FinanzenPage() {
 
       {tab === 'Ausgaben' && (
         <div className="section-fade-in space-y-4">
+          <InvoiceUpload onExtracted={setExtractedAusgabe} />
           <div className="flex justify-end">
             <AusgabeFormDialog />
           </div>
           <AusgabenTabelle />
+          {extractedAusgabe && (
+            <AusgabeFormDialog
+              editAusgabe={extractedAusgabe}
+              onClose={() => setExtractedAusgabe(null)}
+            />
+          )}
         </div>
       )}
 

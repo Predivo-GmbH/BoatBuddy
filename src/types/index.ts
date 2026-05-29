@@ -25,6 +25,9 @@ export interface Ausgabe {
   datum: string
   bezahlt_von: string
   notiz: string | null
+  dokument_pfad: string | null
+  verarbeitungs_status: 'neu' | 'verarbeitung' | 'fertig' | 'fehler' | null
+  extraktion_daten: Record<string, unknown> | null
   erstellt_am: string
 }
 
