@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useAusgaben } from '@/hooks/useAusgaben'
-import { KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
+import { KATEGORIEN, KATEGORIE_LABELS, FAHRER_LABELS, type Kategorie, type AlleFahrer } from '@/lib/fahrer'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { Trash2, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Pencil } from 'lucide-react'
+import { Trash2, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Pencil, CheckCircle, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { AusgabeFormDialog } from './AusgabeFormDialog'
@@ -28,7 +28,7 @@ type SortKey = 'datum' | 'betrag' | 'kategorie'
 type SortDir = 'asc' | 'desc'
 
 export function AusgabenTabelle() {
-  const { ausgaben, isLoading, deleteAusgabe } = useAusgaben()
+  const { ausgaben, isLoading, deleteAusgabe, updateAusgabe } = useAusgaben()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editingAusgabe, setEditingAusgabe] = useState<Ausgabe | null>(null)
   const [search, setSearch] = useState('')
@@ -163,12 +163,14 @@ export function AusgabenTabelle() {
               >
                 Kategorie {sortIcon('kategorie')}
               </th>
+              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Bezahlt von</th>
               <th
                 className="cursor-pointer select-none px-4 py-3 text-right font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('betrag')}
               >
                 Betrag {sortIcon('betrag')}
               </th>
+              <th className="px-4 py-3 text-center font-medium text-muted-foreground">Status</th>
               <th className="w-10 px-4 py-3 text-right font-medium text-muted-foreground"></th>
             </tr>
           </thead>
@@ -185,7 +187,38 @@ export function AusgabenTabelle() {
                     {KATEGORIE_LABELS[a.kategorie as Kategorie] ?? a.kategorie}
                   </span>
                 </td>
+                <td className="px-4 py-3 text-sm">
+                  {a.bezahlt_von === 'bootkonto'
+                    ? 'Bootkonto'
+                    : FAHRER_LABELS[a.bezahlt_von as AlleFahrer] ?? a.bezahlt_von}
+                </td>
                 <td className="px-4 py-3 text-right font-semibold tabular-nums">{formatCurrency(Number(a.betrag))}</td>
+                <td className="px-4 py-3 text-center">
+                  {a.bezahlt_von !== 'bootkonto' && (
+                    <button
+                      onClick={() => {
+                        const newErstattet = !a.erstattet
+                        updateAusgabe.mutate(
+                          { id: a.id, erstattet: newErstattet, erstattet_am: newErstattet ? new Date().toISOString().split('T')[0] : null },
+                          {
+                            onSuccess: () => toast.success(newErstattet ? 'Als erstattet markiert' : 'Erstattung zurückgesetzt'),
+                            onError: () => toast.error('Fehler beim Aktualisieren'),
+                          },
+                        )
+                      }}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+                        a.erstattet
+                          ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20'
+                      )}
+                      aria-label={a.erstattet ? 'Erstattung zurücksetzen' : 'Als erstattet markieren'}
+                    >
+                      {a.erstattet ? <CheckCircle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                      {a.erstattet ? 'Erstattet' : 'Offen'}
+                    </button>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <button

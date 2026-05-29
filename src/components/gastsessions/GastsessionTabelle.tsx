@@ -4,7 +4,7 @@ import { useGastsessions } from '@/hooks/useGastsessions'
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, type Fahrer, type AlleFahrer } from '@/lib/fahrer'
 import { formatCurrency, formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { Trash2, Loader2, Search, Users, ArrowUpDown, ArrowUp, ArrowDown, Pencil, X } from 'lucide-react'
+import { Trash2, Loader2, Search, Users, ArrowUpDown, ArrowUp, ArrowDown, Pencil, X, CheckCircle, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
@@ -206,6 +206,7 @@ export function GastsessionTabelle() {
                 >
                   Betrag {sortIcon('betrag')}
                 </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Eingezahlt</th>
                 <th className="w-10 px-4 py-3"></th>
               </tr>
             </thead>
@@ -217,6 +218,35 @@ export function GastsessionTabelle() {
                   <td className="px-4 py-3">{FAHRER_LABELS[s.bezahlt_an as AlleFahrer] ?? s.bezahlt_an}</td>
                   <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">
                     {formatCurrency(Number(s.betrag))}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => {
+                        const newStatus = !s.auf_konto_eingezahlt
+                        updateGastsession.mutate(
+                          {
+                            id: s.id,
+                            auf_konto_eingezahlt: newStatus,
+                            eingezahlt_am: newStatus ? new Date().toISOString().split('T')[0] : null,
+                            eingezahlt_von: newStatus ? s.bezahlt_an : null,
+                          },
+                          {
+                            onSuccess: () => toast.success(newStatus ? 'Als eingezahlt markiert' : 'Einzahlung zurückgesetzt'),
+                            onError: () => toast.error('Fehler beim Aktualisieren'),
+                          },
+                        )
+                      }}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+                        s.auf_konto_eingezahlt
+                          ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-600 hover:bg-amber-500/20'
+                      )}
+                      aria-label={s.auf_konto_eingezahlt ? 'Einzahlung zurücksetzen' : 'Als eingezahlt markieren'}
+                    >
+                      {s.auf_konto_eingezahlt ? <CheckCircle className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                      {s.auf_konto_eingezahlt ? 'Ja' : 'Offen'}
+                    </button>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -242,7 +272,7 @@ export function GastsessionTabelle() {
             {/* Summary row */}
             <tfoot>
               <tr className="border-t border-border bg-muted/30">
-                <td className="px-4 py-3 text-xs font-medium text-muted-foreground" colSpan={3}>
+                <td className="px-4 py-3 text-xs font-medium text-muted-foreground" colSpan={4}>
                   {filtered.length} {filtered.length === 1 ? 'Session' : 'Sessions'}
                 </td>
                 <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-foreground">

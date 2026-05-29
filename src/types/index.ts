@@ -24,6 +24,8 @@ export interface Ausgabe {
   kategorie: Kategorie
   datum: string
   bezahlt_von: string
+  erstattet: boolean
+  erstattet_am: string | null
   notiz: string | null
   dokument_pfad: string | null
   verarbeitungs_status: 'neu' | 'verarbeitung' | 'fertig' | 'fehler' | null
@@ -48,6 +50,9 @@ export interface Gastsession {
   betrag: number
   bezahlt_an: AlleFahrer
   datum: string
+  auf_konto_eingezahlt: boolean
+  eingezahlt_am: string | null
+  eingezahlt_von: string | null
   notiz: string | null
   erstellt_am: string
 }

@@ -7,6 +7,7 @@ import { AusgabenTabelle } from '@/components/finanzen/AusgabenTabelle'
 import { AusgabeFormDialog } from '@/components/finanzen/AusgabeFormDialog'
 import { InvoiceUpload } from '@/components/finanzen/InvoiceUpload'
 import { BeitraegeGrid } from '@/components/finanzen/BeitraegeGrid'
+import { AbrechnungCard } from '@/components/finanzen/AbrechnungCard'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useBeitraege } from '@/hooks/useBeitraege'
 import { useTabKeyboard } from '@/hooks/useTabKeyboard'
@@ -115,6 +116,8 @@ export default function FinanzenPage() {
               </p>
             </div>
           </div>
+
+          <AbrechnungCard />
 
           <div className="grid gap-6 lg:grid-cols-2 slide-up-stagger">
             <div className="card-premium card-glow p-5">
