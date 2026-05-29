@@ -413,7 +413,6 @@ test.describe('Kalender — extended', () => {
     // Navigate forward/backward to December
     // Just verify the feiertage rendering mechanism exists — holidays have rose tint
     // This is a structural test, not a date-specific one
-    const holidayCells = page.locator('span.text-rose-500, span.text-rose-400')
     // If none visible in current month, that's OK — not every month has holidays
     // The feature exists structurally (checked via source code)
     expect(currentText).toBeTruthy()
@@ -555,7 +554,6 @@ test.describe('Nutzungslog — extended', () => {
 
   test('shows fuel per driver breakdown', async ({ page }) => {
     // May or may not be visible depending on data
-    const fuelSection = page.getByText('Treibstoff pro Fahrer')
     // Not asserting visibility — data-dependent
     // Just verify the page loaded without errors
     await expect(page.getByText('Nutzungslog')).toBeVisible({ timeout: 10_000 })
