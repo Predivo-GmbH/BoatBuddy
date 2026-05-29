@@ -78,7 +78,14 @@ export function GastsessionForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (selectedGuests.length === 0) {
+    // Auto-add typed name if user didn't press Enter
+    const guests = [...selectedGuests]
+    if (inputValue.trim() && !guests.includes(inputValue.trim())) {
+      guests.push(inputValue.trim())
+      setSelectedGuests(guests)
+      setInputValue('')
+    }
+    if (guests.length === 0) {
       toast.error('Bitte mindestens einen Gast auswählen')
       return
     }
@@ -89,7 +96,7 @@ export function GastsessionForm() {
     }
 
     createGastsession.mutate(
-      { gast_name: selectedGuests.join(', '), betrag: betragNum, bezahlt_an: bezahltAn, datum },
+      { gast_name: guests.join(', '), betrag: betragNum, bezahlt_an: bezahltAn, datum },
       {
         onSuccess: () => {
           toast.success('Session gespeichert')
