@@ -1,90 +1,44 @@
-import { useState } from 'react'
-import { useKontostand } from '@/hooks/useKontostand'
-import { formatCurrency, formatDate, todayISO } from '@/lib/format'
+import { useKontoberechnung } from '@/hooks/useKontoberechnung'
+import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { Wallet, Plus } from 'lucide-react'
-import { toast } from 'sonner'
+import { Wallet, Loader2 } from 'lucide-react'
 
 export function KontoBilanzCard() {
-  const { latestKontostand, createSnapshot } = useKontostand()
-  const [editing, setEditing] = useState(false)
-  const [betrag, setBetrag] = useState('')
-  const [datum, setDatum] = useState(todayISO())
+  const { data, isLoading } = useKontoberechnung()
 
-  const isPositive = latestKontostand ? Number(latestKontostand.betrag) >= 0 : true
-
-  const handleSave = () => {
-    const betragNum = parseFloat(betrag)
-    if (isNaN(betragNum)) {
-      toast.error('Bitte gültigen Betrag eingeben')
-      return
-    }
-    createSnapshot.mutate(
-      { betrag: betragNum, datum },
-      {
-        onSuccess: () => {
-          toast.success('Kontostand aktualisiert')
-          setEditing(false)
-          setBetrag('')
-          setDatum(todayISO())
-        },
-        onError: () => toast.error('Fehler beim Speichern'),
-      },
-    )
-  }
+  const saldo = data?.saldo ?? 0
+  const isPositive = saldo >= 0
 
   return (
     <div className={cn(
       'card-premium card-glow p-5',
       isPositive ? 'card-accent-top-success card-gradient-green' : 'card-accent-top-destructive card-gradient-red'
     )}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Wallet className="h-4 w-4" />
-          Kontostand
-        </div>
-        <button
-          onClick={() => setEditing(!editing)}
-          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Kontostand aktualisieren"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Wallet className="h-4 w-4" />
+        Kontostand (berechnet)
       </div>
-      <p className={cn(
-        'mt-3 text-2xl sm:text-3xl font-bold tabular-nums',
-        isPositive ? 'text-success' : 'text-destructive'
-      )}>
-        {latestKontostand ? formatCurrency(Number(latestKontostand.betrag)) : '--'}
-      </p>
-      {latestKontostand && (
-        <p className="mt-1 text-xs text-muted-foreground">Stand: {formatDate(latestKontostand.datum)}</p>
-      )}
-
-      {editing && (
-        <fieldset disabled={createSnapshot.isPending} className="mt-4 space-y-2 border-t border-border pt-4">
-          <input
-            type="number"
-            step="0.01"
-            value={betrag}
-            onChange={e => setBetrag(e.target.value)}
-            placeholder="Neuer Kontostand"
-            className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-            autoFocus
-          />
-          <input
-            type="date"
-            value={datum}
-            onChange={e => setDatum(e.target.value)}
-            className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          <button
-            onClick={handleSave}
-            className="w-full rounded-lg bg-accent px-3 py-2.5 text-sm font-medium text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-50"
-          >
-            Speichern
-          </button>
-        </fieldset>
+      {isLoading ? (
+        <div className="mt-3 flex items-center gap-2">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          <p className={cn(
+            'mt-3 text-2xl sm:text-3xl font-bold tabular-nums',
+            isPositive ? 'text-success' : 'text-destructive'
+          )}>
+            {formatCurrency(saldo)}
+          </p>
+          {data && (
+            <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+              <p>+ Beiträge: {formatCurrency(data.beitraege)}</p>
+              <p>+ Gast-Sessions: {formatCurrency(data.gastsessions)}</p>
+              <p>− Ausgaben: {formatCurrency(data.ausgabenBootkonto)}</p>
+              <p>− Erstattungen: {formatCurrency(data.erstattungen)}</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

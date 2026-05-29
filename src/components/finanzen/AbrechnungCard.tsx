@@ -12,6 +12,9 @@ interface PersonBalance {
   netto: number // positive = Roger owes them, negative = they owe the bank
 }
 
+// Only track settlement items created after this date (historical records bulk-settled on this date)
+const SETTLEMENT_CUTOFF = '2026-05-29'
+
 export function AbrechnungCard() {
   const { ausgaben } = useAusgaben()
   const { sessions } = useGastsessions()
@@ -25,6 +28,7 @@ export function AbrechnungCard() {
 
     // Open reimbursements: expenses paid by a person (not bootkonto), not yet reimbursed
     for (const a of ausgaben) {
+      if (a.datum <= SETTLEMENT_CUTOFF) continue
       if (a.bezahlt_von !== 'bootkonto' && !a.erstattet) {
         const person = a.bezahlt_von as AlleFahrer
         if (result[person]) {
@@ -35,6 +39,7 @@ export function AbrechnungCard() {
 
     // Open deposits: guest session cash collected but not deposited to bank
     for (const s of sessions) {
+      if (s.datum <= SETTLEMENT_CUTOFF) continue
       if (!s.auf_konto_eingezahlt) {
         const person = s.bezahlt_an as AlleFahrer
         if (result[person]) {

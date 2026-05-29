@@ -18,14 +18,17 @@ export function useAusgaben() {
     },
   })
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
+    queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
+  }
+
   const createAusgabe = useMutation({
     mutationFn: async (input: { bezeichnung: string; betrag: number; kategorie: Kategorie; datum: string; bezahlt_von?: string; notiz?: string }) => {
       const { error } = await supabase.from('ausgaben').insert(input)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
-    },
+    onSuccess: invalidate,
   })
 
   const updateAusgabe = useMutation({
@@ -33,9 +36,7 @@ export function useAusgaben() {
       const { error } = await supabase.from('ausgaben').update(fields).eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
-    },
+    onSuccess: invalidate,
   })
 
   const deleteAusgabe = useMutation({
@@ -43,9 +44,7 @@ export function useAusgaben() {
       const { error } = await supabase.from('ausgaben').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
-    },
+    onSuccess: invalidate,
   })
 
   return { ausgaben, isLoading, error, createAusgabe, updateAusgabe, deleteAusgabe }

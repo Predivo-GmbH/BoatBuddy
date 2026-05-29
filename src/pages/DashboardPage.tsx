@@ -19,7 +19,7 @@ import {
   Anchor,
   Loader2,
 } from 'lucide-react'
-import { useKontostand } from '@/hooks/useKontostand'
+import { useKontoberechnung } from '@/hooks/useKontoberechnung'
 import { useReservierungen } from '@/hooks/useReservierungen'
 import { useGastsessions } from '@/hooks/useGastsessions'
 import { useBootStats } from '@/hooks/useBootStats'
@@ -32,7 +32,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
-  const { latestKontostand, isLoading: kontoLoading } = useKontostand()
+  const { data: kontoData, isLoading: kontoLoading } = useKontoberechnung()
   const { reservierungen, isLoading: resvLoading } = useReservierungen()
   const { sessions, isLoading: sessionsLoading } = useGastsessions()
   const { stats, isLoading: statsLoading } = useBootStats()
@@ -196,8 +196,8 @@ export default function DashboardPage() {
         <Link to="/finanzen" className="block">
           <StatCard
             label="Bootkonto"
-            value={latestKontostand ? formatCurrency(latestKontostand.betrag) : '--'}
-            subtitle={latestKontostand ? `Stand: ${formatDate(latestKontostand.datum)}` : 'Nicht erfasst'}
+            value={kontoData ? formatCurrency(kontoData.saldo) : '--'}
+            subtitle="Berechnet aus Beiträgen & Ausgaben"
             icon={Wallet}
             gradient="green"
           />

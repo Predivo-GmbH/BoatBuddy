@@ -18,14 +18,17 @@ export function useGastsessions() {
     },
   })
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['gastsessions'] })
+    queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
+  }
+
   const createGastsession = useMutation({
     mutationFn: async (input: { gast_name: string; betrag: number; bezahlt_an: Fahrer; datum: string; notiz?: string }) => {
       const { error } = await supabase.from('gastsessions').insert(input)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['gastsessions'] })
-    },
+    onSuccess: invalidate,
   })
 
   const updateGastsession = useMutation({
@@ -33,9 +36,7 @@ export function useGastsessions() {
       const { error } = await supabase.from('gastsessions').update(fields).eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['gastsessions'] })
-    },
+    onSuccess: invalidate,
   })
 
   const deleteGastsession = useMutation({
@@ -43,9 +44,7 @@ export function useGastsessions() {
       const { error } = await supabase.from('gastsessions').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['gastsessions'] })
-    },
+    onSuccess: invalidate,
   })
 
   return { sessions, isLoading, error, createGastsession, updateGastsession, deleteGastsession }

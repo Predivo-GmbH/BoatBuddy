@@ -22,15 +22,18 @@ export function useBeitraege(jahr: number) {
     },
   })
 
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['beitraege'] })
+    queryClient.invalidateQueries({ queryKey: ['beitraege-months'] })
+    queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
+  }
+
   const createBeitrag = useMutation({
     mutationFn: async (input: { fahrer: Fahrer; betrag: number; monat: string; notiz?: string }) => {
       const { error } = await supabase.from('beitraege').insert(input)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['beitraege'] })
-      queryClient.invalidateQueries({ queryKey: ['beitraege-months'] })
-    },
+    onSuccess: invalidate,
   })
 
   const deleteBeitrag = useMutation({
@@ -38,10 +41,7 @@ export function useBeitraege(jahr: number) {
       const { error } = await supabase.from('beitraege').delete().eq('id', id)
       if (error) throw new Error(error.message)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['beitraege'] })
-      queryClient.invalidateQueries({ queryKey: ['beitraege-months'] })
-    },
+    onSuccess: invalidate,
   })
 
   return { beitraege, isLoading, error, createBeitrag, deleteBeitrag }
