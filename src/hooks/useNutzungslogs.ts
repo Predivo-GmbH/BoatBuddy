@@ -28,13 +28,24 @@ export function useNutzungslogs() {
       datum: string
       fahrer: Fahrer
       betriebsstunden: number
+      neue_gesamtstunden?: number
       treibstoff_liter?: number
       aktivitaeten: Aktivitaet[]
       notiz?: string
     }) => {
-      const { error } = await supabase.from('nutzungslogs').insert(input)
+      const { neue_gesamtstunden, ...dbFields } = input
+      const { error } = await supabase.from('nutzungslogs').insert(dbFields)
       if (error) throw new Error(error.message)
-      await adjustGesamtstunden(input.betriebsstunden)
+      if (neue_gesamtstunden !== undefined) {
+        // Set gesamtstunden to the new absolute value from the boat meter
+        const { error: updateError } = await supabase
+          .from('boot_stats')
+          .update({ gesamtstunden: neue_gesamtstunden, aktualisiert_am: new Date().toISOString() })
+          .not('id', 'is', null)
+        if (updateError) throw new Error(updateError.message)
+      } else {
+        await adjustGesamtstunden(input.betriebsstunden)
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })

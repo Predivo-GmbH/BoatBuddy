@@ -86,15 +86,19 @@ export default function DashboardPage() {
   const [fahrtTreibstoff, setFahrtTreibstoff] = useState('')
   const { createNutzungslog } = useNutzungslogs()
 
+  const letzteGesamtstunden = stats ? Number(stats.gesamtstunden) : 0
+  const neuerStand = parseFloat(fahrtStunden)
+  const fahrtDifferenz = !isNaN(neuerStand) ? neuerStand - letzteGesamtstunden : null
+
   const handleQuickLog = () => {
-    const stunden = parseFloat(fahrtStunden)
-    if (isNaN(stunden) || stunden <= 0) {
-      toast.error('Bitte Betriebsstunden angeben')
+    if (isNaN(neuerStand) || neuerStand <= letzteGesamtstunden) {
+      toast.error(`Neuer Stand muss grösser als ${letzteGesamtstunden} h sein`)
       return
     }
+    const delta = neuerStand - letzteGesamtstunden
     const liter = fahrtTreibstoff ? parseFloat(fahrtTreibstoff) : undefined
     createNutzungslog.mutate(
-      { datum: todayISO(), fahrer: fahrtFahrer, betriebsstunden: stunden, treibstoff_liter: liter, aktivitaeten: [] },
+      { datum: todayISO(), fahrer: fahrtFahrer, betriebsstunden: delta, neue_gesamtstunden: neuerStand, treibstoff_liter: liter, aktivitaeten: [] },
       {
         onSuccess: () => {
           toast.success('Fahrt erfasst')
@@ -297,17 +301,22 @@ export default function DashboardPage() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Betriebsstunden *</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Neuer Stand * <span className="text-muted-foreground/60">(Letzter: {letzteGesamtstunden} h)</span>
+                </label>
                 <input
                   type="number"
                   step="0.1"
-                  min="0"
+                  min={letzteGesamtstunden + 0.1}
                   value={fahrtStunden}
                   onChange={e => setFahrtStunden(e.target.value)}
-                  placeholder="z.B. 2.5"
+                  placeholder={`z.B. ${(letzteGesamtstunden + 2.5).toFixed(1)}`}
                   className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                   autoFocus
                 />
+                {fahrtDifferenz !== null && fahrtDifferenz > 0 && (
+                  <p className="mt-1 text-xs text-accent font-medium">+{fahrtDifferenz.toFixed(1)} h Differenz</p>
+                )}
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Treibstoff (Liter)</label>

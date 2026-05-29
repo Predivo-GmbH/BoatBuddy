@@ -30,14 +30,6 @@ export function KontoBilanzCard() {
           )}>
             {formatCurrency(saldo)}
           </p>
-          {data && (
-            <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
-              <p>+ Beiträge: {formatCurrency(data.beitraege)}</p>
-              <p>+ Gast-Sessions: {formatCurrency(data.gastsessions)}</p>
-              <p>− Ausgaben: {formatCurrency(data.ausgabenBootkonto)}</p>
-              <p>− Erstattungen: {formatCurrency(data.erstattungen)}</p>
-            </div>
-          )}
         </>
       )}
     </div>

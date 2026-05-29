@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
+import { useBootStats } from '@/hooks/useBootStats'
 import { FAHRER, FAHRER_LABELS, type Fahrer } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
 import type { Aktivitaet } from '@/types'
@@ -13,12 +14,17 @@ const inputClass =
 export function NutzungslogForm() {
   const [datum, setDatum] = useState(todayISO())
   const [fahrer, setFahrer] = useState<Fahrer | ''>('')
-  const [betriebsstunden, setBetriebsstunden] = useState('')
+  const [neueStunden, setNeueStunden] = useState('')
   const [treibstoffLiter, setTreibstoffLiter] = useState('')
   const [aktivitaeten, setAktivitaeten] = useState<Aktivitaet[]>([])
   const [notiz, setNotiz] = useState('')
   const [expanded, setExpanded] = useState(false)
   const { createNutzungslog } = useNutzungslogs()
+  const { stats } = useBootStats()
+
+  const letzteGesamtstunden = stats ? Number(stats.gesamtstunden) : 0
+  const neueTotal = parseFloat(neueStunden)
+  const differenz = !isNaN(neueTotal) ? neueTotal - letzteGesamtstunden : null
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,9 +32,8 @@ export function NutzungslogForm() {
       toast.error('Bitte einen Fahrer auswählen')
       return
     }
-    const stunden = parseFloat(betriebsstunden)
-    if (isNaN(stunden) || stunden <= 0) {
-      toast.error('Bitte Betriebsstunden angeben')
+    if (isNaN(neueTotal) || neueTotal <= letzteGesamtstunden) {
+      toast.error(`Neuer Stand muss grösser als ${letzteGesamtstunden} h sein`)
       return
     }
 
@@ -38,11 +43,14 @@ export function NutzungslogForm() {
       return
     }
 
+    const delta = neueTotal - letzteGesamtstunden
+
     createNutzungslog.mutate(
       {
         datum,
         fahrer,
-        betriebsstunden: stunden,
+        betriebsstunden: delta,
+        neue_gesamtstunden: neueTotal,
         treibstoff_liter: liter,
         aktivitaeten,
         notiz: notiz.trim() || undefined,
@@ -51,7 +59,7 @@ export function NutzungslogForm() {
         onSuccess: () => {
           toast.success('Eintrag gespeichert')
           setFahrer('')
-          setBetriebsstunden('')
+          setNeueStunden('')
           setTreibstoffLiter('')
           setAktivitaeten([])
           setNotiz('')
@@ -97,17 +105,22 @@ export function NutzungslogForm() {
             ))}
           </select>
         </div>
-        <div className="min-w-[120px] flex-1">
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Betriebsstunden *</label>
+        <div className="min-w-[140px] flex-1">
+          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            Neuer Stand * <span className="text-muted-foreground/60">(Letzter: {letzteGesamtstunden} h)</span>
+          </label>
           <input
             type="number"
             step="0.1"
-            min="0"
-            value={betriebsstunden}
-            onChange={e => setBetriebsstunden(e.target.value)}
-            placeholder="z.B. 2.5"
+            min={letzteGesamtstunden + 0.1}
+            value={neueStunden}
+            onChange={e => setNeueStunden(e.target.value)}
+            placeholder={`z.B. ${(letzteGesamtstunden + 2.5).toFixed(1)}`}
             className={inputClass}
           />
+          {differenz !== null && differenz > 0 && (
+            <p className="mt-1 text-xs text-accent font-medium">+{differenz.toFixed(1)} h Differenz</p>
+          )}
         </div>
         <div className="min-w-[120px] flex-1">
           <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Treibstoff (L)</label>
