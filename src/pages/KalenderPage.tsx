@@ -12,12 +12,14 @@ import { ChevronLeft, ChevronRight, CalendarDays, Palmtree } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FAHRER_FARBEN, FAHRER_LABELS } from '@/lib/fahrer'
 import type { AlleFahrer } from '@/lib/fahrer'
+import type { Ferien } from '@/types'
 import { formatDate, formatDateLong, todayISO } from '@/lib/format'
 
 export default function KalenderPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showFerienDialog, setShowFerienDialog] = useState(false)
+  const [selectedFerien, setSelectedFerien] = useState<Ferien | null>(null)
 
   const { reservierungen: alleReservierungen, isLoading } = useReservierungen()
   const { ferien } = useFerien()
@@ -165,7 +167,7 @@ export default function KalenderPage() {
             {ferien
               .filter(f => f.bis_datum >= today)
               .map(f => (
-                <div key={f.id} className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
+                <div key={f.id} onClick={() => setSelectedFerien(f)} className="flex cursor-pointer items-center gap-3 rounded-lg bg-muted/50 px-3 py-2.5 transition-colors hover:bg-muted">
                   <span
                     className={cn(
                       'h-2.5 w-2.5 flex-shrink-0 rounded-full',
@@ -197,6 +199,10 @@ export default function KalenderPage() {
 
       {showFerienDialog && (
         <FerienDialog onClose={() => setShowFerienDialog(false)} />
+      )}
+
+      {selectedFerien && (
+        <FerienDialog editFerien={selectedFerien} onClose={() => setSelectedFerien(null)} />
       )}
     </div>
   )
