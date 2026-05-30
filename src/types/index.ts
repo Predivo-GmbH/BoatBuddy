@@ -117,6 +117,15 @@ export interface Wartung {
   erstellt_am: string
 }
 
+export interface Ferien {
+  id: string
+  fahrer: Fahrer
+  von_datum: string
+  bis_datum: string
+  notiz: string | null
+  erstellt_am: string
+}
+
 export interface GentlemanRule {
   id: string
   regel: string

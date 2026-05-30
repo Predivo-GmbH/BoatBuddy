@@ -4,21 +4,23 @@ import { de } from 'date-fns/locale'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { KalenderRaster } from '@/components/kalender/KalenderRaster'
 import { ReservierungDialog } from '@/components/kalender/ReservierungDialog'
+import { FerienDialog } from '@/components/kalender/FerienDialog'
 import { useReservierungen } from '@/hooks/useReservierungen'
+import { useFerien } from '@/hooks/useFerien'
 import { CalendarSkeleton } from '@/components/shared/PageSkeleton'
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, Palmtree } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { FAHRER_FARBEN, FAHRER_LABELS } from '@/lib/fahrer'
 import type { AlleFahrer } from '@/lib/fahrer'
-import { formatDateLong, todayISO } from '@/lib/format'
+import { formatDate, formatDateLong, todayISO } from '@/lib/format'
 
 export default function KalenderPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [showFerienDialog, setShowFerienDialog] = useState(false)
 
-  // Single unfiltered fetch — used for both calendar grid and upcoming list
-  // Fixes cross-month click bug where dialog showed empty data for other months
   const { reservierungen: alleReservierungen, isLoading } = useReservierungen()
+  const { ferien } = useFerien()
 
   const today = todayISO()
   const kommende = alleReservierungen
@@ -30,7 +32,16 @@ export default function KalenderPage() {
 
   return (
     <div className="slide-up space-y-6">
-      <PageHeader title="Kalender" subtitle="Reservierungen & Verfügbarkeit" />
+      <div className="flex items-center justify-between">
+        <PageHeader title="Kalender" subtitle="Reservierungen & Verfügbarkeit" />
+        <button
+          onClick={() => setShowFerienDialog(true)}
+          className="flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-sm font-medium text-success transition-colors hover:bg-success/20"
+        >
+          <Palmtree className="h-4 w-4" />
+          <span className="hidden sm:inline">Ferien eintragen</span>
+        </button>
+      </div>
 
       <div className="card-premium card-glow rounded-lg border border-border bg-card p-4 sm:p-6">
         {/* Month navigation */}
@@ -79,6 +90,7 @@ export default function KalenderPage() {
           <KalenderRaster
             currentDate={currentDate}
             reservierungen={alleReservierungen}
+            ferien={ferien}
             onDayClick={setSelectedDate}
           />
         )}
@@ -142,12 +154,49 @@ export default function KalenderPage() {
         )}
       </div>
 
+      {/* Upcoming vacations */}
+      {ferien.filter(f => f.bis_datum >= today).length > 0 && (
+        <div className="card-premium card-glow rounded-lg border border-border bg-card p-4 sm:p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            <Palmtree className="h-4 w-4 text-success" />
+            Kommende Ferien
+          </h2>
+          <div className="space-y-2">
+            {ferien
+              .filter(f => f.bis_datum >= today)
+              .map(f => (
+                <div key={f.id} className="flex items-center gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
+                  <span
+                    className={cn(
+                      'h-2.5 w-2.5 flex-shrink-0 rounded-full',
+                      FAHRER_FARBEN[f.fahrer as AlleFahrer] ?? 'bg-muted',
+                    )}
+                  />
+                  <span className="font-medium text-foreground text-sm">
+                    {FAHRER_LABELS[f.fahrer as AlleFahrer] ?? f.fahrer}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatDate(f.von_datum)} – {formatDate(f.bis_datum)}
+                  </span>
+                  {f.notiz && (
+                    <span className="text-sm text-muted-foreground">— {f.notiz}</span>
+                  )}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       {selectedDate && (
         <ReservierungDialog
           datum={selectedDate}
           reservierungen={alleReservierungen}
           onClose={() => setSelectedDate(null)}
         />
+      )}
+
+      {showFerienDialog && (
+        <FerienDialog onClose={() => setShowFerienDialog(false)} />
       )}
     </div>
   )

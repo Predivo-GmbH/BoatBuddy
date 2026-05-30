@@ -4,21 +4,27 @@ import {
   eachDayOfInterval, format, isSameMonth, isToday, getDay,
 } from 'date-fns'
 
-import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN } from '@/lib/fahrer'
+import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_TEXT_FARBEN } from '@/lib/fahrer'
 import { getFeiertageMap } from '@/lib/feiertage'
 import { cn } from '@/lib/utils'
-import type { Reservierung } from '@/types'
+import type { Reservierung, Ferien } from '@/types'
+import type { Fahrer } from '@/lib/fahrer'
 
 const WOCHENTAGE = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
+const FAHRER_FERIEN_BG: Record<string, string> = {
+  roger: 'bg-roger/15',
+  dani: 'bg-dani/15',
+}
 
 interface KalenderRasterProps {
   currentDate: Date
   reservierungen: Reservierung[]
+  ferien?: Ferien[]
   onDayClick: (dateStr: string) => void
 }
 
-export function KalenderRaster({ currentDate, reservierungen, onDayClick }: KalenderRasterProps) {
+export function KalenderRaster({ currentDate, reservierungen, ferien = [], onDayClick }: KalenderRasterProps) {
   const days = useMemo(() => {
     const monthStart = startOfMonth(currentDate)
     const monthEnd = endOfMonth(currentDate)
@@ -47,6 +53,20 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
     return map
   }, [reservierungen])
 
+  const ferienOnDay = useMemo(() => {
+    const map: Record<string, Fahrer[]> = {}
+    for (const f of ferien) {
+      for (const day of days) {
+        const dateStr = format(day, 'yyyy-MM-dd')
+        if (dateStr >= f.von_datum && dateStr <= f.bis_datum) {
+          if (!map[dateStr]) map[dateStr] = []
+          if (!map[dateStr].includes(f.fahrer)) map[dateStr].push(f.fahrer)
+        }
+      }
+    }
+    return map
+  }, [ferien, days])
+
   return (
     <div className="space-y-4">
       {/* Weekday headers */}
@@ -73,6 +93,7 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
           const dayOfWeek = getDay(day) // 0=Sun, 6=Sat
           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
           const reservationsOnDay = reservationMap[dateStr] ?? []
+          const ferienFahrer = ferienOnDay[dateStr] ?? []
           const feiertag = feiertageMap.get(dateStr)
 
           return (
@@ -113,6 +134,26 @@ export function KalenderRaster({ currentDate, reservierungen, onDayClick }: Kale
                 <span className="hidden text-[9px] font-medium leading-tight text-rose-500 dark:text-rose-400 sm:block">
                   {feiertag}
                 </span>
+              )}
+
+              {/* Vacation indicator */}
+              {ferienFahrer.length > 0 && (
+                <div className="flex flex-wrap gap-0.5">
+                  {ferienFahrer.map(f => (
+                    <span
+                      key={`ferien-${f}`}
+                      className={cn(
+                        'inline-flex items-center rounded px-1 py-0.5 text-[9px] font-medium leading-none',
+                        FAHRER_FERIEN_BG[f],
+                        FAHRER_TEXT_FARBEN[f],
+                      )}
+                      title={`${FAHRER_LABELS[f]} — Ferien`}
+                    >
+                      <span className="mr-0.5 text-[8px]">&#9992;</span>
+                      {FAHRER_LABELS[f].charAt(0)}
+                    </span>
+                  ))}
+                </div>
               )}
 
               {/* Reservation pills */}
