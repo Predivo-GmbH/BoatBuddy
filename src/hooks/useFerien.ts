@@ -28,6 +28,16 @@ export function useFerien() {
     },
   })
 
+  const updateFerien = useMutation({
+    mutationFn: async ({ id, ...fields }: Partial<Ferien> & { id: string }) => {
+      const { error } = await supabase.from('ferien').update(fields).eq('id', id)
+      if (error) throw new Error(error.message)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ferien'] })
+    },
+  })
+
   const deleteFerien = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('ferien').delete().eq('id', id)
@@ -38,5 +48,5 @@ export function useFerien() {
     },
   })
 
-  return { ferien, isLoading, error, createFerien, deleteFerien }
+  return { ferien, isLoading, error, createFerien, updateFerien, deleteFerien }
 }

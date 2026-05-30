@@ -4,11 +4,12 @@ import { useFerien } from '@/hooks/useFerien'
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_BORDER_FARBEN, type Fahrer } from '@/lib/fahrer'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { X, Trash2, Palmtree } from 'lucide-react'
+import { X, Trash2, Pencil, Palmtree } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
 import { todayISO } from '@/lib/format'
+import type { Ferien } from '@/types'
 
 interface FerienDialogProps {
   onClose: () => void
@@ -19,11 +20,12 @@ export function FerienDialog({ onClose }: FerienDialogProps) {
   const [vonDatum, setVonDatum] = useState('')
   const [bisDatum, setBisDatum] = useState('')
   const [notiz, setNotiz] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const { ferien, createFerien, deleteFerien } = useFerien()
+  const { ferien, createFerien, updateFerien, deleteFerien } = useFerien()
   const trapRef = useFocusTrap<HTMLDivElement>(true)
 
-  const isPending = createFerien.isPending || deleteFerien.isPending
+  const isPending = createFerien.isPending || updateFerien.isPending || deleteFerien.isPending
 
   const close = useCallback(() => {
     if (!isPending) onClose()
@@ -39,6 +41,22 @@ export function FerienDialog({ onClose }: FerienDialogProps) {
 
   const today = todayISO()
   const upcoming = ferien.filter(f => f.bis_datum >= today)
+
+  const handleEdit = (f: Ferien) => {
+    setEditingId(f.id)
+    setFahrer(f.fahrer)
+    setVonDatum(f.von_datum)
+    setBisDatum(f.bis_datum)
+    setNotiz(f.notiz ?? '')
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setFahrer('')
+    setVonDatum('')
+    setBisDatum('')
+    setNotiz('')
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,6 +74,26 @@ export function FerienDialog({ onClose }: FerienDialogProps) {
       return
     }
 
+    if (editingId) {
+      updateFerien.mutate(
+        {
+          id: editingId,
+          fahrer,
+          von_datum: vonDatum,
+          bis_datum: bisDatum,
+          notiz: notiz.trim() || null,
+        },
+        {
+          onSuccess: () => {
+            toast.success('Ferien aktualisiert')
+            cancelEdit()
+          },
+          onError: () => toast.error('Fehler beim Aktualisieren'),
+        },
+      )
+      return
+    }
+
     createFerien.mutate(
       {
         fahrer,
@@ -66,10 +104,7 @@ export function FerienDialog({ onClose }: FerienDialogProps) {
       {
         onSuccess: () => {
           toast.success('Ferien eingetragen')
-          setFahrer('')
-          setVonDatum('')
-          setBisDatum('')
-          setNotiz('')
+          onClose()
         },
         onError: () => toast.error('Fehler beim Speichern'),
       },
@@ -132,13 +167,22 @@ export function FerienDialog({ onClose }: FerienDialogProps) {
                     {formatDate(f.von_datum)} – {formatDate(f.bis_datum)}
                   </span>
                 </span>
-                <button
-                  onClick={() => setDeleteId(f.id)}
-                  className="min-h-[44px] min-w-[44px] rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
-                  aria-label={`${FAHRER_LABELS[f.fahrer]} Ferien loeschen`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => handleEdit(f)}
+                    className="min-h-[44px] min-w-[44px] rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent flex items-center justify-center"
+                    aria-label={`${FAHRER_LABELS[f.fahrer]} Ferien bearbeiten`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setDeleteId(f.id)}
+                    className="min-h-[44px] min-w-[44px] rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive flex items-center justify-center"
+                    aria-label={`${FAHRER_LABELS[f.fahrer]} Ferien loeschen`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -164,11 +208,22 @@ export function FerienDialog({ onClose }: FerienDialogProps) {
           isPending={deleteFerien.isPending}
         />
 
-        {/* Add new */}
+        {/* Add / Edit form */}
         <form onSubmit={handleSubmit} className="space-y-3 border-t border-border pt-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Neue Ferien
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              {editingId ? 'Ferien bearbeiten' : 'Neue Ferien'}
+            </p>
+            {editingId && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Abbrechen
+              </button>
+            )}
+          </div>
 
           {/* Person selector */}
           <div className="flex gap-2" role="radiogroup" aria-label="Person auswaehlen">
@@ -247,7 +302,7 @@ export function FerienDialog({ onClose }: FerienDialogProps) {
             disabled={isPending}
             className="w-full rounded-lg bg-accent px-3 py-2.5 text-sm font-semibold text-accent-foreground transition-colors hover:bg-accent/90 disabled:opacity-50"
           >
-            {isPending ? 'Wird gespeichert...' : 'Ferien eintragen'}
+            {isPending ? 'Wird gespeichert...' : editingId ? 'Speichern' : 'Ferien eintragen'}
           </button>
         </form>
       </div>
