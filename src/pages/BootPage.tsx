@@ -140,7 +140,7 @@ function EigentuemerTab() {
       }
       toast.success('Anteile gespeichert')
       setEditing(false)
-    } catch (err) {
+    } catch {
       toast.error('Fehler beim Speichern der Anteile')
     }
   }

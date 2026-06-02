@@ -11,9 +11,15 @@ CREATE OR REPLACE FUNCTION create_nutzungslog_atomic(
 ) RETURNS uuid AS $$
 DECLARE
   v_id uuid;
+  v_teilnehmer text[];
 BEGIN
+  -- Convert jsonb array to text[]
+  SELECT COALESCE(array_agg(elem::text), '{}')
+  INTO v_teilnehmer
+  FROM jsonb_array_elements_text(p_teilnehmer) AS elem;
+
   INSERT INTO nutzungslogs (datum, fahrer, betriebsstunden, treibstoff_liter, aktivitaeten, notiz, teilnehmer)
-  VALUES (p_datum, p_fahrer, p_betriebsstunden, p_treibstoff_liter, p_aktivitaeten, p_notiz, p_teilnehmer)
+  VALUES (p_datum, p_fahrer, p_betriebsstunden, p_treibstoff_liter, p_aktivitaeten, p_notiz, v_teilnehmer)
   RETURNING id INTO v_id;
 
   IF p_neue_gesamtstunden IS NOT NULL THEN
