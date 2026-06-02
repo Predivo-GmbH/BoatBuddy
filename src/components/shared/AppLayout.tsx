@@ -42,7 +42,7 @@ export function AppLayout() {
         </header>
 
         {/* Main content — extra bottom padding on mobile for bottom nav */}
-        <main id="main-content" ref={mainRef} className="flex-1 overflow-y-auto p-4 pb-20 sm:p-6 lg:pb-6 scrollbar-thin">
+        <main id="main-content" ref={mainRef} aria-live="polite" className="flex-1 overflow-y-auto p-4 pb-20 sm:p-6 lg:pb-6 scrollbar-thin">
           <Outlet />
         </main>
 

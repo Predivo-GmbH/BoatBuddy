@@ -120,7 +120,7 @@ export function PhoneUploadModal({ open, onOpenChange }: PhoneUploadModalProps) 
                 Scanne den QR-Code mit deinem Handy, um ein Foto der Rechnung aufzunehmen.
               </p>
               <div className="rounded-lg border border-border bg-white p-2">
-                <img src={qrDataUrl} alt="QR-Code für Handy-Upload" className="h-[264px] w-[264px]" />
+                <img src={qrDataUrl} alt="QR-Code für Handy-Upload" width={264} height={264} className="h-[264px] w-[264px]" />
               </div>
               <div className="flex items-center gap-2 text-sm tabular-nums">
                 <span className="text-muted-foreground">Gültig für:</span>

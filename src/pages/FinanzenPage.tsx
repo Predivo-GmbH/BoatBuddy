@@ -74,7 +74,12 @@ export default function FinanzenPage() {
     return () => window.removeEventListener('resize', updateIndicator)
   }, [tab])
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1024)
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 1024)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const handleMobileCameraCapture = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
