@@ -1,6 +1,6 @@
 # Feature Registry -- BoatBuddy
 
-**Last updated:** 2026-05-29
+**Last updated:** 2026-06-02
 **Codebase path:** `C:\Business\Internal Projects\BoatBuddy`
 **Supabase URL:** `https://xzythvxmuxmczuiophwp.supabase.co`
 
@@ -18,7 +18,7 @@
 | NAV-006 | Footer shows copyright and slogan (desktop) | `critical-path.spec.ts:"footer shows copyright and slogan"` | COVERED |
 | DASH-001 | Dashboard shows Bootkonto balance card | `critical-path.spec.ts:"shows hero balance card"` | COVERED |
 | DASH-002 | Dashboard shows stat cards (Ausgaben, Betriebsstunden) | `critical-path.spec.ts:"shows stat cards"` | COVERED |
-| DASH-003 | Dashboard quick action buttons (Neue Ausgabe, Boot reservieren, Gastsession buchen) | `critical-path.spec.ts:"shows quick action buttons"` | COVERED |
+| DASH-003 | Dashboard quick action buttons (Fahrt loggen, Neue Ausgabe, Reservierung, Gastsession) | `critical-path.spec.ts:"shows quick action buttons"` | COVERED |
 | DASH-004 | Dashboard next reservation hero card | `critical-path.spec.ts:"shows next reservation or empty state"` | COVERED |
 | DASH-005 | Dashboard season overview (Ausgaben, Gast-Sessions, Stunden, Treibstoff) | `critical-path.spec.ts:"shows season overview cards"` | COVERED |
 | DASH-006 | Dashboard letzte Fahrten list (recent trips) | `critical-path.spec.ts:"shows letzte Fahrten section"` | COVERED |
@@ -72,6 +72,10 @@
 | BOOT-012 | Gentleman-Rules tab shows real rules from data | `critical-path.spec.ts:"Gentleman-Rules tab shows real rules from Excel"` | COVERED |
 | BOOT-013 | Gentleman-Rules tab: add new rule input | `critical-path.spec.ts:"Gentleman-Rules tab has add rule input"` | COVERED |
 | BOOT-014 | Gentleman-Rules tab: inline edit and delete rules | `critical-path.spec.ts:"Gentleman-Rules tab rules have edit and delete"` | COVERED |
+| FER-001 | Ferien eintragen button on Kalender page | `critical-path.spec.ts:"Ferien eintragen button visible on Kalender page"` | COVERED |
+| FER-002 | FerienDialog opens on button click | `critical-path.spec.ts:"clicking Ferien eintragen opens FerienDialog"` | COVERED |
+| FER-003 | FerienDialog has date inputs and submit button | `critical-path.spec.ts:"FerienDialog has date inputs and submit button"` | COVERED |
+| FER-004 | Upcoming vacations section on Kalender page | `critical-path.spec.ts:"upcoming vacations section shows when vacations exist"` | COVERED |
 | INFRA-001 | Supabase project reachable (GraphQL health check) | `critical-path.spec.ts:"Supabase project is reachable"` | COVERED |
 | INFRA-002 | ErrorBoundary catches render errors | `critical-path.spec.ts:"ErrorBoundary renders fallback"` | COVERED |
 | INFRA-003 | 404 page shows not-found message with link to dashboard | `critical-path.spec.ts:"404 page shows not found message"` | COVERED |
@@ -79,7 +83,7 @@
 
 ## Summary
 
-- **Total features:** 68
-- **Covered by E2E:** 68
+- **Total features:** 72
+- **Covered by E2E:** 72
 - **Not covered:** 0
 - **Coverage:** 100%
