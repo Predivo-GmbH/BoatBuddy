@@ -68,9 +68,9 @@ test.describe('Dashboard', () => {
   })
 
   test('shows quick action buttons', async ({ page }) => {
-    await expect(page.getByText('Neue Ausgabe')).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText('Boot reservieren')).toBeVisible()
-    await expect(page.getByText('Gastsession buchen')).toBeVisible()
+    await expect(page.getByText('Neue Ausgabe').first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Reservierung', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Gastsession', { exact: true }).first()).toBeVisible()
   })
 })
 
@@ -88,9 +88,9 @@ test.describe('Finanzen — CRUD', () => {
     await ausgabenTab.click()
     await expect(page.getByText('Neue Ausgabe')).toBeVisible({ timeout: 5_000 })
 
-    const beitraegeTab = page.getByRole('tab', { name: 'Beiträge' })
-    await beitraegeTab.click()
-    await expect(beitraegeTab).toHaveAttribute('aria-selected', 'true')
+    const einnahmenTab = page.getByRole('tab', { name: 'Einnahmen' })
+    await einnahmenTab.click()
+    await expect(einnahmenTab).toHaveAttribute('aria-selected', 'true')
   })
 })
 
@@ -174,8 +174,9 @@ test.describe('Navigation — extended', () => {
     await expect(bottomNav.getByText('Home')).toBeVisible()
     await expect(bottomNav.getByText('Finanzen')).toBeVisible()
     await expect(bottomNav.getByText('Kalender')).toBeVisible()
+    await expect(bottomNav.getByText('Gäste')).toBeVisible()
     await expect(bottomNav.getByText('Nutzung')).toBeVisible()
-    await expect(bottomNav.getByText('Regeln')).toBeVisible()
+    await expect(bottomNav.getByText('Boot')).toBeVisible()
   })
 
   test('dark mode toggle works', async ({ page }) => {
@@ -215,18 +216,18 @@ test.describe('Dashboard — extended', () => {
   test('shows next reservation or empty state', async ({ page }) => {
     // Either a real reservation or "Keine Reservierungen geplant"
     await expect(
-      page.getByText(/Nächste Reservierung/).or(page.getByText('Keine Reservierungen geplant'))
+      page.getByText(/Nächste Reservierung/).or(page.getByText('Keine Reservierungen geplant')).first()
     ).toBeVisible({ timeout: 10_000 })
   })
 
   test('shows season overview cards', async ({ page }) => {
     const currentYear = new Date().getFullYear().toString()
-    await expect(page.getByText(`Saison ${currentYear}`)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText(`Saison ${currentYear}`).first()).toBeVisible({ timeout: 10_000 })
     // Season overview has 4 cards: Ausgaben, Gast-Sessions, Stunden, Treibstoff
-    await expect(page.locator('.section-fade-in').getByText('Ausgaben').first()).toBeVisible()
-    await expect(page.locator('.section-fade-in').getByText('Gast-Sessions').first()).toBeVisible()
-    await expect(page.locator('.section-fade-in').getByText('Stunden').first()).toBeVisible()
-    await expect(page.locator('.section-fade-in').getByText('Treibstoff').first()).toBeVisible()
+    await expect(page.getByText('Ausgaben').first()).toBeVisible()
+    await expect(page.getByText('Gast-Sessions').first()).toBeVisible()
+    await expect(page.getByText('Stunden').first()).toBeVisible()
+    await expect(page.getByText('Treibstoff').first()).toBeVisible()
   })
 
   test('shows letzte Fahrten section', async ({ page }) => {
@@ -238,15 +239,15 @@ test.describe('Dashboard — extended', () => {
   })
 
   test('Fahrt loggen dialog opens with expected fields', async ({ page }) => {
-    await page.getByText('Fahrt loggen').click()
+    await page.getByText('Fahrt loggen').first().click()
     await expect(page.getByRole('heading', { name: 'Fahrt loggen' })).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText('Fahrer')).toBeVisible()
-    await expect(page.getByText('Betriebsstunden *')).toBeVisible()
+    await expect(page.getByText('Fahrer').first()).toBeVisible()
+    await expect(page.getByText('Neuer Stand').first()).toBeVisible()
     await expect(page.getByText('Treibstoff (Liter)')).toBeVisible()
-    await expect(page.getByText('Erfassen')).toBeVisible()
-    await expect(page.getByText('Abbrechen')).toBeVisible()
+    await expect(page.getByText('Erfassen').first()).toBeVisible()
+    await expect(page.getByText('Abbrechen').first()).toBeVisible()
     // Close dialog
-    await page.getByText('Abbrechen').click()
+    await page.getByText('Abbrechen').first().click()
   })
 
   test('Neue Ausgabe dialog opens from dashboard', async ({ page }) => {
@@ -254,7 +255,7 @@ test.describe('Dashboard — extended', () => {
     await expect(page.getByText('Bezeichnung *')).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('Betrag (CHF) *')).toBeVisible()
     // Close via Abbrechen
-    await page.getByText('Abbrechen').click()
+    await page.getByText('Abbrechen').first().click()
   })
 })
 
@@ -269,7 +270,7 @@ test.describe('Finanzen — extended', () => {
 
   test('Ubersicht shows KontoBilanzCard', async ({ page }) => {
     // Default tab is Ubersicht
-    await expect(page.getByText('Kontostand')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Kontostand').first()).toBeVisible({ timeout: 10_000 })
   })
 
   test('Ubersicht shows Ausgaben year card', async ({ page }) => {
@@ -279,7 +280,7 @@ test.describe('Finanzen — extended', () => {
 
   test('Ubersicht shows Beitrage year card', async ({ page }) => {
     const currentYear = new Date().getFullYear().toString()
-    await expect(page.getByText(`Beiträge ${currentYear}`)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText(`Einnahmen ${currentYear}`)).toBeVisible({ timeout: 10_000 })
   })
 
   test('Ubersicht shows Monatsdiagramm chart', async ({ page }) => {
@@ -301,14 +302,14 @@ test.describe('Finanzen — extended', () => {
 
   test('Ausgaben tab Neue Ausgabe dialog has expected fields', async ({ page }) => {
     await page.getByRole('tab', { name: 'Ausgaben' }).click()
-    await page.getByText('Neue Ausgabe').click()
+    await page.getByText('Neue Ausgabe').first().click()
     await expect(page.getByText('Bezeichnung *')).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('Betrag (CHF) *')).toBeVisible()
-    await expect(page.getByText('Kategorie')).toBeVisible()
-    await expect(page.getByText('Bezahlt von')).toBeVisible()
-    await expect(page.getByText('Notiz')).toBeVisible()
+    await expect(page.getByText('Kategorie', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Bezahlt von', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Notiz', { exact: true }).first()).toBeVisible()
     // Close
-    await page.getByLabel('Schliessen').click()
+    await page.getByRole('button', { name: 'Schliessen', exact: true }).click()
   })
 
   test('Ausgaben tab shows invoice upload zone', async ({ page }) => {
@@ -329,20 +330,20 @@ test.describe('Finanzen — extended', () => {
     }
   })
 
-  test('Beitrage tab shows grid with year navigation', async ({ page }) => {
-    await page.getByRole('tab', { name: 'Beiträge' }).click()
+  test('Einnahmen tab shows grid with year navigation', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Einnahmen' }).click()
     // Year navigation buttons
-    await expect(page.getByLabel('Vorjahr')).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByLabel('Nächstes Jahr')).toBeVisible()
+    await expect(page.getByLabel('Vorjahr').first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByLabel('Nächstes Jahr').first()).toBeVisible()
     // Current year displayed
     const currentYear = new Date().getFullYear().toString()
-    await expect(page.getByText(currentYear)).toBeVisible()
+    await expect(page.getByText(currentYear).first()).toBeVisible()
     // Grid with month headers
-    await expect(page.getByText('Jan')).toBeVisible()
-    await expect(page.getByText('Dez')).toBeVisible()
+    await expect(page.getByText('Jan').first()).toBeVisible()
+    await expect(page.getByText('Dez').first()).toBeVisible()
     // Outstanding badge
     await expect(
-      page.getByText('ausstehend').or(page.getByText('Alles bezahlt'))
+      page.getByText('ausstehend').or(page.getByText('Alles bezahlt')).first()
     ).toBeVisible()
   })
 })
@@ -357,19 +358,19 @@ test.describe('Kalender — extended', () => {
   })
 
   test('calendar grid shows weekday headers', async ({ page }) => {
-    await expect(page.getByText('Mo')).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText('Di')).toBeVisible()
-    await expect(page.getByText('Mi')).toBeVisible()
-    await expect(page.getByText('Do')).toBeVisible()
-    await expect(page.getByText('Fr')).toBeVisible()
-    await expect(page.getByText('Sa')).toBeVisible()
-    await expect(page.getByText('So')).toBeVisible()
+    await expect(page.getByText('Mo', { exact: true }).first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Di', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Mi', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Do', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Fr', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Sa', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('So', { exact: true }).first()).toBeVisible()
   })
 
   test('calendar shows driver legend', async ({ page }) => {
     await expect(page.getByText('Legende:')).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText('Roger')).toBeVisible()
-    await expect(page.getByText('Dani')).toBeVisible()
+    await expect(page.getByText('Roger').first()).toBeVisible()
+    await expect(page.getByText('Dani').first()).toBeVisible()
   })
 
   test('upcoming reservations section visible', async ({ page }) => {
@@ -382,27 +383,27 @@ test.describe('Kalender — extended', () => {
     const firstVisibleDay = dayCells.first()
     await firstVisibleDay.click()
     // Dialog should open
-    await expect(page.getByText('Neue Reservierung')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Neue Reservierung').first()).toBeVisible({ timeout: 10_000 })
     // Close via X button
-    await page.getByLabel('Schliessen').click()
+    await page.getByRole('button', { name: 'Schliessen', exact: true }).click()
   })
 
   test('ReservierungDialog has all form fields', async ({ page }) => {
     const dayCells = page.locator('.grid.grid-cols-7 > button')
     await dayCells.first().click()
-    await expect(page.getByText('Neue Reservierung')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Neue Reservierung').first()).toBeVisible({ timeout: 10_000 })
     // Driver selector (radiogroup)
     await expect(page.getByLabel('Fahrer auswählen')).toBeVisible()
     // Start time
     await expect(page.getByText('Startzeit')).toBeVisible()
     // Duration
-    await expect(page.getByText('Dauer')).toBeVisible()
+    await expect(page.getByText('Dauer').first()).toBeVisible()
     // Computed time display
-    await expect(page.getByText(/\d{2}:\d{2} – \d{2}:\d{2} Uhr/)).toBeVisible()
+    await expect(page.getByText(/\d{2}:\d{2} – \d{2}:\d{2} Uhr/).first()).toBeVisible()
     // Submit button
-    await expect(page.getByText('Reservieren')).toBeVisible()
+    await expect(page.getByText('Reservieren').first()).toBeVisible()
     // Close
-    await page.getByLabel('Schliessen').click()
+    await page.getByRole('button', { name: 'Schliessen', exact: true }).click()
   })
 
   test('calendar highlights Swiss holidays', async ({ page }) => {
@@ -431,16 +432,16 @@ test.describe('Gast-Sessions — extended', () => {
   test('shows session stats cards', async ({ page }) => {
     // Stats section has per-driver cards or the "Gesamt" card
     await expect(
-      page.getByText('Gesamt').or(page.getByText('Sessions gesamt'))
+      page.getByText('Gesamt').or(page.getByText('Sessions gesamt')).first()
     ).toBeVisible({ timeout: 10_000 })
   })
 
   test('session form has expected fields', async ({ page }) => {
     await expect(page.getByText('Neue Session erfassen')).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('Gast-Name *')).toBeVisible()
-    await expect(page.getByText('Betrag (CHF)')).toBeVisible()
-    await expect(page.getByText('Bezahlt an')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Erfassen' })).toBeVisible()
+    await expect(page.getByText('Betrag (CHF)').first()).toBeVisible()
+    await expect(page.getByText('Bezahlt an').first()).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Erfassen' }).first()).toBeVisible()
   })
 
   test('session table has search and filters', async ({ page }) => {
@@ -487,10 +488,10 @@ test.describe('Nutzungslog — extended', () => {
 
   test('shows season stats cards', async ({ page }) => {
     const currentYear = new Date().getFullYear().toString()
-    await expect(page.getByText(`Saison ${currentYear}`)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText(`Saison ${currentYear}`).first()).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText(`Stunden ${currentYear}`)).toBeVisible()
-    await expect(page.getByText('Treibstoff')).toBeVisible()
-    await expect(page.getByText('Fahrten')).toBeVisible()
+    await expect(page.getByText('Treibstoff').first()).toBeVisible()
+    await expect(page.getByText('Fahrten').first()).toBeVisible()
     await expect(page.getByText('Durchschnitt')).toBeVisible()
   })
 
@@ -510,16 +511,16 @@ test.describe('Nutzungslog — extended', () => {
 
   test('nutzungslog form has expected fields', async ({ page }) => {
     await expect(page.getByText('Neuen Eintrag erfassen')).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText('Betriebsstunden *')).toBeVisible()
+    await expect(page.getByText('Neuer Stand')).toBeVisible()
     await expect(page.getByText('Treibstoff (L)')).toBeVisible()
     await expect(page.getByText('Erweitert')).toBeVisible()
   })
 
   test('nutzungslog form expanded shows activities editor', async ({ page }) => {
-    await page.getByText('Erweitert').click()
-    await expect(page.getByText('Aktivitäten')).toBeVisible({ timeout: 10_000 })
+    await page.getByText('Erweitert').first().click()
+    await expect(page.getByText('Aktivitäten').first()).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('Aktivität hinzufügen')).toBeVisible()
-    await expect(page.getByText('Notiz')).toBeVisible()
+    await expect(page.getByText('Notiz').first()).toBeVisible()
   })
 
   test('nutzungslog table has driver and year filters', async ({ page }) => {
@@ -537,11 +538,11 @@ test.describe('Nutzungslog — extended', () => {
   })
 
   test('nutzungslog table columns are sortable', async ({ page }) => {
-    const table = page.locator('table.table-premium')
+    const table = page.locator('table.table-premium').first()
     if (await table.isVisible()) {
-      await expect(table.getByText('Datum')).toBeVisible({ timeout: 10_000 })
-      await expect(table.getByText('Stunden')).toBeVisible()
-      await expect(table.getByText('Liter')).toBeVisible()
+      await expect(table.getByText('Datum').first()).toBeVisible({ timeout: 10_000 })
+      await expect(table.getByText('Stunden').first()).toBeVisible()
+      await expect(table.getByText('Liter').first()).toBeVisible()
     }
   })
 
@@ -556,7 +557,7 @@ test.describe('Nutzungslog — extended', () => {
     // May or may not be visible depending on data
     // Not asserting visibility — data-dependent
     // Just verify the page loaded without errors
-    await expect(page.getByText('Nutzungslog')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Nutzungslog').first()).toBeVisible({ timeout: 10_000 })
   })
 })
 
@@ -584,9 +585,9 @@ test.describe('Boot & Eigentumer — extended', () => {
     await expect(page.getByText('Beitrag / Monat')).toBeVisible()
   })
 
-  test('Abrechnung tab shows exit simulation', async ({ page }) => {
+  test('Abrechnung tab shows config section header', async ({ page }) => {
     await page.getByRole('tab', { name: 'Abrechnung' }).click()
-    await expect(page.getByText('Austrittssimulation')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('Bewertung')).toBeVisible({ timeout: 10_000 })
   })
 
   test('Abrechnung tab shows boot info', async ({ page }) => {
@@ -606,7 +607,7 @@ test.describe('Boot & Eigentumer — extended', () => {
     await page.getByRole('tab', { name: 'Wartung' }).click()
     // Check for the pending tasks section
     await expect(
-      page.getByText(/Anstehende Wartung/).or(page.getByText('Alle Aufgaben erledigt'))
+      page.getByText(/Anstehende Wartung/).or(page.getByText('Alle Aufgaben erledigt')).first()
     ).toBeVisible({ timeout: 10_000 })
   })
 
@@ -614,7 +615,7 @@ test.describe('Boot & Eigentumer — extended', () => {
     await page.getByRole('tab', { name: 'Wartung' }).click()
     // Overdue warning or normal state — both are valid
     await expect(
-      page.getByText(/überfällige/).or(page.getByText(/Anstehende Wartung/).or(page.getByText('Alle Aufgaben erledigt')))
+      page.getByText(/überfällige/).or(page.getByText(/Anstehende Wartung/)).or(page.getByText('Alle Aufgaben erledigt')).first()
     ).toBeVisible({ timeout: 10_000 })
   })
 
