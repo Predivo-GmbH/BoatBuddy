@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { Anchor } from 'lucide-react'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export default function NotFoundPage() {
+  useDocumentTitle('Seite nicht gefunden')
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
       <Anchor className="h-12 w-12 text-muted-foreground" />

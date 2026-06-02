@@ -11,7 +11,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap'
 import type { Gastsession } from '@/types'
 
 const inputClass =
-  'min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
+  'min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
 type SortKey = 'datum' | 'betrag'
 type SortDir = 'asc' | 'desc'
@@ -117,7 +117,7 @@ export function GastsessionTabelle() {
               onChange={e => setSearch(e.target.value)}
               placeholder="Gast suchen..."
               aria-label="Gast suchen"
-              className="min-h-[44px] w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:max-w-xs"
+              className="min-h-[44px] w-full rounded-lg border border-input bg-background pl-9 pr-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:max-w-xs"
             />
           </div>
 
@@ -125,8 +125,9 @@ export function GastsessionTabelle() {
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               onClick={() => setFilterFahrer('')}
+              aria-pressed={filterFahrer === ''}
               className={cn(
-                'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                'min-h-[44px] rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                 filterFahrer === ''
                   ? 'bg-foreground text-background'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -138,8 +139,9 @@ export function GastsessionTabelle() {
               <button
                 key={f}
                 onClick={() => setFilterFahrer(filterFahrer === f ? '' : f)}
+                aria-pressed={filterFahrer === f}
                 className={cn(
-                  'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                  'min-h-[44px] rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                   filterFahrer === f
                     ? `${FAHRER_FARBEN[f]} text-white`
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -157,8 +159,9 @@ export function GastsessionTabelle() {
             <span className="mr-1 text-xs text-muted-foreground">Jahr:</span>
             <button
               onClick={() => setFilterYear('alle')}
+              aria-pressed={effectiveYear === 'alle'}
               className={cn(
-                'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                'min-h-[44px] rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                 effectiveYear === 'alle'
                   ? 'bg-foreground text-background'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -170,8 +173,9 @@ export function GastsessionTabelle() {
               <button
                 key={y}
                 onClick={() => setFilterYear(y)}
+                aria-pressed={effectiveYear === y}
                 className={cn(
-                  'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                  'min-h-[44px] rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                   effectiveYear === y
                     ? 'bg-foreground text-background'
                     : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -191,23 +195,25 @@ export function GastsessionTabelle() {
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <th
+                  scope="col"
                   className="cursor-pointer select-none px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                   onClick={() => handleSort('datum')}
                   aria-sort={sortKey === 'datum' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
                   Datum {sortIcon('datum')}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gast</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bezahlt an</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gast</th>
+                <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Bezahlt an</th>
                 <th
+                  scope="col"
                   className="cursor-pointer select-none px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                   onClick={() => handleSort('betrag')}
                   aria-sort={sortKey === 'betrag' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
                   Betrag {sortIcon('betrag')}
                 </th>
-                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Eingezahlt</th>
-                <th className="w-10 px-4 py-3"></th>
+                <th scope="col" className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Eingezahlt</th>
+                <th scope="col" className="w-10 px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -391,7 +397,7 @@ function GastsessionEditDialog({
               <button
                 type="button"
                 onClick={close}
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Schliessen"
               >
                 <X className="h-5 w-5" />
@@ -400,8 +406,9 @@ function GastsessionEditDialog({
 
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Gast-Name *</label>
+                <label htmlFor="edit-gastsession-name" className="mb-1.5 block text-sm font-medium">Gast-Name *</label>
                 <input
+                  id="edit-gastsession-name"
                   value={gastName}
                   onChange={e => setGastName(e.target.value)}
                   className={inputClass}
@@ -410,8 +417,9 @@ function GastsessionEditDialog({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Betrag (CHF) *</label>
+                  <label htmlFor="edit-gastsession-betrag" className="mb-1.5 block text-sm font-medium">Betrag (CHF) *</label>
                   <input
+                    id="edit-gastsession-betrag"
                     type="number"
                     step="0.01"
                     min="0"
@@ -421,8 +429,9 @@ function GastsessionEditDialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Datum *</label>
+                  <label htmlFor="edit-gastsession-datum" className="mb-1.5 block text-sm font-medium">Datum *</label>
                   <input
+                    id="edit-gastsession-datum"
                     type="date"
                     value={datum}
                     onChange={e => setDatum(e.target.value)}
@@ -431,8 +440,9 @@ function GastsessionEditDialog({
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Bezahlt an</label>
+                <label htmlFor="edit-gastsession-bezahlt-an" className="mb-1.5 block text-sm font-medium">Bezahlt an</label>
                 <select
+                  id="edit-gastsession-bezahlt-an"
                   value={bezahltAn}
                   onChange={e => setBezahltAn(e.target.value as Fahrer)}
                   className={inputClass}

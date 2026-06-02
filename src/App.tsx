@@ -34,7 +34,7 @@ function App() {
         <Suspense fallback={<div className="flex h-screen items-center justify-center text-muted-foreground">Laden...</div>}>
           <Routes>
             {/* Public route — no PasswordGate */}
-            <Route path="phone-upload" element={<PhoneUploadPage />} />
+            <Route path="/phone-upload" element={<PhoneUploadPage />} />
 
             {/* All other routes behind PasswordGate */}
             <Route element={<PasswordGate><AppLayout /></PasswordGate>}>

@@ -18,7 +18,7 @@ export function useKontoberechnung() {
         supabase.from('beitraege').select('betrag'),
         supabase.from('gastsessions').select('betrag, auf_konto_eingezahlt'),
         supabase.from('ausgaben').select('betrag, bezahlt_von, erstattet'),
-        supabase.from('boot_stats').select('startsaldo').limit(1).single(),
+        supabase.from('boot_stats').select('startsaldo').limit(1).maybeSingle(),
       ])
 
       if (beitraegeRes.error) throw new Error(beitraegeRes.error.message)
@@ -27,7 +27,7 @@ export function useKontoberechnung() {
       if (bootStatsRes.error) throw new Error(bootStatsRes.error.message)
 
       // Opening balance offset (anchors calculated balance to real bank balance)
-      const startsaldo = Number(bootStatsRes.data.startsaldo)
+      const startsaldo = Number(bootStatsRes.data?.startsaldo ?? 0)
 
       // + All contributions
       const beitraege = beitraegeRes.data.reduce((sum, b) => sum + Number(b.betrag), 0)

@@ -115,7 +115,7 @@ export function AusgabenTabelle() {
             onChange={e => setSearch(e.target.value)}
             placeholder="Suche nach Bezeichnung..."
             aria-label="Ausgaben durchsuchen"
-            className="min-h-[44px] w-full rounded-lg border border-input bg-background pl-10 pr-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+            className="min-h-[44px] w-full rounded-lg border border-input bg-background pl-10 pr-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
         <div className="relative">
@@ -124,7 +124,7 @@ export function AusgabenTabelle() {
             value={filterKategorie}
             onChange={e => setFilterKategorie(e.target.value as Kategorie | '')}
             aria-label="Nach Kategorie filtern"
-            className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-48"
+            className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-48"
           >
             <option value="">Alle Kategorien</option>
             {KATEGORIEN.map(k => (
@@ -136,7 +136,7 @@ export function AusgabenTabelle() {
           value={filterYear}
           onChange={e => setFilterYear(e.target.value)}
           aria-label="Nach Jahr filtern"
-          className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-36"
+          className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-36"
         >
           <option value="">Alle Jahre</option>
           {availableYears.map(y => (
@@ -151,27 +151,30 @@ export function AusgabenTabelle() {
           <thead>
             <tr className="border-b border-border bg-muted/50">
               <th
+                scope="col"
                 className="cursor-pointer select-none px-4 py-3 text-left font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('datum')}
               >
                 Datum {sortIcon('datum')}
               </th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Bezeichnung</th>
+              <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Bezeichnung</th>
               <th
+                scope="col"
                 className="cursor-pointer select-none px-4 py-3 text-left font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('kategorie')}
               >
                 Kategorie {sortIcon('kategorie')}
               </th>
-              <th className="px-4 py-3 text-left font-medium text-muted-foreground">Bezahlt von</th>
+              <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Bezahlt von</th>
               <th
+                scope="col"
                 className="cursor-pointer select-none px-4 py-3 text-right font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('betrag')}
               >
                 Betrag {sortIcon('betrag')}
               </th>
-              <th className="px-4 py-3 text-center font-medium text-muted-foreground">Status</th>
-              <th className="w-10 px-4 py-3 text-right font-medium text-muted-foreground"></th>
+              <th scope="col" className="px-4 py-3 text-center font-medium text-muted-foreground">Status</th>
+              <th scope="col" className="w-10 px-4 py-3 text-right font-medium text-muted-foreground"></th>
             </tr>
           </thead>
           <tbody>

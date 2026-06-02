@@ -151,7 +151,7 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
           <h2 id="reservierung-dialog-title" className="text-lg font-semibold">{formatDateLong(datum)}</h2>
           <button
             onClick={close}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Schliessen"
           >
             <X className="h-5 w-5" />
@@ -286,22 +286,24 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
           {/* Start time + Duration */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Startzeit</label>
+              <label htmlFor="reservierung-startzeit" className="mb-1.5 block text-xs font-medium text-muted-foreground">Startzeit</label>
               <input
+                id="reservierung-startzeit"
                 type="time"
                 value={vonZeit}
                 onChange={e => setVonZeit(e.target.value)}
                 disabled={isPending}
-                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Dauer</label>
+              <label htmlFor="reservierung-dauer" className="mb-1.5 block text-xs font-medium text-muted-foreground">Dauer</label>
               <select
+                id="reservierung-dauer"
                 value={dauer}
                 onChange={e => setDauer(Number(e.target.value))}
                 disabled={isPending}
-                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+                className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
               >
                 {DAUER_OPTIONS.map(h => (
                   <option key={h} value={h}>{h} {h === 1 ? 'Stunde' : 'Stunden'}</option>
@@ -322,7 +324,7 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
             onChange={e => setNotiz(e.target.value)}
             placeholder="Notiz (optional)"
             disabled={isPending}
-            className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+            className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
           />
 
           {/* Submit */}

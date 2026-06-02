@@ -5,7 +5,7 @@ import { Ship, Clock, Pencil, Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const inputClass =
-  'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
+  'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
 export function BootStatsKarte() {
   const { stats, isLoading, updateBootStats } = useBootStats()

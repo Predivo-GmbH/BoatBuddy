@@ -166,7 +166,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
               <button
                 type="button"
                 onClick={close}
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Schliessen"
               >
                 <X className="h-5 w-5" />
@@ -175,13 +175,14 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
 
             <div className="space-y-4">
               <div className="relative">
-                <label className="mb-1.5 block text-sm font-medium">Bezeichnung *</label>
+                <label htmlFor="ausgabe-bezeichnung" className="mb-1.5 block text-sm font-medium">Bezeichnung *</label>
                 <input
+                  id="ausgabe-bezeichnung"
                   value={bezeichnung}
                   onChange={e => { handleBezeichnungChange(e.target.value); setShowSuggestions(true) }}
                   onFocus={() => setShowSuggestions(true)}
                   onBlur={() => { setTimeout(() => setShowSuggestions(false), 150) }}
-                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="z.B. Winterservice"
                   autoComplete="off"
                   autoFocus
@@ -207,33 +208,36 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Betrag (CHF) *</label>
+                  <label htmlFor="ausgabe-betrag" className="mb-1.5 block text-sm font-medium">Betrag (CHF) *</label>
                   <input
+                    id="ausgabe-betrag"
                     type="number"
                     step="0.01"
                     min="0"
                     value={betrag}
                     onChange={e => setBetrag(e.target.value)}
-                    className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                     placeholder="0.00"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Datum *</label>
+                  <label htmlFor="ausgabe-datum" className="mb-1.5 block text-sm font-medium">Datum *</label>
                   <input
+                    id="ausgabe-datum"
                     type="date"
                     value={datum}
                     onChange={e => setDatum(e.target.value)}
-                    className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                    className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Kategorie</label>
+                <label htmlFor="ausgabe-kategorie" className="mb-1.5 block text-sm font-medium">Kategorie</label>
                 <select
+                  id="ausgabe-kategorie"
                   value={kategorie}
                   onChange={e => { setKategorie(e.target.value as Kategorie); setKategorieManuallySet(true) }}
-                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   {KATEGORIEN.map(k => (
                     <option key={k} value={k}>{KATEGORIE_LABELS[k]}</option>
@@ -241,11 +245,12 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
                 </select>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Bezahlt von</label>
+                <label htmlFor="ausgabe-bezahlt-von" className="mb-1.5 block text-sm font-medium">Bezahlt von</label>
                 <select
+                  id="ausgabe-bezahlt-von"
                   value={bezahltVon}
                   onChange={e => setBezahltVon(e.target.value)}
-                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="bootkonto">Bootkonto</option>
                   {FAHRER.map(f => (
@@ -254,11 +259,12 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
                 </select>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Notiz</label>
+                <label htmlFor="ausgabe-notiz" className="mb-1.5 block text-sm font-medium">Notiz</label>
                 <input
+                  id="ausgabe-notiz"
                   value={notiz}
                   onChange={e => setNotiz(e.target.value)}
-                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                   placeholder="Optional"
                 />
               </div>

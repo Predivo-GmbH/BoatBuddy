@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
 import { BootStatsKarte } from '@/components/nutzung/BootStatsKarte'
@@ -13,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { Clock, Fuel, Navigation, TrendingUp } from 'lucide-react'
 
 export default function NutzungslogPage() {
+  useDocumentTitle('Nutzung')
   const { logs, isLoading } = useNutzungslogs()
   const { ausgaben, isLoading: ausgabenLoading } = useAusgaben()
 

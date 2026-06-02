@@ -149,7 +149,7 @@ export function EinnahmenTabelle() {
             value={filterTyp}
             onChange={e => setFilterTyp(e.target.value as EinnahmeTyp | '')}
             aria-label="Nach Typ filtern"
-            className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-48"
+            className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background pl-10 pr-8 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-48"
           >
             <option value="">Alle Typen</option>
             <option value="beitrag">Beiträge</option>
@@ -171,20 +171,23 @@ export function EinnahmenTabelle() {
               <thead>
                 <tr className="border-b border-border bg-muted/50">
                   <th
+                    scope="col"
                     className="cursor-pointer select-none px-4 py-3 text-left font-medium text-muted-foreground hover:text-foreground"
                     onClick={() => handleSort('datum')}
                   >
                     Datum {sortIcon('datum')}
                   </th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Bezeichnung</th>
+                  <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Bezeichnung</th>
                   <th
+                    scope="col"
                     className="cursor-pointer select-none px-4 py-3 text-left font-medium text-muted-foreground hover:text-foreground"
                     onClick={() => handleSort('typ')}
                   >
                     Typ {sortIcon('typ')}
                   </th>
-                  <th className="px-4 py-3 text-left font-medium text-muted-foreground">Person</th>
+                  <th scope="col" className="px-4 py-3 text-left font-medium text-muted-foreground">Person</th>
                   <th
+                    scope="col"
                     className="cursor-pointer select-none px-4 py-3 text-right font-medium text-muted-foreground hover:text-foreground"
                     onClick={() => handleSort('betrag')}
                   >

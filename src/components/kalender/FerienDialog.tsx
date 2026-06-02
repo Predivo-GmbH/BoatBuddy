@@ -130,7 +130,7 @@ export function FerienDialog({ editFerien, onClose }: FerienDialogProps) {
           </h2>
           <button
             onClick={close}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Schliessen"
           >
             <X className="h-5 w-5" />
@@ -255,8 +255,9 @@ export function FerienDialog({ editFerien, onClose }: FerienDialogProps) {
             {/* Date range */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Von</label>
+                <label htmlFor="ferien-von" className="mb-1.5 block text-xs font-medium text-muted-foreground">Von</label>
                 <input
+                  id="ferien-von"
                   type="date"
                   value={vonDatum}
                   onChange={e => {
@@ -264,18 +265,19 @@ export function FerienDialog({ editFerien, onClose }: FerienDialogProps) {
                     if (!bisDatum || e.target.value > bisDatum) setBisDatum(e.target.value)
                   }}
                   disabled={isPending}
-                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Bis</label>
+                <label htmlFor="ferien-bis" className="mb-1.5 block text-xs font-medium text-muted-foreground">Bis</label>
                 <input
+                  id="ferien-bis"
                   type="date"
                   value={bisDatum}
                   onChange={e => setBisDatum(e.target.value)}
                   min={vonDatum || undefined}
                   disabled={isPending}
-                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
                 />
               </div>
             </div>
@@ -286,7 +288,7 @@ export function FerienDialog({ editFerien, onClose }: FerienDialogProps) {
               onChange={e => setNotiz(e.target.value)}
               placeholder="Notiz (optional)"
               disabled={isPending}
-              className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
+              className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50"
             />
 
             {/* Submit */}

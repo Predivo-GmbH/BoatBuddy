@@ -24,6 +24,8 @@
   RewriteRule . /index.html [L]
 </IfModule>
 
+ErrorDocument 404 /index.html
+
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "DENY"

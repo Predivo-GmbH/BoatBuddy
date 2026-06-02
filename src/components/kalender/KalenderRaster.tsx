@@ -3,6 +3,7 @@ import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, format, isSameMonth, isToday, getDay,
 } from 'date-fns'
+import { de } from 'date-fns/locale'
 
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_TEXT_FARBEN } from '@/lib/fahrer'
 import { getFeiertageMap } from '@/lib/feiertage'
@@ -100,6 +101,7 @@ export function KalenderRaster({ currentDate, reservierungen, ferien = [], onDay
             <button
               key={dateStr}
               onClick={() => onDayClick(dateStr)}
+              aria-label={format(day, 'd. MMMM yyyy', { locale: de })}
               className={cn(
                 'stagger-child relative flex min-h-[56px] flex-col items-start gap-1 rounded-lg border p-1.5 text-left text-sm transition-all sm:min-h-[80px] sm:p-2',
                 // Base styles

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { KontoBilanzCard } from '@/components/finanzen/KontoBilanzCard'
 import { MonatsdiagrammChart } from '@/components/finanzen/MonatsdiagrammChart'
@@ -26,6 +27,7 @@ const TABS = ['Übersicht', 'Ausgaben', 'Einnahmen'] as const
 type Tab = typeof TABS[number]
 
 export default function FinanzenPage() {
+  useDocumentTitle('Finanzen')
   const [tab, setTab] = useState<Tab>('Übersicht')
   const [extractedAusgabe, setExtractedAusgabe] = useState<Ausgabe | null>(null)
   const [phoneUploadOpen, setPhoneUploadOpen] = useState(false)
@@ -110,7 +112,7 @@ export default function FinanzenPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}`, 'apikey': anonKey },
         body: JSON.stringify({ ausgabe_id: ausgabe.id, storage_path: storagePath }),
-      }).catch(() => {})
+      }).catch(() => {}) // Fire-and-forget: extraction runs async, UI polls for status
 
       queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
       queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
@@ -148,7 +150,7 @@ export default function FinanzenPage() {
             onClick={() => setTab(t)}
             onKeyDown={tabKeyDown}
             className={cn(
-              'relative z-10 flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors',
+              'relative z-10 flex-1 rounded-lg px-4 min-h-[44px] flex items-center justify-center text-sm font-medium transition-colors',
               tab === t
                 ? 'text-accent font-semibold'
                 : 'text-muted-foreground hover:text-foreground'

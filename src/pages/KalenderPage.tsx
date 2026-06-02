@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { addMonths, subMonths, format, isSameMonth } from 'date-fns'
 import { de } from 'date-fns/locale'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -16,6 +17,7 @@ import type { Ferien } from '@/types'
 import { formatDate, formatDateLong, todayISO } from '@/lib/format'
 
 export default function KalenderPage() {
+  useDocumentTitle('Kalender')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showFerienDialog, setShowFerienDialog] = useState(false)
@@ -50,7 +52,7 @@ export default function KalenderPage() {
         <div className="mb-6 flex items-center justify-between">
           <button
             onClick={() => setCurrentDate(d => subMonths(d, 1))}
-            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Vorheriger Monat"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -63,7 +65,7 @@ export default function KalenderPage() {
             <button
               onClick={() => setCurrentDate(new Date())}
               className={cn(
-                'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                'flex items-center gap-1.5 rounded-md px-2.5 min-h-[44px] text-xs font-medium transition-colors',
                 isCurrentMonth
                   ? 'bg-accent/10 text-accent cursor-default'
                   : 'bg-muted text-muted-foreground hover:bg-accent/10 hover:text-accent',
@@ -77,7 +79,7 @@ export default function KalenderPage() {
 
           <button
             onClick={() => setCurrentDate(d => addMonths(d, 1))}
-            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Nächster Monat"
           >
             <ChevronRight className="h-5 w-5" />

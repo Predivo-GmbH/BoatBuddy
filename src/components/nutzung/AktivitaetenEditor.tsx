@@ -31,7 +31,7 @@ export function AktivitaetenEditor({ value, onChange }: AktivitaetenEditorProps)
           <select
             value={aktivitaet.typ}
             onChange={e => updateRow(index, { typ: e.target.value as AktivitaetTyp })}
-            className="min-h-[36px] rounded-md border-0 bg-transparent px-1 text-sm font-medium text-foreground focus:outline-none focus:ring-0"
+            className="min-h-[36px] rounded-md border-0 bg-transparent px-1 text-base sm:text-sm font-medium text-foreground focus:outline-none focus:ring-0"
           >
             {AKTIVITAET_TYPEN.map(t => (
               <option key={t} value={t}>{AKTIVITAET_LABELS[t]}</option>
@@ -43,7 +43,7 @@ export function AktivitaetenEditor({ value, onChange }: AktivitaetenEditorProps)
             min="1"
             value={aktivitaet.dauer_min}
             onChange={e => updateRow(index, { dauer_min: parseInt(e.target.value) || 1 })}
-            className="h-[36px] w-16 rounded-md border-0 bg-transparent px-1 text-center text-sm tabular-nums text-foreground focus:outline-none focus:ring-0"
+            className="h-[36px] w-16 rounded-md border-0 bg-transparent px-1 text-center text-base sm:text-sm tabular-nums text-foreground focus:outline-none focus:ring-0"
           />
           <span className="text-xs text-muted-foreground">Min.</span>
           <button

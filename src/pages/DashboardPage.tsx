@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatCard } from '@/components/shared/StatCard'
@@ -33,6 +34,7 @@ import { cn } from '@/lib/utils'
 import { OffenePostenCard } from '@/components/dashboard/OffenePostenCard'
 
 export default function DashboardPage() {
+  useDocumentTitle('Dashboard')
   const { data: kontoData, isLoading: kontoLoading } = useKontoberechnung()
   const { reservierungen, isLoading: resvLoading } = useReservierungen()
   const { sessions, isLoading: sessionsLoading } = useGastsessions()
@@ -297,7 +299,7 @@ export default function DashboardPage() {
                 <select
                   value={fahrtFahrer}
                   onChange={e => setFahrtFahrer(e.target.value as Fahrer)}
-                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   {FAHRER.map(f => (
                     <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
@@ -315,7 +317,7 @@ export default function DashboardPage() {
                   value={fahrtStunden}
                   onChange={e => setFahrtStunden(e.target.value)}
                   placeholder={`z.B. ${(letzteGesamtstunden + 2.5).toFixed(1)}`}
-                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                   autoFocus
                 />
                 {fahrtDifferenz !== null && fahrtDifferenz > 0 && (
@@ -331,7 +333,7 @@ export default function DashboardPage() {
                   value={fahrtTreibstoff}
                   onChange={e => setFahrtTreibstoff(e.target.value)}
                   placeholder="Optional"
-                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
             </div>

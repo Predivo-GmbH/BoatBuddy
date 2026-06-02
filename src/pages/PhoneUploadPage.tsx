@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { supabase } from '@/lib/supabase'
 import { Camera, CheckCircle, AlertCircle, Loader2, RotateCcw } from 'lucide-react'
 import { BoatIcon } from '@/components/shared/BoatIcon'
@@ -43,6 +44,7 @@ function enhanceImage(canvas: HTMLCanvasElement) {
 }
 
 export default function PhoneUploadPage() {
+  useDocumentTitle('Foto hochladen')
   const [state, setState] = useState<PageState>('validating')
   const [token, setToken] = useState('')
   const [previewUrl, setPreviewUrl] = useState('')

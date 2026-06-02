@@ -73,6 +73,16 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS })
   }
 
+  // Verify caller has the anon key
+  const apiKey = req.headers.get('apikey') ?? req.headers.get('authorization')?.replace('Bearer ', '')
+  const expectedKey = Deno.env.get('SUPABASE_ANON_KEY')
+  if (!apiKey || apiKey !== expectedKey) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
+  }
+
   try {
     const { ausgabe_id, storage_path } = await req.json()
     if (!ausgabe_id || !storage_path) {

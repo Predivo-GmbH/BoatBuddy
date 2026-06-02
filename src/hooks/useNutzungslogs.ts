@@ -33,19 +33,18 @@ export function useNutzungslogs() {
       aktivitaeten: Aktivitaet[]
       notiz?: string
     }) => {
-      const { neue_gesamtstunden, ...dbFields } = input
-      const { error } = await supabase.from('nutzungslogs').insert(dbFields)
+      const { data, error } = await supabase.rpc('create_nutzungslog_atomic', {
+        p_datum: input.datum,
+        p_fahrer: input.fahrer,
+        p_betriebsstunden: input.betriebsstunden,
+        p_treibstoff_liter: input.treibstoff_liter ?? null,
+        p_aktivitaeten: JSON.stringify(input.aktivitaeten),
+        p_notiz: input.notiz ?? null,
+        p_teilnehmer: '[]',
+        p_neue_gesamtstunden: input.neue_gesamtstunden ?? null,
+      })
       if (error) throw new Error(error.message)
-      if (neue_gesamtstunden !== undefined) {
-        // Set gesamtstunden to the new absolute value from the boat meter
-        const { error: updateError } = await supabase
-          .from('boot_stats')
-          .update({ gesamtstunden: neue_gesamtstunden, aktualisiert_am: new Date().toISOString() })
-          .not('id', 'is', null)
-        if (updateError) throw new Error(updateError.message)
-      } else {
-        await adjustGesamtstunden(input.betriebsstunden)
-      }
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })
@@ -74,11 +73,8 @@ export function useNutzungslogs() {
 
   const deleteNutzungslog = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase.from('nutzungslogs').delete().eq('id', id).select('betriebsstunden')
+      const { error } = await supabase.rpc('delete_nutzungslog_atomic', { p_id: id })
       if (error) throw new Error(error.message)
-      if (data && data.length > 0) {
-        await adjustGesamtstunden(-Number(data[0].betriebsstunden))
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })

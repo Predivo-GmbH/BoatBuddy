@@ -9,7 +9,7 @@ import { Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 
 const inputClass =
-  'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
+  'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
 export function NutzungslogForm() {
   const [datum, setDatum] = useState(todayISO())
@@ -84,8 +84,9 @@ export function NutzungslogForm() {
       {/* Compact row: Date, Driver, Hours, Fuel, Toggle, Save */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="min-w-[130px] flex-1">
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Datum</label>
+          <label htmlFor="nutzung-datum" className="mb-1.5 block text-xs font-medium text-muted-foreground">Datum</label>
           <input
+            id="nutzung-datum"
             type="date"
             value={datum}
             onChange={e => setDatum(e.target.value)}
@@ -93,8 +94,9 @@ export function NutzungslogForm() {
           />
         </div>
         <div className="min-w-[120px] flex-1">
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Fahrer</label>
+          <label htmlFor="nutzung-fahrer" className="mb-1.5 block text-xs font-medium text-muted-foreground">Fahrer</label>
           <select
+            id="nutzung-fahrer"
             value={fahrer}
             onChange={e => setFahrer(e.target.value as Fahrer)}
             className={inputClass}
@@ -106,10 +108,11 @@ export function NutzungslogForm() {
           </select>
         </div>
         <div className="min-w-[140px] flex-1">
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+          <label htmlFor="nutzung-neuer-stand" className="mb-1.5 block text-xs font-medium text-muted-foreground">
             Neuer Stand * <span className="text-muted-foreground/60">(Letzter: {letzteGesamtstunden} h)</span>
           </label>
           <input
+            id="nutzung-neuer-stand"
             type="number"
             step="0.1"
             min={letzteGesamtstunden + 0.1}
@@ -123,8 +126,9 @@ export function NutzungslogForm() {
           )}
         </div>
         <div className="min-w-[120px] flex-1">
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Treibstoff (L)</label>
+          <label htmlFor="nutzung-treibstoff" className="mb-1.5 block text-xs font-medium text-muted-foreground">Treibstoff (L)</label>
           <input
+            id="nutzung-treibstoff"
             type="number"
             step="0.1"
             min="0"
@@ -160,12 +164,13 @@ export function NutzungslogForm() {
       {expanded && (
         <div className="mt-4 space-y-4 border-t border-border pt-4">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Aktivitäten</label>
+            <label htmlFor="nutzung-aktivitaeten" className="mb-1.5 block text-xs font-medium text-muted-foreground">Aktivitäten</label>
             <AktivitaetenEditor value={aktivitaeten} onChange={setAktivitaeten} />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Notiz</label>
+            <label htmlFor="nutzung-notiz" className="mb-1.5 block text-xs font-medium text-muted-foreground">Notiz</label>
             <input
+              id="nutzung-notiz"
               value={notiz}
               onChange={e => setNotiz(e.target.value)}
               placeholder="Optional"

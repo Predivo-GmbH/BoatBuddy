@@ -37,7 +37,7 @@ export function OffenePostenCard() {
   const handleErstatten = (id: string) => {
     setProcessingId(id)
     updateAusgabe.mutate(
-      { id, erstattet: true, erstattet_am: new Date().toISOString() },
+      { id, erstattet: true, erstattet_am: new Date().toISOString().split('T')[0] },
       {
         onSuccess: () => {
           toast.success('Als erstattet markiert')
@@ -54,7 +54,7 @@ export function OffenePostenCard() {
   const handleEingezahlt = (id: string) => {
     setProcessingId(id)
     updateGastsession.mutate(
-      { id, auf_konto_eingezahlt: true, eingezahlt_am: new Date().toISOString() },
+      { id, auf_konto_eingezahlt: true, eingezahlt_am: new Date().toISOString().split('T')[0] },
       {
         onSuccess: () => {
           toast.success('Als eingezahlt markiert')
@@ -113,7 +113,7 @@ export function OffenePostenCard() {
               <button
                 onClick={() => handleErstatten(a.id)}
                 disabled={processingId === a.id}
-                className="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
                 title="Als erstattet markieren"
               >
                 {processingId === a.id ? (
@@ -155,7 +155,7 @@ export function OffenePostenCard() {
               <button
                 onClick={() => handleEingezahlt(s.id)}
                 disabled={processingId === s.id}
-                className="inline-flex h-8 items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 text-xs font-medium text-emerald-600 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
                 title="Als eingezahlt markieren"
               >
                 {processingId === s.id ? (

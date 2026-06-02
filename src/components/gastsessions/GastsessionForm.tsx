@@ -6,7 +6,7 @@ import { Plus, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 const inputClass =
-  'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
+  'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
 export function GastsessionForm() {
   const [selectedGuests, setSelectedGuests] = useState<string[]>([])
@@ -119,7 +119,7 @@ export function GastsessionForm() {
 
       {/* Guest name field — full width, own row */}
       <div className="mb-3">
-        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Gast-Name *</label>
+        <label htmlFor="gastsession-gast-name" className="mb-1.5 block text-xs font-medium text-muted-foreground">Gast-Name *</label>
         <div ref={containerRef} className="relative">
           <div
             className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 flex flex-wrap gap-1.5 items-center cursor-text"
@@ -146,8 +146,9 @@ export function GastsessionForm() {
               onChange={e => { setInputValue(e.target.value); setDropdownOpen(true) }}
               onKeyDown={handleInputKeyDown}
               onFocus={() => { if (inputValue.trim()) setDropdownOpen(true) }}
+              id="gastsession-gast-name"
               placeholder={selectedGuests.length === 0 ? 'Name eingeben...' : ''}
-              className="flex-1 min-w-[120px] bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+              className="flex-1 min-w-[120px] bg-transparent outline-none text-base sm:text-sm placeholder:text-muted-foreground"
               role="combobox"
               aria-expanded={dropdownOpen && suggestions.length > 0}
               aria-autocomplete="list"
@@ -177,8 +178,9 @@ export function GastsessionForm() {
       {/* Remaining fields */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Betrag (CHF)</label>
+          <label htmlFor="gastsession-betrag" className="mb-1.5 block text-xs font-medium text-muted-foreground">Betrag (CHF)</label>
           <input
+            id="gastsession-betrag"
             type="number"
             step="0.01"
             min="0"
@@ -188,8 +190,9 @@ export function GastsessionForm() {
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Bezahlt an</label>
+          <label htmlFor="gastsession-bezahlt-an" className="mb-1.5 block text-xs font-medium text-muted-foreground">Bezahlt an</label>
           <select
+            id="gastsession-bezahlt-an"
             value={bezahltAn}
             onChange={e => setBezahltAn(e.target.value as Fahrer)}
             className={inputClass}
@@ -200,8 +203,9 @@ export function GastsessionForm() {
           </select>
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Datum</label>
+          <label htmlFor="gastsession-datum" className="mb-1.5 block text-xs font-medium text-muted-foreground">Datum</label>
           <input
+            id="gastsession-datum"
             type="date"
             value={datum}
             onChange={e => setDatum(e.target.value)}

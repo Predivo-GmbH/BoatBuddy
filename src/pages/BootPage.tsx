@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useEigentuemer } from '@/hooks/useEigentuemer'
@@ -32,9 +33,10 @@ const TAB_ICONS = [Users, Calculator, Wrench, ScrollText] as const
 const TAB_SHORT: Record<Tab, string> = { 'Eigentümer': 'Eigner', 'Abrechnung': 'Abrechn.', 'Wartung': 'Wartung', 'Gentleman-Rules': 'Regeln' }
 
 const inputClass =
-  'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
+  'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
 export default function BootPage() {
+  useDocumentTitle('Boot')
   const [tab, setTab] = useState<Tab>('Eigentümer')
   const tabKeyDown = useTabKeyboard(TABS, tab, setTab)
 
@@ -77,7 +79,7 @@ export default function BootPage() {
               onClick={() => setTab(t)}
               onKeyDown={tabKeyDown}
               className={cn(
-                'relative z-10 flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                'relative z-10 flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 min-h-[44px] text-sm font-medium transition-colors',
                 tab === t ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -126,17 +128,21 @@ function EigentuemerTab() {
       }
     }
 
-    for (const e of eigentuemer) {
-      const draft = drafts[e.id]
-      if (!draft) continue
-      await updateEigentuemer.mutateAsync({
-        id: e.id,
-        anteil_prozent: parseFloat(draft.anteil),
-        einstieg_datum: draft.datum || null,
-      })
+    try {
+      for (const e of eigentuemer) {
+        const draft = drafts[e.id]
+        if (!draft) continue
+        await updateEigentuemer.mutateAsync({
+          id: e.id,
+          anteil_prozent: parseFloat(draft.anteil),
+          einstieg_datum: draft.datum || null,
+        })
+      }
+      toast.success('Anteile gespeichert')
+      setEditing(false)
+    } catch (err) {
+      toast.error('Fehler beim Speichern der Anteile')
     }
-    toast.success('Anteile gespeichert')
-    setEditing(false)
   }
 
   const totalPct = eigentuemer.reduce((s, e) => s + Number(e.anteil_prozent), 0)
@@ -195,8 +201,9 @@ function EigentuemerTab() {
                   <fieldset disabled={updateEigentuemer.isPending} className="contents">
                     <div className="space-y-2">
                       <div>
-                        <label className="text-[11px] text-muted-foreground">Anteil (%)</label>
+                        <label htmlFor={`anteil-${e.id}`} className="text-[11px] text-muted-foreground">Anteil (%)</label>
                         <input
+                          id={`anteil-${e.id}`}
                           type="number"
                           step="0.01"
                           min="0"
@@ -209,8 +216,9 @@ function EigentuemerTab() {
                         />
                       </div>
                       <div>
-                        <label className="text-[11px] text-muted-foreground">Einstieg</label>
+                        <label htmlFor={`einstieg-${e.id}`} className="text-[11px] text-muted-foreground">Einstieg</label>
                         <input
+                          id={`einstieg-${e.id}`}
                           type="date"
                           value={drafts[e.id]?.datum ?? ''}
                           onChange={(ev) =>
@@ -347,10 +355,11 @@ function AbrechnungTab() {
           <fieldset disabled={updateConfig.isPending} className="contents">
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <label htmlFor="abrechnung-marktwert" className="mb-1.5 block text-xs font-medium text-muted-foreground">
                   Aktueller Marktwert (CHF)
                 </label>
                 <input
+                  id="abrechnung-marktwert"
                   type="number"
                   step="100"
                   value={marktwert}
@@ -359,10 +368,11 @@ function AbrechnungTab() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <label htmlFor="abrechnung-kuendigung" className="mb-1.5 block text-xs font-medium text-muted-foreground">
                   Kündigungsfrist (Monate)
                 </label>
                 <input
+                  id="abrechnung-kuendigung"
                   type="number"
                   value={kuendigung}
                   onChange={(e) => setKuendigung(e.target.value)}
@@ -370,10 +380,11 @@ function AbrechnungTab() {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <label htmlFor="abrechnung-beitrag" className="mb-1.5 block text-xs font-medium text-muted-foreground">
                   Beitrag / Monat (CHF)
                 </label>
                 <input
+                  id="abrechnung-beitrag"
                   type="number"
                   step="50"
                   value={beitrag}
@@ -514,20 +525,20 @@ function WartungTab() {
           <fieldset disabled={addWartung.isPending} className="contents">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Bezeichnung *</label>
-                <input value={newName} onChange={(e) => setNewName(e.target.value)} className={inputClass} placeholder="z.B. Ölwechsel" />
+                <label htmlFor="wartung-bezeichnung" className="mb-1 block text-xs font-medium text-muted-foreground">Bezeichnung *</label>
+                <input id="wartung-bezeichnung" value={newName} onChange={(e) => setNewName(e.target.value)} className={inputClass} placeholder="z.B. Ölwechsel" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Nächstes Datum</label>
-                <input type="date" value={newDatum} onChange={(e) => setNewDatum(e.target.value)} className={inputClass} />
+                <label htmlFor="wartung-datum" className="mb-1 block text-xs font-medium text-muted-foreground">Nächstes Datum</label>
+                <input id="wartung-datum" type="date" value={newDatum} onChange={(e) => setNewDatum(e.target.value)} className={inputClass} />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Intervall (Monate)</label>
-                <input type="number" value={newIntervall} onChange={(e) => setNewIntervall(e.target.value)} className={inputClass} placeholder="z.B. 12" />
+                <label htmlFor="wartung-intervall" className="mb-1 block text-xs font-medium text-muted-foreground">Intervall (Monate)</label>
+                <input id="wartung-intervall" type="number" value={newIntervall} onChange={(e) => setNewIntervall(e.target.value)} className={inputClass} placeholder="z.B. 12" />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Zuständig</label>
-                <input value={newZustaendig} onChange={(e) => setNewZustaendig(e.target.value)} className={inputClass} placeholder="z.B. Roger" />
+                <label htmlFor="wartung-zustaendig" className="mb-1 block text-xs font-medium text-muted-foreground">Zuständig</label>
+                <input id="wartung-zustaendig" value={newZustaendig} onChange={(e) => setNewZustaendig(e.target.value)} className={inputClass} placeholder="z.B. Roger" />
               </div>
             </div>
             <div className="mt-3 flex justify-end gap-2">

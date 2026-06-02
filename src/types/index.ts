@@ -78,6 +78,7 @@ export interface Nutzungslog {
 export interface BootStats {
   id: string
   gesamtstunden: number
+  startsaldo: number | null
   kaufdatum: string | null
   modell: string | null
   motorstunden_grenze: number | null

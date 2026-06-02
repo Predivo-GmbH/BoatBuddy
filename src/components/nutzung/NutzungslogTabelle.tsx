@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 const inputClass =
-  'min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
+  'min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
 type SortKey = 'datum' | 'betriebsstunden' | 'treibstoff_liter'
 type SortDir = 'asc' | 'desc'
@@ -111,8 +111,9 @@ export function NutzungslogTabelle() {
         <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => setFilterFahrer('')}
+            aria-pressed={filterFahrer === ''}
             className={cn(
-              'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+              'min-h-[44px] rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
               filterFahrer === ''
                 ? 'bg-foreground text-background'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -124,8 +125,9 @@ export function NutzungslogTabelle() {
             <button
               key={f}
               onClick={() => setFilterFahrer(filterFahrer === f ? '' : f)}
+              aria-pressed={filterFahrer === f}
               className={cn(
-                'rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                'min-h-[44px] rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
                 filterFahrer === f
                   ? cn(FAHRER_FARBEN[f], 'text-white')
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -141,7 +143,7 @@ export function NutzungslogTabelle() {
           value={filterYear}
           onChange={e => setFilterYear(e.target.value)}
           aria-label="Jahr filtern"
-          className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background px-3 text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-36"
+          className="min-h-[44px] w-full appearance-none rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring sm:w-36"
         >
           <option value="">Alle Jahre</option>
           {availableYears.map(y => (
@@ -156,14 +158,16 @@ export function NutzungslogTabelle() {
           <thead>
             <tr className="border-b border-border bg-muted/50">
               <th
+                scope="col"
                 className="cursor-pointer select-none px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('datum')}
                 aria-sort={sortKey === 'datum' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
                 Datum {sortIcon('datum')}
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fahrer</th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Fahrer</th>
               <th
+                scope="col"
                 className="cursor-pointer select-none px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('betriebsstunden')}
                 aria-sort={sortKey === 'betriebsstunden' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
@@ -171,15 +175,16 @@ export function NutzungslogTabelle() {
                 Stunden {sortIcon('betriebsstunden')}
               </th>
               <th
+                scope="col"
                 className="cursor-pointer select-none px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
                 onClick={() => handleSort('treibstoff_liter')}
                 aria-sort={sortKey === 'treibstoff_liter' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
                 Liter {sortIcon('treibstoff_liter')}
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aktivitäten</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notiz</th>
-              <th className="w-10 px-4 py-3"></th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aktivitäten</th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notiz</th>
+              <th scope="col" className="w-10 px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
@@ -359,7 +364,7 @@ function NutzungslogEditDialog({
               <button
                 type="button"
                 onClick={close}
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Schliessen"
               >
                 <X className="h-5 w-5" />
@@ -369,8 +374,9 @@ function NutzungslogEditDialog({
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Datum *</label>
+                  <label htmlFor="edit-nutzung-datum" className="mb-1.5 block text-sm font-medium">Datum *</label>
                   <input
+                    id="edit-nutzung-datum"
                     type="date"
                     value={datum}
                     onChange={e => setDatum(e.target.value)}
@@ -379,8 +385,9 @@ function NutzungslogEditDialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Fahrer *</label>
+                  <label htmlFor="edit-nutzung-fahrer" className="mb-1.5 block text-sm font-medium">Fahrer *</label>
                   <select
+                    id="edit-nutzung-fahrer"
                     value={fahrer}
                     onChange={e => setFahrer(e.target.value as Fahrer)}
                     className={inputClass}
@@ -393,8 +400,9 @@ function NutzungslogEditDialog({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Betriebsstunden *</label>
+                  <label htmlFor="edit-nutzung-stunden" className="mb-1.5 block text-sm font-medium">Betriebsstunden *</label>
                   <input
+                    id="edit-nutzung-stunden"
                     type="number"
                     step="0.1"
                     min="0"
@@ -404,8 +412,9 @@ function NutzungslogEditDialog({
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Treibstoff (L)</label>
+                  <label htmlFor="edit-nutzung-treibstoff" className="mb-1.5 block text-sm font-medium">Treibstoff (L)</label>
                   <input
+                    id="edit-nutzung-treibstoff"
                     type="number"
                     step="0.1"
                     min="0"
@@ -417,8 +426,9 @@ function NutzungslogEditDialog({
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium">Notiz</label>
+                <label htmlFor="edit-nutzung-notiz" className="mb-1.5 block text-sm font-medium">Notiz</label>
                 <input
+                  id="edit-nutzung-notiz"
                   value={notiz}
                   onChange={e => setNotiz(e.target.value)}
                   className={inputClass}
