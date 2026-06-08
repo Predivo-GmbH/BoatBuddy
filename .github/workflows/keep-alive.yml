@@ -9,9 +9,9 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase (real DB query via GraphQL)
+      - name: Ping Supabase Production (real DB query via GraphQL)
         run: |
-          echo "=== GraphQL ping (real DB query via pg_graphql) ==="
+          echo "=== Production: GraphQL ping ==="
           gql_response=$(curl -s -o /dev/null -w "%{http_code}" \
             "${{ secrets.SUPABASE_URL }}/graphql/v1" \
             -X POST \
@@ -19,24 +19,56 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{"query":"{ __typename }"}')
-          echo "GraphQL response: $gql_response"
+          echo "Production GraphQL response: $gql_response"
 
-          echo "=== Auth ping (backup) ==="
+          echo "=== Production: Auth ping (backup) ==="
           auth_response=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST "${{ secrets.SUPABASE_URL }}/auth/v1/token?grant_type=password" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{"email":"keepalive@ping.local","password":"keepalive"}')
-          echo "Auth response: $auth_response"
+          echo "Production Auth response: $auth_response"
 
           if [ "$gql_response" = "000" ] && [ "$auth_response" = "000" ]; then
-            echo "::error::Supabase project appears completely unreachable"
+            echo "::error::Production Supabase project appears completely unreachable"
             exit 1
           fi
 
           if [ "$gql_response" != "200" ]; then
-            echo "::error::GraphQL ping returned $gql_response — database may be paused"
+            echo "::error::Production GraphQL ping returned $gql_response — database may be paused"
             exit 1
           fi
 
-          echo "Supabase project pinged successfully — real DB activity registered"
+          echo "Production Supabase project pinged successfully"
+
+      - name: Ping Supabase Staging (real DB query via GraphQL)
+        run: |
+          echo "=== Staging: GraphQL ping ==="
+          gql_response=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.STAGING_SUPABASE_URL }}/graphql/v1" \
+            -X POST \
+            -H "apikey: ${{ secrets.STAGING_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.STAGING_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"{ __typename }"}')
+          echo "Staging GraphQL response: $gql_response"
+
+          echo "=== Staging: Auth ping (backup) ==="
+          auth_response=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.STAGING_SUPABASE_URL }}/auth/v1/token?grant_type=password" \
+            -H "apikey: ${{ secrets.STAGING_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"keepalive@ping.local","password":"keepalive"}')
+          echo "Staging Auth response: $auth_response"
+
+          if [ "$gql_response" = "000" ] && [ "$auth_response" = "000" ]; then
+            echo "::error::Staging Supabase project appears completely unreachable"
+            exit 1
+          fi
+
+          if [ "$gql_response" != "200" ]; then
+            echo "::error::Staging GraphQL ping returned $gql_response — database may be paused"
+            exit 1
+          fi
+
+          echo "Staging Supabase project pinged successfully"
