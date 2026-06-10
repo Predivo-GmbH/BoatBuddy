@@ -230,11 +230,12 @@ describe('BottomNav', () => {
     expect(hrefs).toContain('/gastsessions')
     expect(hrefs).toContain('/nutzung')
     expect(hrefs).toContain('/boot')
+    expect(hrefs).toContain('/neuigkeiten')
   })
 
-  it('renders exactly 6 links', () => {
+  it('renders exactly 7 links', () => {
     renderNav()
-    expect(screen.getAllByRole('link')).toHaveLength(6)
+    expect(screen.getAllByRole('link')).toHaveLength(7)
   })
 
   it('nav element has lg:hidden class (hidden on large screens)', () => {
