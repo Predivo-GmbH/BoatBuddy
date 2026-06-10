@@ -80,10 +80,16 @@
 | INFRA-002 | ErrorBoundary catches render errors | `critical-path.spec.ts:"ErrorBoundary renders fallback"` | COVERED |
 | INFRA-003 | 404 page shows not-found message with link to dashboard | `critical-path.spec.ts:"404 page shows not found message"` | COVERED |
 | INFRA-004 | Loading skeletons shown while data loads | `critical-path.spec.ts:"loading skeleton appears"` | COVERED |
+| NEWS-001 | Neuigkeiten page shows changelog timeline grouped by month | — | NOT COVERED |
+| NEWS-002 | Neuigkeiten page: add new entry form (titel, beschreibung, kategorie, datum) | — | NOT COVERED |
+| NEWS-003 | Neuigkeiten page: inline edit entries | — | NOT COVERED |
+| NEWS-004 | Neuigkeiten page: delete entries with confirm dialog | — | NOT COVERED |
+| NEWS-005 | Dashboard NeuigkeitenCard shows 3 most recent entries | — | NOT COVERED |
+| NEWS-006 | Sidebar + bottom nav show Neuigkeiten link | — | NOT COVERED |
 
 ## Summary
 
-- **Total features:** 72
+- **Total features:** 78
 - **Covered by E2E:** 72
-- **Not covered:** 0
-- **Coverage:** 100%
+- **Not covered:** 6 (NEWS-001 through NEWS-006)
+- **Coverage:** 92%

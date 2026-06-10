@@ -134,3 +134,12 @@ export interface GentlemanRule {
   aktiv: boolean
   erstellt_am: string
 }
+
+export interface ChangelogEntry {
+  id: string
+  datum: string
+  titel: string
+  beschreibung: string | null
+  kategorie: string
+  erstellt_am: string
+}

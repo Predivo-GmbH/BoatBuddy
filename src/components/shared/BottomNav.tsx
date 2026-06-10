@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Wallet, Calendar, Users, Ship, Anchor } from 'lucide-react'
+import { LayoutDashboard, Wallet, Calendar, Users, Ship, Anchor, Newspaper } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/gastsessions', label: 'Gäste', icon: Users },
   { to: '/nutzung', label: 'Nutzung', icon: Ship },
   { to: '/boot', label: 'Boot', icon: Anchor },
+  { to: '/neuigkeiten', label: 'News', icon: Newspaper },
 ]
 
 export function BottomNav() {

@@ -13,6 +13,7 @@ const KalenderPage = lazy(() => import('@/pages/KalenderPage'))
 const GastsessionsPage = lazy(() => import('@/pages/GastsessionsPage'))
 const NutzungslogPage = lazy(() => import('@/pages/NutzungslogPage'))
 const BootPage = lazy(() => import('@/pages/BootPage'))
+const NeuigkeitenPage = lazy(() => import('@/pages/NeuigkeitenPage'))
 const PhoneUploadPage = lazy(() => import('@/pages/PhoneUploadPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
@@ -45,6 +46,7 @@ function App() {
               <Route path="gastsessions" element={<GastsessionsPage />} />
               <Route path="nutzung" element={<NutzungslogPage />} />
               <Route path="boot" element={<BootPage />} />
+              <Route path="neuigkeiten" element={<NeuigkeitenPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>

@@ -32,6 +32,7 @@ import type { AlleFahrer, Fahrer } from '@/lib/fahrer'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { OffenePostenCard } from '@/components/dashboard/OffenePostenCard'
+import { NeuigkeitenCard } from '@/components/dashboard/NeuigkeitenCard'
 
 export default function DashboardPage() {
   useDocumentTitle('Dashboard')
@@ -188,6 +189,9 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* What's New — recent changes */}
+      <NeuigkeitenCard />
 
       {/* Open Items — actionable from Dashboard */}
       <OffenePostenCard />

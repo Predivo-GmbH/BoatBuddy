@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Wallet, Calendar, Users, Ship, Anchor, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, Wallet, Calendar, Users, Ship, Anchor, Newspaper, Sun, Moon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BoatIcon } from './BoatIcon'
 import { useDarkMode } from '@/hooks/useDarkMode'
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/gastsessions', label: 'Gast-Sessions', icon: Users },
   { to: '/nutzung', label: 'Nutzungslog', icon: Ship },
   { to: '/boot', label: 'Boot & Regeln', icon: Anchor },
+  { to: '/neuigkeiten', label: 'Neuigkeiten', icon: Newspaper },
 ]
 
 export function Sidebar() {
