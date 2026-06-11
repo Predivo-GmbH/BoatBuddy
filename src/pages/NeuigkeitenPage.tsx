@@ -75,13 +75,16 @@ export default function NeuigkeitenPage() {
     [entries, selectedCategories]
   )
 
-  // Group entries by month
+  // Group entries by month (by erstellt_am = when entry was created/logged, not datum = when event happened)
   const grouped = useMemo(() => {
     const groups: { label: string; key: string; items: typeof filteredEntries }[] = []
     const map = new Map<string, typeof filteredEntries>()
 
-    for (const entry of filteredEntries) {
-      const key = entry.datum.slice(0, 7) // YYYY-MM
+    // Sort by erstellt_am descending (newest first)
+    const sorted = [...filteredEntries].sort((a, b) => new Date(b.erstellt_am).getTime() - new Date(a.erstellt_am).getTime())
+
+    for (const entry of sorted) {
+      const key = entry.erstellt_am.slice(0, 7) // YYYY-MM from creation date
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(entry)
     }
@@ -291,7 +294,7 @@ export default function NeuigkeitenPage() {
                                       <Icon className="h-3 w-3" />
                                       {config.label}
                                     </span>
-                                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.datum)}</span>
+                                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.erstellt_am)}</span>
                                   </div>
                                   <p className="text-sm font-semibold text-foreground mt-1.5">{entry.titel}</p>
                                   {entry.beschreibung && (
