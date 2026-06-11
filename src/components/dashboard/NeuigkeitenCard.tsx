@@ -16,7 +16,13 @@ export function NeuigkeitenCard() {
 
   if (isLoading || entries.length === 0) return null
 
-  const recent = entries.slice(0, 3)
+  const recent = [...entries]
+    .sort((a, b) => {
+      const aDate = new Date(b.erstellt_am).getTime() - new Date(a.erstellt_am).getTime()
+      if (aDate !== 0) return aDate
+      return new Date(b.datum).getTime() - new Date(a.datum).getTime()
+    })
+    .slice(0, 3)
 
   return (
     <div className="card-premium card-glow rounded-xl border border-border bg-card p-5 mb-6 stagger-child" style={{ '--stagger': 1 } as React.CSSProperties}>

@@ -80,8 +80,12 @@ export default function NeuigkeitenPage() {
     const groups: { label: string; key: string; items: typeof filteredEntries }[] = []
     const map = new Map<string, typeof filteredEntries>()
 
-    // Sort by erstellt_am descending (newest first)
-    const sorted = [...filteredEntries].sort((a, b) => new Date(b.erstellt_am).getTime() - new Date(a.erstellt_am).getTime())
+    // Sort by erstellt_am descending (newest first), then by datum descending (latest event first)
+    const sorted = [...filteredEntries].sort((a, b) => {
+      const erstellt = new Date(b.erstellt_am).getTime() - new Date(a.erstellt_am).getTime()
+      if (erstellt !== 0) return erstellt
+      return new Date(b.datum).getTime() - new Date(a.datum).getTime()
+    })
 
     for (const entry of sorted) {
       const key = entry.erstellt_am.slice(0, 7) // YYYY-MM from creation date
