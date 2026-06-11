@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { PageSkeleton } from '@/components/shared/PageSkeleton'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useChangelog } from '@/hooks/useChangelog'
+import { FilterBar } from '@/components/changelog/FilterBar'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -50,12 +51,36 @@ export default function NeuigkeitenPage() {
   const [editKategorie, setEditKategorie] = useState<Kategorie>('neu')
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
+  // Filter state: default to show all categories
+  const [selectedCategories, setSelectedCategories] = useState<Set<Kategorie>>(() => {
+    const saved = localStorage.getItem('neuigkeiten-filters')
+    if (saved) {
+      try {
+        return new Set(JSON.parse(saved) as Kategorie[])
+      } catch {
+        return new Set(['neu', 'verbesserung', 'fix', 'daten'])
+      }
+    }
+    return new Set(['neu', 'verbesserung', 'fix', 'daten'])
+  })
+
+  // Persist filter selection to localStorage
+  useEffect(() => {
+    localStorage.setItem('neuigkeiten-filters', JSON.stringify(Array.from(selectedCategories)))
+  }, [selectedCategories])
+
+  // Filter entries by selected categories
+  const filteredEntries = useMemo(
+    () => entries.filter(e => selectedCategories.has(e.kategorie as Kategorie)),
+    [entries, selectedCategories]
+  )
+
   // Group entries by month
   const grouped = useMemo(() => {
-    const groups: { label: string; key: string; items: typeof entries }[] = []
-    const map = new Map<string, typeof entries>()
+    const groups: { label: string; key: string; items: typeof filteredEntries }[] = []
+    const map = new Map<string, typeof filteredEntries>()
 
-    for (const entry of entries) {
+    for (const entry of filteredEntries) {
       const key = entry.datum.slice(0, 7) // YYYY-MM
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(entry)
@@ -69,7 +94,7 @@ export default function NeuigkeitenPage() {
     }
 
     return groups
-  }, [entries])
+  }, [filteredEntries])
 
   const handleAdd = () => {
     if (!newTitel.trim()) {
@@ -137,6 +162,14 @@ export default function NeuigkeitenPage() {
         </button>
       </div>
 
+      {/* Filter bar */}
+      <FilterBar
+        entries={entries}
+        selectedCategories={selectedCategories}
+        onSelectedCategoriesChange={setSelectedCategories}
+        isSticky={true}
+      />
+
       {/* Add form */}
       {showAdd && (
         <div className="card-premium rounded-xl border border-border bg-card p-5 mb-6 slide-up">
@@ -184,10 +217,15 @@ export default function NeuigkeitenPage() {
       )}
 
       {/* Timeline */}
-      {entries.length === 0 ? (
+      {selectedCategories.size === 0 ? (
         <div className="card-premium rounded-xl border border-border bg-card p-12 text-center">
           <Newspaper className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">Noch keine Einträge vorhanden</p>
+          <p className="text-sm text-muted-foreground">Wählen Sie mindestens eine Kategorie</p>
+        </div>
+      ) : filteredEntries.length === 0 ? (
+        <div className="card-premium rounded-xl border border-border bg-card p-12 text-center">
+          <Newspaper className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">Keine Einträge in den ausgewählten Kategorien</p>
         </div>
       ) : (
         <div className="space-y-8">
