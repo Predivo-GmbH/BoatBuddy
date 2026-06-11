@@ -59,7 +59,7 @@ export function FilterBar({ entries, selectedCategories, onSelectedCategoriesCha
   return (
     <div
       className={cn(
-        'flex flex-col gap-3 bg-card/50 backdrop-blur-sm px-4 py-3 rounded-lg border border-border mb-6 transition-all duration-200',
+        'flex flex-col gap-3 bg-background/95 backdrop-blur-sm px-4 py-4 rounded-lg border border-border/50 mb-6 transition-all duration-200 shadow-sm',
         isSticky && 'sticky top-4 z-40'
       )}
     >
