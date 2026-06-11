@@ -20,7 +20,7 @@ interface FilterBarProps {
   isSticky?: boolean
 }
 
-export function FilterBar({ entries, selectedCategories, onSelectedCategoriesChange, isSticky = true }: FilterBarProps) {
+export function FilterBar({ entries, selectedCategories, onSelectedCategoriesChange, isSticky = false }: FilterBarProps) {
   // Count entries by category
   const categoryCounts = useMemo(() => {
     const counts: Record<Kategorie, number> = { neu: 0, verbesserung: 0, fix: 0, daten: 0 }

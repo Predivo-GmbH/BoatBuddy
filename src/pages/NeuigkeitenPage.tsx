@@ -170,7 +170,6 @@ export default function NeuigkeitenPage() {
         entries={entries}
         selectedCategories={selectedCategories}
         onSelectedCategoriesChange={setSelectedCategories}
-        isSticky={true}
       />
 
       {/* Add form */}
