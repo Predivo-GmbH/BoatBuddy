@@ -53,7 +53,7 @@ export function NeuigkeitenCard() {
                       <Icon className="h-3 w-3" />
                       {config.label}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.datum)}</span>
+                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.erstellt_am)}</span>
                   </div>
                   <p className="text-sm font-medium text-foreground mt-0.5">{entry.titel}</p>
                   {entry.beschreibung && (
