@@ -33,7 +33,14 @@ serve(async () => {
   ];
 
   // Insert into changelog
-  const entries = reservierungen.map((res: any) => {
+  interface Reservierung {
+    datum: string;
+    fahrer: string;
+    notiz: string | null;
+    erstellt_am: string;
+  }
+
+  const entries = (reservierungen as Reservierung[]).map((res) => {
     const date = new Date(res.datum);
     const day = String(date.getDate()).padStart(2, "0");
     const month = months[date.getMonth()];
@@ -47,7 +54,7 @@ serve(async () => {
     };
   });
 
-  const { error: insertError, data } = await supabase.from("changelog").insert(entries);
+  const { error: insertError } = await supabase.from("changelog").insert(entries);
 
   if (insertError) {
     return new Response(JSON.stringify({ error: insertError.message }), { status: 400 });
