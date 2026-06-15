@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { Link } from 'react-router-dom'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -47,10 +47,30 @@ export default function DashboardPage() {
   const today = todayISO()
   const currentYear = today.slice(0, 4)
 
+  // Re-evaluate every minute so a reservation drops off the moment it ends.
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+
   const nextReservation = useMemo(() => {
-    const upcoming = reservierungen.filter((r) => r.datum >= today)
+    const d = new Date(nowTick)
+    const nowTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    const upcoming = reservierungen
+      .filter((r) => {
+        if (r.datum > today) return true
+        if (r.datum < today) return false
+        // Today: keep only if it hasn't ended yet (whole-day or no end time = until day's end)
+        if (r.ganzer_tag || !r.bis_zeit) return true
+        return r.bis_zeit.slice(0, 5) >= nowTime
+      })
+      .sort((a, b) => {
+        if (a.datum !== b.datum) return a.datum < b.datum ? -1 : 1
+        return (a.von_zeit?.slice(0, 5) ?? '00:00').localeCompare(b.von_zeit?.slice(0, 5) ?? '00:00')
+      })
     return upcoming.length > 0 ? upcoming[0] : null
-  }, [reservierungen, today])
+  }, [reservierungen, today, nowTick])
 
   const seasonSessions = useMemo(() => {
     return sessions.filter((s) => s.datum.startsWith(currentYear))
