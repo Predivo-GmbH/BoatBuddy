@@ -75,21 +75,21 @@ export default function NeuigkeitenPage() {
     [entries, selectedCategories]
   )
 
-  // Group entries by month using datum = the date of the event the user entered
-  // (so a trip logged today FOR yesterday shows under yesterday, not today).
+  // Order + group by erstellt_am = WHEN the entry was created/done. Newest action on
+  // top; a vacation/reservation created today shows today regardless of its event date.
   const grouped = useMemo(() => {
     const groups: { label: string; key: string; items: typeof filteredEntries }[] = []
     const map = new Map<string, typeof filteredEntries>()
 
-    // Sort by datum descending (latest event first), tie-break by erstellt_am
+    // Sort by erstellt_am descending (newest created first), tie-break by datum
     const sorted = [...filteredEntries].sort((a, b) => {
-      const byDatum = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-      if (byDatum !== 0) return byDatum
-      return new Date(b.erstellt_am).getTime() - new Date(a.erstellt_am).getTime()
+      const byCreated = new Date(b.erstellt_am).getTime() - new Date(a.erstellt_am).getTime()
+      if (byCreated !== 0) return byCreated
+      return new Date(b.datum).getTime() - new Date(a.datum).getTime()
     })
 
     for (const entry of sorted) {
-      const key = entry.datum.slice(0, 7) // YYYY-MM from the event date
+      const key = entry.erstellt_am.slice(0, 7) // YYYY-MM from the creation date
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(entry)
     }
@@ -298,7 +298,7 @@ export default function NeuigkeitenPage() {
                                       <Icon className="h-3 w-3" />
                                       {config.label}
                                     </span>
-                                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.datum)}</span>
+                                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.erstellt_am)}</span>
                                   </div>
                                   <p className="text-sm font-semibold text-foreground mt-1.5">{entry.titel}</p>
                                   {entry.beschreibung && (

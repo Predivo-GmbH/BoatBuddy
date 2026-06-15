@@ -11,7 +11,7 @@ export function useChangelog() {
       const { data, error } = await supabase
         .from('changelog')
         .select('*')
-        .order('datum', { ascending: false })
+        .order('erstellt_am', { ascending: false })
       if (error) throw new Error(error.message)
       return data as ChangelogEntry[]
     },
