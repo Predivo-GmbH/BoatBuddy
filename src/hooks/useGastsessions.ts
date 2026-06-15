@@ -21,6 +21,7 @@ export function useGastsessions() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['gastsessions'] })
     queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
+    queryClient.invalidateQueries({ queryKey: ['changelog'] })
   }
 
   const createGastsession = useMutation({

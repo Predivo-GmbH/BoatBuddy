@@ -26,6 +26,7 @@ export function useBeitraege(jahr: number) {
     queryClient.invalidateQueries({ queryKey: ['beitraege'] })
     queryClient.invalidateQueries({ queryKey: ['beitraege-months'] })
     queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
+    queryClient.invalidateQueries({ queryKey: ['changelog'] })
   }
 
   const createBeitrag = useMutation({

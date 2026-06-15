@@ -53,6 +53,7 @@ export function useNutzungslogs() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })
       queryClient.invalidateQueries({ queryKey: ['boot_stats'] })
+      queryClient.invalidateQueries({ queryKey: ['changelog'] })
     },
   })
 
@@ -72,6 +73,7 @@ export function useNutzungslogs() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })
       queryClient.invalidateQueries({ queryKey: ['boot_stats'] })
+      queryClient.invalidateQueries({ queryKey: ['changelog'] })
     },
   })
 
@@ -83,6 +85,7 @@ export function useNutzungslogs() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })
       queryClient.invalidateQueries({ queryKey: ['boot_stats'] })
+      queryClient.invalidateQueries({ queryKey: ['changelog'] })
     },
   })
 

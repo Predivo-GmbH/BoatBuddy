@@ -21,6 +21,7 @@ export function useAusgaben() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
     queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
+    queryClient.invalidateQueries({ queryKey: ['changelog'] })
   }
 
   const createAusgabe = useMutation({

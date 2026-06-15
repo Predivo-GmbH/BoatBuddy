@@ -37,6 +37,7 @@ export function useReservierungen(monat?: number, jahr?: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reservierungen'] })
+      queryClient.invalidateQueries({ queryKey: ['changelog'] })
     },
   })
 
@@ -47,6 +48,7 @@ export function useReservierungen(monat?: number, jahr?: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reservierungen'] })
+      queryClient.invalidateQueries({ queryKey: ['changelog'] })
     },
   })
 
@@ -57,6 +59,7 @@ export function useReservierungen(monat?: number, jahr?: number) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reservierungen'] })
+      queryClient.invalidateQueries({ queryKey: ['changelog'] })
     },
   })
 
