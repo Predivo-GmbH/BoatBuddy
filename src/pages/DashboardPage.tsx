@@ -86,6 +86,7 @@ export default function DashboardPage() {
   const [showAusgabeForm, setShowAusgabeForm] = useState(false)
   const [showFahrtForm, setShowFahrtForm] = useState(false)
   const [fahrtFahrer, setFahrtFahrer] = useState<Fahrer>('roger')
+  const [fahrtDatum, setFahrtDatum] = useState(todayISO())
   const [fahrtStunden, setFahrtStunden] = useState('')
   const [fahrtTreibstoff, setFahrtTreibstoff] = useState('')
   const { createNutzungslog } = useNutzungslogs()
@@ -102,13 +103,14 @@ export default function DashboardPage() {
     const delta = neuerStand - letzteGesamtstunden
     const liter = fahrtTreibstoff ? parseFloat(fahrtTreibstoff) : undefined
     createNutzungslog.mutate(
-      { datum: todayISO(), fahrer: fahrtFahrer, betriebsstunden: delta, neue_gesamtstunden: neuerStand, treibstoff_liter: liter, aktivitaeten: [] },
+      { datum: fahrtDatum, fahrer: fahrtFahrer, betriebsstunden: delta, neue_gesamtstunden: neuerStand, treibstoff_liter: liter, aktivitaeten: [] },
       {
         onSuccess: () => {
           toast.success('Fahrt erfasst')
           setShowFahrtForm(false)
           setFahrtStunden('')
           setFahrtTreibstoff('')
+          setFahrtDatum(todayISO())
         },
         onError: (err) => toast.error(err instanceof Error ? err.message : 'Fehler beim Speichern'),
       },
@@ -298,6 +300,15 @@ export default function DashboardPage() {
           <div className="w-full max-w-sm rounded-xl bg-card border border-border p-6 shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-foreground mb-4">Fahrt loggen</h3>
             <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Datum</label>
+                <input
+                  type="date"
+                  value={fahrtDatum}
+                  onChange={e => setFahrtDatum(e.target.value)}
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Fahrer</label>
                 <select

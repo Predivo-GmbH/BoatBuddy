@@ -28,11 +28,6 @@ export function BottomNav() {
 
   const closeMore = useCallback(() => setMoreOpen(false), [])
 
-  // Close the sheet whenever the route changes (e.g. after tapping an item)
-  useEffect(() => {
-    setMoreOpen(false)
-  }, [pathname])
-
   // Close on Escape
   useEffect(() => {
     if (!moreOpen) return
@@ -106,6 +101,7 @@ export function BottomNav() {
                 <NavLink
                   key={to}
                   to={to}
+                  onClick={closeMore}
                   className={({ isActive }) =>
                     cn(
                       'flex items-center gap-3 rounded-lg px-3 min-h-[52px] text-sm font-medium transition-colors',
