@@ -63,7 +63,7 @@ create or replace function log_reservierungen_insert() returns trigger as $$
 begin
   insert into public.changelog (titel, kategorie, datum, beschreibung, erstellt_am)
   values (
-    'Reservierung: ' || new.fahrer || ' am ' || format_date_de(new.datum),
+    'Reservierung: ' || initcap(new.fahrer) || ' am ' || format_date_de(new.datum),
     'daten',
     new.datum,
     new.notiz,
@@ -123,7 +123,7 @@ begin
     'Betriebsstunden: ' || new.betriebsstunden::text || 'h, Treibstoff: ' || coalesce(new.treibstoff_liter::text || 'L', 'n.a.'),
     'daten',
     new.datum,
-    'Fahrer: ' || new.fahrer || (case when new.notiz is not null then ' - ' || new.notiz else '' end),
+    'Fahrer: ' || initcap(new.fahrer) || (case when new.notiz is not null then ' - ' || new.notiz else '' end),
     now()
   );
   return new;
@@ -139,7 +139,7 @@ create or replace function log_beitraege_insert() returns trigger as $$
 begin
   insert into public.changelog (titel, kategorie, datum, beschreibung, erstellt_am)
   values (
-    'Beitrag: ' || new.fahrer || ' - CHF ' || new.betrag::text,
+    'Beitrag: ' || initcap(new.fahrer) || ' - CHF ' || new.betrag::text,
     'daten',
     new.monat,
     new.notiz,
