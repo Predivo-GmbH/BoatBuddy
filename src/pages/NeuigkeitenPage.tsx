@@ -298,7 +298,7 @@ export default function NeuigkeitenPage() {
                                       <Icon className="h-3 w-3" />
                                       {config.label}
                                     </span>
-                                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.erstellt_am)}</span>
+                                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.datum)}</span>
                                   </div>
                                   <p className="text-sm font-semibold text-foreground mt-1.5">{entry.titel}</p>
                                   {entry.beschreibung && (
