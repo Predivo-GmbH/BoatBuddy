@@ -8,6 +8,17 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 const STAGING_URL = process.env.STAGING_SUPABASE_URL ?? 'https://svpewgbwousyheohlrtt.supabase.co'
 const STAGING_ANON = process.env.STAGING_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cGV3Z2J3b3VzeWhlb2hscnR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzOTgzNzIsImV4cCI6MjA5NTk3NDM3Mn0.3Smv9Md-IAS5QEID3RBCE0BttSZ-GaD9WDA2Z5Aaw2s'
 
+// This suite runs against shared staging in BOTH workflows (CPT test.yml + Deploy
+// deploy.yml) on every push, so two runs hit the same DB concurrently. Shift every
+// date that participates in a unique constraint — reservierungen(datum,fahrer),
+// beitraege(fahrer,monat) — by a per-run offset so concurrent runs can't collide.
+const RUN_OFFSET_DAYS = Number(String(process.env.GITHUB_RUN_ID ?? Date.now()).replace(/\D/g, '').slice(-7)) % 4000
+const d = (iso: string): string => {
+  const dt = new Date(iso + 'T00:00:00Z')
+  dt.setUTCDate(dt.getUTCDate() + RUN_OFFSET_DAYS)
+  return dt.toISOString().slice(0, 10)
+}
+
 let supabase: SupabaseClient
 
 beforeAll(() => {
@@ -27,7 +38,7 @@ describe('Beitraege (contributions)', () => {
   test('insert and read beitrag', async () => {
     const { data, error } = await supabase
       .from('beitraege')
-      .insert({ fahrer: 'roger', betrag: 400, monat: '2026-01-01' })
+      .insert({ fahrer: 'roger', betrag: 400, monat: d('2026-01-01') })
       .select()
       .single()
 
@@ -41,7 +52,7 @@ describe('Beitraege (contributions)', () => {
   test('unique constraint on fahrer+monat', async () => {
     const { data } = await supabase
       .from('beitraege')
-      .insert({ fahrer: 'dani', betrag: 400, monat: '2026-02-01' })
+      .insert({ fahrer: 'dani', betrag: 400, monat: d('2026-02-01') })
       .select()
       .single()
 
@@ -49,7 +60,7 @@ describe('Beitraege (contributions)', () => {
 
     const { error: dupError } = await supabase
       .from('beitraege')
-      .insert({ fahrer: 'dani', betrag: 400, monat: '2026-02-01' })
+      .insert({ fahrer: 'dani', betrag: 400, monat: d('2026-02-01') })
       .select()
       .single()
 
@@ -124,7 +135,7 @@ describe('Reservierungen (calendar)', () => {
       .from('reservierungen')
       .insert({
         fahrer: 'roger',
-        datum: '2026-07-15',
+        datum: d('2026-07-15'),
         von_zeit: '10:00',
         bis_zeit: '14:00',
         notiz: 'Wakesurfen',
@@ -134,7 +145,7 @@ describe('Reservierungen (calendar)', () => {
 
     expect(error).toBeNull()
     expect(data!.fahrer).toBe('roger')
-    expect(data!.datum).toBe('2026-07-15')
+    expect(data!.datum).toBe(d('2026-07-15'))
     cleanup.push({ table: 'reservierungen', id: data!.id })
   })
 })
