@@ -50,6 +50,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
   const [betrag, setBetrag] = useState(editAusgabe ? String(editAusgabe.betrag) : '')
   const [kategorie, setKategorie] = useState<Kategorie>(editAusgabe?.kategorie ?? 'sonstiges')
   const [datum, setDatum] = useState(editAusgabe?.datum ?? todayISO())
+  const [liter, setLiter] = useState(editAusgabe?.treibstoff_liter != null ? String(editAusgabe.treibstoff_liter) : '')
   // Scanned receipts must not assume Bootkonto — start unselected and require a choice.
   const [bezahltVon, setBezahltVon] = useState(forcePayerSelection ? '' : (editAusgabe?.bezahlt_von ?? 'bootkonto'))
   const [notiz, setNotiz] = useState(editAusgabe?.notiz ?? '')
@@ -95,6 +96,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
     setBezahltVon('bootkonto')
     setKategorieManuallySet(false)
     setDatum(todayISO())
+    setLiter('')
     setNotiz('')
     setLinkedRowId(null)
     setUploadState('idle')
@@ -153,6 +155,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
         if (a.betrag) setBetrag(String(a.betrag))
         if (a.datum) setDatum(a.datum)
         if (a.kategorie) setKategorie(a.kategorie)
+        if (a.treibstoff_liter != null) setLiter(String(a.treibstoff_liter))
         if (a.notiz) setNotiz(a.notiz)
         setKategorieManuallySet(true)
       }
@@ -226,10 +229,12 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
       toast.error('Bitte wählen, wer die Rechnung bezahlt hat')
       return
     }
+    // Litres only apply to fuel receipts
+    const literNum = kategorie === 'treibstoff' && liter.trim() ? parseFloat(liter) : null
 
     if (isEdit && editAusgabe) {
       updateAusgabe.mutate(
-        { id: editAusgabe.id, bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, bezahlt_von: bezahltVon, notiz: notiz.trim() || undefined },
+        { id: editAusgabe.id, bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, bezahlt_von: bezahltVon, notiz: notiz.trim() || undefined, treibstoff_liter: literNum },
         {
           onSuccess: () => {
             toast.success('Ausgabe aktualisiert')
@@ -242,7 +247,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
       // A receipt was uploaded → update the row that the upload created (also
       // clears 'verarbeitung'/'fehler' status so it can't get stuck).
       updateAusgabe.mutate(
-        { id: linkedRowId, bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, bezahlt_von: bezahltVon, notiz: notiz.trim() || undefined, verarbeitungs_status: 'fertig' },
+        { id: linkedRowId, bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, bezahlt_von: bezahltVon, notiz: notiz.trim() || undefined, treibstoff_liter: literNum, verarbeitungs_status: 'fertig' },
         {
           onSuccess: () => {
             toast.success('Ausgabe gespeichert')
@@ -253,7 +258,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
       )
     } else {
       createAusgabe.mutate(
-        { bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, bezahlt_von: bezahltVon, notiz: notiz.trim() || undefined },
+        { bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, bezahlt_von: bezahltVon, notiz: notiz.trim() || undefined, treibstoff_liter: literNum },
         {
           onSuccess: () => {
             toast.success('Ausgabe gespeichert')
@@ -412,6 +417,21 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
                   ))}
                 </select>
               </div>
+              {kategorie === 'treibstoff' && (
+                <div>
+                  <label htmlFor="ausgabe-liter" className="mb-1.5 block text-sm font-medium">Liter (Tankfüllung)</label>
+                  <input
+                    id="ausgabe-liter"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={liter}
+                    onChange={e => setLiter(e.target.value)}
+                    className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                    placeholder="z.B. 50.0 (von der Tank-Rechnung)"
+                  />
+                </div>
+              )}
               <div>
                 <label htmlFor="ausgabe-bezahlt-von" className="mb-1.5 block text-sm font-medium">
                   Bezahlt von {requirePayer && <span className="text-destructive">*</span>}

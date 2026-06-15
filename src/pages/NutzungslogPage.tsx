@@ -27,7 +27,7 @@ export default function NutzungslogPage() {
   )
 
   // Fuel figures come from the shared hook (treibstoff expenses) — single source.
-  const { seasonFuelCost, seasonFuelCount, totalFuelCost, totalFuelCount } = useFuelStats(currentYear)
+  const { seasonFuelCost, seasonFuelCount, seasonFuelLiters, totalFuelCost, totalFuelCount, totalFuelLiters } = useFuelStats(currentYear)
 
   const { seasonStats, allTimeStats } = useMemo(() => {
     const yearStr = currentYear.toString()
@@ -48,10 +48,10 @@ export default function NutzungslogPage() {
     const aFuelPerHour = aHours > 0 ? totalFuelCost / aHours : 0
 
     return {
-      seasonStats: { totalHours: sHours, fuelCost: seasonFuelCost, fuelCount: seasonFuelCount, trips: sTrips, avgHours: sAvgHours },
-      allTimeStats: { totalHours: aHours, fuelCost: totalFuelCost, fuelCount: totalFuelCount, trips: aTrips, fuelPerHour: aFuelPerHour },
+      seasonStats: { totalHours: sHours, fuelCost: seasonFuelCost, fuelCount: seasonFuelCount, fuelLiters: seasonFuelLiters, trips: sTrips, avgHours: sAvgHours },
+      allTimeStats: { totalHours: aHours, fuelCost: totalFuelCost, fuelCount: totalFuelCount, fuelLiters: totalFuelLiters, trips: aTrips, fuelPerHour: aFuelPerHour },
     }
-  }, [logs, currentYear, seasonFuelCost, seasonFuelCount, totalFuelCost, totalFuelCount])
+  }, [logs, currentYear, seasonFuelCost, seasonFuelCount, seasonFuelLiters, totalFuelCost, totalFuelCount, totalFuelLiters])
 
   const { fuelPerFahrer, fuelTotal } = useMemo(() => {
     const map: Partial<Record<AlleFahrer, number>> = {}
@@ -101,7 +101,7 @@ export default function NutzungslogPage() {
             <StatCard
               label="Treibstoff"
               value={formatCurrency(seasonStats.fuelCost)}
-              subtitle={`${seasonStats.fuelCount} Tankfüllungen`}
+              subtitle={`${seasonStats.fuelLiters > 0 ? `${seasonStats.fuelLiters.toFixed(1)} L · ` : ''}${seasonStats.fuelCount} Tankfüllungen`}
               icon={Fuel}
               gradient="amber"
             />
@@ -138,7 +138,7 @@ export default function NutzungslogPage() {
             <StatCard
               label="Treibstoff total"
               value={formatCurrency(allTimeStats.fuelCost)}
-              subtitle={`${allTimeStats.fuelCount} Tankfüllungen`}
+              subtitle={`${allTimeStats.fuelLiters > 0 ? `${allTimeStats.fuelLiters.toFixed(1)} L · ` : ''}${allTimeStats.fuelCount} Tankfüllungen`}
               icon={Fuel}
               accentColor="border-t-2 border-t-muted"
             />

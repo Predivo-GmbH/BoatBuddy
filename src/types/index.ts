@@ -30,6 +30,7 @@ export interface Ausgabe {
   dokument_pfad: string | null
   verarbeitungs_status: 'neu' | 'verarbeitung' | 'fertig' | 'fehler' | null
   extraktion_daten: Record<string, unknown> | null
+  treibstoff_liter: number | null
   erstellt_am: string
 }
 

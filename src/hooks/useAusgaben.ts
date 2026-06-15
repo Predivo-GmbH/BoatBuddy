@@ -25,7 +25,7 @@ export function useAusgaben() {
   }
 
   const createAusgabe = useMutation({
-    mutationFn: async (input: { bezeichnung: string; betrag: number; kategorie: Kategorie; datum: string; bezahlt_von?: string; notiz?: string }) => {
+    mutationFn: async (input: { bezeichnung: string; betrag: number; kategorie: Kategorie; datum: string; bezahlt_von?: string; notiz?: string; treibstoff_liter?: number | null }) => {
       const { error } = await supabase.from('ausgaben').insert(input)
       if (error) throw new Error(error.message)
     },

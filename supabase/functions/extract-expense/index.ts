@@ -178,6 +178,7 @@ Extract ONLY what is present in the text. Return valid JSON with these fields:
   "betrag": 1234.56,
   "datum": "2025-01-15",
   "kategorie": "one of: bootskauf, bootsplatz, versicherung, verkehrssteuer, winterlager, fruehlingslager, vorfuehren, treibstoff, material, reparatur, service, sonstiges",
+  "liter": 50.0,
   "notiz": "Any additional relevant details (bill number, reference, etc.)",
   "confidence": 0.95
 }
@@ -187,6 +188,7 @@ Rules:
 - "datum" = invoice date (Rechnungsdatum, Datum), NOT due date
 - "kategorie" = best match from the boat expense categories listed above
 - "bezeichnung" = concise description (supplier name + what it's for)
+- "liter" = ONLY for fuel/Tankstelle receipts: the number of litres filled (e.g. "50.00L", "Menge 48.2 L"). Use null for any non-fuel document.
 - If a field is not found, use null
 - "confidence" = your overall confidence in the extraction (0.0-1.0)
 
@@ -238,6 +240,7 @@ Return ONLY the JSON object, no markdown, no explanation.`,
         betrag: extracted.betrag ?? null,
         datum: extracted.datum ?? null,
         kategorie: extracted.kategorie ?? 'sonstiges',
+        treibstoff_liter: extracted.kategorie === 'treibstoff' ? (extracted.liter ?? null) : null,
         notiz: extracted.notiz ?? null,
         verarbeitungs_status: 'fertig',
         extraktion_daten: extracted,

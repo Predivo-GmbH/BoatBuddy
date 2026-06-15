@@ -17,8 +17,10 @@ export function useFuelStats(year: number | string) {
     return {
       seasonFuelCost: seasonFuel.reduce((sum, a) => sum + Number(a.betrag), 0),
       seasonFuelCount: seasonFuel.length,
+      seasonFuelLiters: seasonFuel.reduce((sum, a) => sum + Number(a.treibstoff_liter ?? 0), 0),
       totalFuelCost: fuel.reduce((sum, a) => sum + Number(a.betrag), 0),
       totalFuelCount: fuel.length,
+      totalFuelLiters: fuel.reduce((sum, a) => sum + Number(a.treibstoff_liter ?? 0), 0),
     }
   }, [ausgaben, year])
 

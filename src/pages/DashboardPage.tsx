@@ -93,7 +93,7 @@ export default function DashboardPage() {
   }, [seasonLogs])
 
   // Fuel = treibstoff expenses (same source as the Nutzung page), not per-trip litres
-  const { seasonFuelCost, seasonFuelCount } = useFuelStats(currentYear)
+  const { seasonFuelCost, seasonFuelCount, seasonFuelLiters } = useFuelStats(currentYear)
 
   const seasonSessionsTotal = useMemo(() => {
     return seasonSessions.reduce((sum, s) => sum + Number(s.betrag), 0)
@@ -449,7 +449,7 @@ export default function DashboardPage() {
               {formatCurrency(seasonFuelCost)}
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              {seasonFuelCount} {seasonFuelCount === 1 ? 'Tankfüllung' : 'Tankfüllungen'} · Saison {currentYear}
+              {seasonFuelLiters > 0 && `${seasonFuelLiters.toFixed(1)} L · `}{seasonFuelCount} {seasonFuelCount === 1 ? 'Tankfüllung' : 'Tankfüllungen'}
             </p>
           </Link>
         </div>
