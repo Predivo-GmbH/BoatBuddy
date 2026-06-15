@@ -208,17 +208,16 @@ describe('BottomNav', () => {
     expect(screen.getByRole('navigation')).toBeInTheDocument()
   })
 
-  it('renders all 6 navigation labels', () => {
+  it('renders the 4 primary labels plus the Mehr button', () => {
     renderNav()
     expect(screen.getByText('Home')).toBeInTheDocument()
     expect(screen.getByText('Finanzen')).toBeInTheDocument()
     expect(screen.getByText('Kalender')).toBeInTheDocument()
-    expect(screen.getByText('Gäste')).toBeInTheDocument()
     expect(screen.getByText('Nutzung')).toBeInTheDocument()
-    expect(screen.getByText('Boot')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /mehr/i })).toBeInTheDocument()
   })
 
-  it('links point to the correct routes', () => {
+  it('primary tabs point to the correct routes', () => {
     renderNav()
 
     const links = screen.getAllByRole('link')
@@ -227,15 +226,22 @@ describe('BottomNav', () => {
     expect(hrefs).toContain('/dashboard')
     expect(hrefs).toContain('/finanzen')
     expect(hrefs).toContain('/kalender')
-    expect(hrefs).toContain('/gastsessions')
     expect(hrefs).toContain('/nutzung')
-    expect(hrefs).toContain('/boot')
-    expect(hrefs).toContain('/neuigkeiten')
   })
 
-  it('renders exactly 7 links', () => {
+  it('renders exactly 4 primary links + a Mehr button by default', () => {
     renderNav()
-    expect(screen.getAllByRole('link')).toHaveLength(7)
+    expect(screen.getAllByRole('link')).toHaveLength(4)
+    expect(screen.getByRole('button', { name: /mehr/i })).toBeInTheDocument()
+  })
+
+  it('opening Mehr reveals the secondary routes (Gäste, Boot, News)', () => {
+    renderNav()
+    fireEvent.click(screen.getByRole('button', { name: /mehr/i }))
+    const hrefs = screen.getAllByRole('link').map(link => link.getAttribute('href'))
+    expect(hrefs).toContain('/gastsessions')
+    expect(hrefs).toContain('/boot')
+    expect(hrefs).toContain('/neuigkeiten')
   })
 
   it('nav element has lg:hidden class (hidden on large screens)', () => {
@@ -279,8 +285,9 @@ describe('BottomNav', () => {
     expect(homeLink).toHaveAttribute('href', '/dashboard')
   })
 
-  it('Gäste link href is /gastsessions', () => {
+  it('Gäste link (inside Mehr sheet) href is /gastsessions', () => {
     renderNav()
+    fireEvent.click(screen.getByRole('button', { name: /mehr/i }))
     const gaesteLink = screen.getByRole('link', { name: /gäste/i })
     expect(gaesteLink).toHaveAttribute('href', '/gastsessions')
   })
