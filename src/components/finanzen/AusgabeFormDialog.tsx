@@ -1,12 +1,18 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { FAHRER, FAHRER_LABELS, KATEGORIEN, KATEGORIE_LABELS, type Kategorie } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Upload, Camera, Loader2, FileText, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { supabase } from '@/lib/supabase'
 import type { Ausgabe } from '@/types'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
+
+const ACCEPTED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
+type UploadState = 'idle' | 'uploading' | 'extracting' | 'done' | 'error'
 
 const KATEGORIE_KEYWORDS: [Kategorie, string[]][] = [
   ['bootsplatz', ['bootsplatz', 'platz', 'hafen', 'liegeplatz']],
@@ -48,6 +54,16 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
   const [showSuggestions, setShowSuggestions] = useState(false)
   const suggestionsRef = useRef<HTMLUListElement>(null)
   const { ausgaben, createAusgabe, updateAusgabe } = useAusgaben()
+  const queryClient = useQueryClient()
+
+  // Beleg upload / photo capture (create mode only) — uploads the receipt, runs AI
+  // extraction, and pre-fills this form. The created row is linked so Speichern
+  // updates it instead of creating a duplicate.
+  const [linkedRowId, setLinkedRowId] = useState<string | null>(null)
+  const [uploadState, setUploadState] = useState<UploadState>('idle')
+  const [uploadName, setUploadName] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
 
   const pastBezeichnungen = useMemo(() => {
     const unique = [...new Set(ausgaben.map(a => a.bezeichnung))]
@@ -62,7 +78,8 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
   }, [bezeichnung, pastBezeichnungen])
 
   const isVisible = open || isEdit || !!onClose
-  const isPending = isEdit ? updateAusgabe.isPending : createAusgabe.isPending
+  const isUploadBusy = uploadState === 'uploading' || uploadState === 'extracting'
+  const isPending = (isEdit || linkedRowId) ? updateAusgabe.isPending : createAusgabe.isPending
   const trapRef = useFocusTrap<HTMLDivElement>(isVisible)
 
   const reset = () => {
@@ -73,7 +90,93 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
     setKategorieManuallySet(false)
     setDatum(todayISO())
     setNotiz('')
+    setLinkedRowId(null)
+    setUploadState('idle')
+    setUploadName('')
   }
+
+  const processFile = useCallback(async (file: File) => {
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast.error('Nur PDF, JPG, PNG oder WebP Dateien erlaubt')
+      return
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error('Datei zu gross (max. 10 MB)')
+      return
+    }
+    setUploadName(file.name)
+    setUploadState('uploading')
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'pdf'
+      const storagePath = `${crypto.randomUUID()}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('dokumente').upload(storagePath, file, { contentType: file.type })
+      if (uploadError) throw new Error(`Upload fehlgeschlagen: ${uploadError.message}`)
+
+      const { data: row, error: insertError } = await supabase
+        .from('ausgaben')
+        .insert({
+          bezeichnung: 'Beleg-Upload',
+          betrag: 0,
+          kategorie: 'sonstiges',
+          datum: todayISO(),
+          bezahlt_von: bezahltVon,
+          dokument_pfad: storagePath,
+          verarbeitungs_status: 'verarbeitung',
+        })
+        .select().single()
+      if (insertError || !row) throw new Error(`DB-Eintrag fehlgeschlagen: ${insertError?.message}`)
+      setLinkedRowId(row.id)
+
+      setUploadState('extracting')
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      fetch(`${supabaseUrl}/functions/v1/extract-expense`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}`, 'apikey': anonKey },
+        body: JSON.stringify({ ausgabe_id: row.id, storage_path: storagePath }),
+      }).catch(() => {}) // fire-and-forget; we poll for the result below
+
+      const apply = (a: Ausgabe) => {
+        if (a.bezeichnung && a.bezeichnung !== 'Beleg-Upload') setBezeichnung(a.bezeichnung)
+        if (a.betrag) setBetrag(String(a.betrag))
+        if (a.datum) setDatum(a.datum)
+        if (a.kategorie) setKategorie(a.kategorie)
+        if (a.notiz) setNotiz(a.notiz)
+        setKategorieManuallySet(true)
+      }
+
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        const { data: updated } = await supabase.from('ausgaben').select('*').eq('id', row.id).single()
+        if (updated?.verarbeitungs_status === 'fertig') {
+          apply(updated as Ausgabe)
+          setUploadState('done')
+          queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
+          toast.success('Beleg extrahiert — bitte prüfen und speichern')
+          return
+        }
+        if (updated?.verarbeitungs_status === 'fehler') {
+          setUploadState('error')
+          toast.error('AI-Extraktion fehlgeschlagen — bitte manuell ausfüllen')
+          return
+        }
+      }
+      setUploadState('error')
+      toast.warning('Extraktion dauert länger als erwartet — bitte manuell ausfüllen')
+    } catch (err) {
+      setUploadState('error')
+      toast.error(err instanceof Error ? err.message : 'Upload fehlgeschlagen')
+    }
+  }, [bezahltVon, queryClient])
+
+  const handleFilePick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) processFile(file)
+    if (fileRef.current) fileRef.current.value = ''
+    if (cameraRef.current) cameraRef.current.value = ''
+  }, [processFile])
 
   const close = useCallback(() => {
     if (isPending) return
@@ -119,6 +222,19 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
             close()
           },
           onError: () => toast.error('Fehler beim Aktualisieren'),
+        },
+      )
+    } else if (linkedRowId) {
+      // A receipt was uploaded → update the row that the upload created (also
+      // clears 'verarbeitung'/'fehler' status so it can't get stuck).
+      updateAusgabe.mutate(
+        { id: linkedRowId, bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, bezahlt_von: bezahltVon, notiz: notiz.trim() || undefined, verarbeitungs_status: 'fertig' },
+        {
+          onSuccess: () => {
+            toast.success('Ausgabe gespeichert')
+            close()
+          },
+          onError: () => toast.error('Fehler beim Speichern'),
         },
       )
     } else {
@@ -174,6 +290,44 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
             </div>
 
             <div className="space-y-4">
+              {!isEdit && (
+                <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
+                  <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleFilePick} className="hidden" aria-label="Beleg hochladen" />
+                  <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleFilePick} className="hidden" aria-label="Foto aufnehmen" />
+                  {uploadState === 'idle' || uploadState === 'done' || uploadState === 'error' ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <Upload className="h-4 w-4" /> Beleg hochladen
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cameraRef.current?.click()}
+                        className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-lg border border-input bg-background px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <Camera className="h-4 w-4" /> Foto aufnehmen
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-accent">
+                      {uploadState === 'uploading' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 animate-pulse" />}
+                      <span className="font-medium">{uploadState === 'uploading' ? 'Hochladen...' : 'AI extrahiert Daten...'}</span>
+                      <span className="truncate text-xs text-muted-foreground">{uploadName}</span>
+                    </div>
+                  )}
+                  {uploadState === 'done' && (
+                    <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-emerald-600">
+                      <CheckCircle className="h-3.5 w-3.5" /> Beleg extrahiert — bitte Felder prüfen und speichern
+                    </p>
+                  )}
+                  {uploadState === 'idle' && (
+                    <p className="mt-2 text-xs text-muted-foreground">PDF, JPG, PNG oder WebP — Felder werden automatisch ausgefüllt</p>
+                  )}
+                </div>
+              )}
               <div className="relative">
                 <label htmlFor="ausgabe-bezeichnung" className="mb-1.5 block text-sm font-medium">Bezeichnung *</label>
                 <input
@@ -280,11 +434,12 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
               </button>
               <button
                 type="submit"
+                disabled={isUploadBusy}
                 className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-foreground shadow-sm transition-colors hover:bg-accent/90 disabled:opacity-50"
               >
                 {isEdit
                   ? (updateAusgabe.isPending ? 'Aktualisieren...' : 'Aktualisieren')
-                  : (createAusgabe.isPending ? 'Speichern...' : 'Speichern')}
+                  : ((createAusgabe.isPending || updateAusgabe.isPending) ? 'Speichern...' : 'Speichern')}
               </button>
             </div>
           </fieldset>
