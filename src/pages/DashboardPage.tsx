@@ -110,7 +110,7 @@ export default function DashboardPage() {
           setFahrtStunden('')
           setFahrtTreibstoff('')
         },
-        onError: () => toast.error('Fehler beim Speichern'),
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'Fehler beim Speichern'),
       },
     )
   }

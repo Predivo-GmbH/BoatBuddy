@@ -113,11 +113,24 @@ export default function FinanzenPage() {
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      // Fire-and-forget: extraction runs async, UI polls for status. Don't swallow
+      // failures silently (a 401/network error used to leave the row stuck on
+      // "Handy-Foto" forever) — surface them so they're visible.
       fetch(`${supabaseUrl}/functions/v1/extract-expense`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}`, 'apikey': anonKey },
         body: JSON.stringify({ ausgabe_id: ausgabe.id, storage_path: storagePath }),
-      }).catch(() => {}) // Fire-and-forget: extraction runs async, UI polls for status
+      }).then(async (res) => {
+        if (!res.ok) {
+          const detail = await res.text().catch(() => '')
+          console.error('extract-expense failed:', res.status, detail)
+          toast.error('KI-Extraktion fehlgeschlagen — bitte manuell ergänzen')
+        }
+        queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
+      }).catch((err) => {
+        console.error('extract-expense call failed:', err)
+        toast.error('KI-Extraktion konnte nicht gestartet werden')
+      })
 
       queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
       queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })

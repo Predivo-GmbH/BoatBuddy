@@ -33,14 +33,18 @@ export function useNutzungslogs() {
       aktivitaeten: Aktivitaet[]
       notiz?: string
     }) => {
+      // Pass raw arrays (NOT JSON.stringify): the RPC params are jsonb, and the
+      // function calls jsonb_array_elements_text(p_teilnehmer). A stringified '[]'
+      // arrives as a jsonb scalar string and throws 22023 "cannot extract elements
+      // from a scalar" (broke 2026-06-02 when that conversion was added).
       const { data, error } = await supabase.rpc('create_nutzungslog_atomic', {
         p_datum: input.datum,
         p_fahrer: input.fahrer,
         p_betriebsstunden: input.betriebsstunden,
         p_treibstoff_liter: input.treibstoff_liter ?? null,
-        p_aktivitaeten: JSON.stringify(input.aktivitaeten),
+        p_aktivitaeten: input.aktivitaeten,
         p_notiz: input.notiz ?? null,
-        p_teilnehmer: '[]',
+        p_teilnehmer: [],
         p_neue_gesamtstunden: input.neue_gesamtstunden ?? null,
       })
       if (error) throw new Error(error.message)

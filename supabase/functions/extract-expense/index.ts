@@ -73,10 +73,14 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS })
   }
 
-  // Verify caller has the anon key
+  // Auth: the Supabase Edge gateway already enforces verify_jwt — it rejects any
+  // request without a valid project key (anon JWT or publishable key) before it
+  // reaches this handler. We only require an apikey/authorization header to be
+  // present. Do NOT compare against a hardcoded SUPABASE_ANON_KEY value: that env
+  // flips to the publishable key under the new API-key system and no longer matches
+  // the legacy anon JWT the frontend sends (broke 2026-06-02).
   const apiKey = req.headers.get('apikey') ?? req.headers.get('authorization')?.replace('Bearer ', '')
-  const expectedKey = Deno.env.get('SUPABASE_ANON_KEY')
-  if (!apiKey || apiKey !== expectedKey) {
+  if (!apiKey) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
