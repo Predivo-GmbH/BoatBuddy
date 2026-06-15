@@ -54,7 +54,7 @@ export function InvoiceUpload({ onExtracted }: InvoiceUploadProps) {
           betrag: 0,
           kategorie: 'sonstiges',
           datum: new Date().toISOString().split('T')[0],
-          bezahlt_von: 'bootkonto',
+          bezahlt_von: '', // scanned receipt — payer chosen explicitly in the review dialog
           dokument_pfad: storagePath,
           verarbeitungs_status: 'verarbeitung',
         })

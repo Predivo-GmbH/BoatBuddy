@@ -39,16 +39,19 @@ interface AusgabeFormDialogProps {
   editAusgabe?: Ausgabe | null
   onClose?: () => void
   autoOpen?: boolean
+  /** Receipt-upload review: force the user to explicitly pick who paid (no Bootkonto default). */
+  forcePayerSelection?: boolean
 }
 
-export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFormDialogProps = {}) {
+export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSelection }: AusgabeFormDialogProps = {}) {
   const isEdit = !!editAusgabe
   const [open, setOpen] = useState(autoOpen ?? false)
   const [bezeichnung, setBezeichnung] = useState(editAusgabe?.bezeichnung ?? '')
   const [betrag, setBetrag] = useState(editAusgabe ? String(editAusgabe.betrag) : '')
   const [kategorie, setKategorie] = useState<Kategorie>(editAusgabe?.kategorie ?? 'sonstiges')
   const [datum, setDatum] = useState(editAusgabe?.datum ?? todayISO())
-  const [bezahltVon, setBezahltVon] = useState(editAusgabe?.bezahlt_von ?? 'bootkonto')
+  // Scanned receipts must not assume Bootkonto — start unselected and require a choice.
+  const [bezahltVon, setBezahltVon] = useState(forcePayerSelection ? '' : (editAusgabe?.bezahlt_von ?? 'bootkonto'))
   const [notiz, setNotiz] = useState(editAusgabe?.notiz ?? '')
   const [kategorieManuallySet, setKategorieManuallySet] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -79,6 +82,9 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
 
   const isVisible = open || isEdit || !!onClose
   const isUploadBusy = uploadState === 'uploading' || uploadState === 'extracting'
+  // Receipt-backed expenses (uploaded here, or opened for review from the dropzone/
+  // camera) must have an explicit payer — never silently 'bootkonto'.
+  const requirePayer = forcePayerSelection || !!linkedRowId
   const isPending = (isEdit || linkedRowId) ? updateAusgabe.isPending : createAusgabe.isPending
   const trapRef = useFocusTrap<HTMLDivElement>(isVisible)
 
@@ -106,6 +112,10 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
     }
     setUploadName(file.name)
     setUploadState('uploading')
+    // A scanned receipt is usually paid privately — clear any payer so the user must
+    // choose. The placeholder row stores '' (≠ 'bootkonto') so it never hits the
+    // Bootkonto balance before it's confirmed.
+    setBezahltVon('')
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'pdf'
       const storagePath = `${crypto.randomUUID()}.${ext}`
@@ -121,7 +131,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
           betrag: 0,
           kategorie: 'sonstiges',
           datum: todayISO(),
-          bezahlt_von: bezahltVon,
+          bezahlt_von: '',
           dokument_pfad: storagePath,
           verarbeitungs_status: 'verarbeitung',
         })
@@ -169,7 +179,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
       setUploadState('error')
       toast.error(err instanceof Error ? err.message : 'Upload fehlgeschlagen')
     }
-  }, [bezahltVon, queryClient])
+  }, [queryClient])
 
   const handleFilePick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -210,6 +220,10 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
     const betragNum = parseFloat(betrag)
     if (!bezeichnung.trim() || isNaN(betragNum) || betragNum <= 0) {
       toast.error('Bitte alle Pflichtfelder ausfüllen')
+      return
+    }
+    if (requirePayer && !bezahltVon) {
+      toast.error('Bitte wählen, wer die Rechnung bezahlt hat')
       return
     }
 
@@ -399,18 +413,24 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen }: AusgabeFor
                 </select>
               </div>
               <div>
-                <label htmlFor="ausgabe-bezahlt-von" className="mb-1.5 block text-sm font-medium">Bezahlt von</label>
+                <label htmlFor="ausgabe-bezahlt-von" className="mb-1.5 block text-sm font-medium">
+                  Bezahlt von {requirePayer && <span className="text-destructive">*</span>}
+                </label>
                 <select
                   id="ausgabe-bezahlt-von"
                   value={bezahltVon}
                   onChange={e => setBezahltVon(e.target.value)}
                   className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 >
+                  {(requirePayer || !bezahltVon) && <option value="" disabled>Bitte wählen…</option>}
                   <option value="bootkonto">Bootkonto</option>
                   {FAHRER.map(f => (
                     <option key={f} value={f}>{FAHRER_LABELS[f]}</option>
                   ))}
                 </select>
+                {requirePayer && (
+                  <p className="mt-1 text-xs text-muted-foreground">Beleg gescannt — meist privat bezahlt. Wer hat bezahlt?</p>
+                )}
               </div>
               <div>
                 <label htmlFor="ausgabe-notiz" className="mb-1.5 block text-sm font-medium">Notiz</label>

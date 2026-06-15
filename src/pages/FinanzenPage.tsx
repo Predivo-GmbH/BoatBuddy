@@ -103,7 +103,7 @@ export default function FinanzenPage() {
           betrag: 0,
           kategorie: 'sonstiges',
           datum: new Date().toISOString().split('T')[0],
-          bezahlt_von: 'bootkonto',
+          bezahlt_von: '', // scanned receipt — payer chosen explicitly in the review dialog
           dokument_pfad: storagePath,
           verarbeitungs_status: 'verarbeitung',
         })
@@ -111,30 +111,37 @@ export default function FinanzenPage() {
         .single()
       if (insertError || !ausgabe) throw new Error(`DB-Eintrag fehlgeschlagen: ${insertError?.message}`)
 
+      toast.info('Foto hochgeladen — KI-Extraktion läuft...')
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      // Fire-and-forget: extraction runs async, UI polls for status. Don't swallow
-      // failures silently (a 401/network error used to leave the row stuck on
-      // "Handy-Foto" forever) — surface them so they're visible.
       fetch(`${supabaseUrl}/functions/v1/extract-expense`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}`, 'apikey': anonKey },
         body: JSON.stringify({ ausgabe_id: ausgabe.id, storage_path: storagePath }),
-      }).then(async (res) => {
-        if (!res.ok) {
-          const detail = await res.text().catch(() => '')
-          console.error('extract-expense failed:', res.status, detail)
-          toast.error('KI-Extraktion fehlgeschlagen — bitte manuell ergänzen')
-        }
-        queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
-      }).catch((err) => {
-        console.error('extract-expense call failed:', err)
-        toast.error('KI-Extraktion konnte nicht gestartet werden')
-      })
+      }).catch((err) => console.error('extract-expense call failed:', err))
 
+      // Poll for extraction, then open the review dialog so the payer is chosen explicitly
+      for (let i = 0; i < 20; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        const { data: updated } = await supabase.from('ausgaben').select('*').eq('id', ausgabe.id).single()
+        if (updated?.verarbeitungs_status === 'fertig') {
+          queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
+          setExtractedAusgabe(updated as Ausgabe)
+          return
+        }
+        if (updated?.verarbeitungs_status === 'fehler') {
+          queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
+          toast.error('KI-Extraktion fehlgeschlagen — bitte manuell ergänzen')
+          setExtractedAusgabe(updated as Ausgabe)
+          return
+        }
+      }
+      const { data: final } = await supabase.from('ausgaben').select('*').eq('id', ausgabe.id).single()
       queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
-      queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
-      toast.success('Foto hochgeladen — KI-Extraktion läuft')
+      if (final) {
+        toast.warning('Extraktion dauert länger als erwartet — bitte Felder prüfen')
+        setExtractedAusgabe(final as Ausgabe)
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Upload fehlgeschlagen')
     }
@@ -252,6 +259,7 @@ export default function FinanzenPage() {
             <AusgabeFormDialog
               editAusgabe={extractedAusgabe}
               onClose={() => setExtractedAusgabe(null)}
+              forcePayerSelection
             />
           )}
         </div>

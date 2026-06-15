@@ -39,10 +39,21 @@ export function useChangelog() {
 
   const deleteEntry = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('changelog').delete().eq('id', id)
+      // Cascade: also delete the linked source record (trip, expense, …) so News and
+      // the underlying data stay in sync. Manually-added news (no source) just delete.
+      const { error } = await supabase.rpc('delete_changelog_cascade', { p_id: id })
       if (error) throw new Error(error.message)
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate()
+      queryClient.invalidateQueries({ queryKey: ['nutzungslogs'] })
+      queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
+      queryClient.invalidateQueries({ queryKey: ['boot_stats'] })
+      queryClient.invalidateQueries({ queryKey: ['reservierungen'] })
+      queryClient.invalidateQueries({ queryKey: ['gastsessions'] })
+      queryClient.invalidateQueries({ queryKey: ['beitraege'] })
+      queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
+    },
   })
 
   return { entries, isLoading, error, addEntry, updateEntry, deleteEntry }
