@@ -89,6 +89,7 @@ export default function DashboardPage() {
   const [fahrtDatum, setFahrtDatum] = useState(todayISO())
   const [fahrtStunden, setFahrtStunden] = useState('')
   const [fahrtTreibstoff, setFahrtTreibstoff] = useState('')
+  const [fahrtNotiz, setFahrtNotiz] = useState('')
   const { createNutzungslog } = useNutzungslogs()
 
   const letzteGesamtstunden = stats ? Number(stats.gesamtstunden) : 0
@@ -103,7 +104,7 @@ export default function DashboardPage() {
     const delta = neuerStand - letzteGesamtstunden
     const liter = fahrtTreibstoff ? parseFloat(fahrtTreibstoff) : undefined
     createNutzungslog.mutate(
-      { datum: fahrtDatum, fahrer: fahrtFahrer, betriebsstunden: delta, neue_gesamtstunden: neuerStand, treibstoff_liter: liter, aktivitaeten: [] },
+      { datum: fahrtDatum, fahrer: fahrtFahrer, betriebsstunden: delta, neue_gesamtstunden: neuerStand, treibstoff_liter: liter, aktivitaeten: [], notiz: fahrtNotiz.trim() || undefined },
       {
         onSuccess: () => {
           toast.success('Fahrt erfasst')
@@ -111,6 +112,7 @@ export default function DashboardPage() {
           setFahrtStunden('')
           setFahrtTreibstoff('')
           setFahrtDatum(todayISO())
+          setFahrtNotiz('')
         },
         onError: (err) => toast.error(err instanceof Error ? err.message : 'Fehler beim Speichern'),
       },
@@ -348,6 +350,15 @@ export default function DashboardPage() {
                   value={fahrtTreibstoff}
                   onChange={e => setFahrtTreibstoff(e.target.value)}
                   placeholder="Optional"
+                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Notiz / weitere Infos</label>
+                <input
+                  value={fahrtNotiz}
+                  onChange={e => setFahrtNotiz(e.target.value)}
+                  placeholder="Optional — z.B. Aktivität, Gäste, Bemerkung"
                   className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
