@@ -13,7 +13,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap'
 const inputClass =
   'min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
-type SortKey = 'datum' | 'betriebsstunden' | 'treibstoff_liter'
+type SortKey = 'datum' | 'betriebsstunden'
 type SortDir = 'asc' | 'desc'
 
 export function NutzungslogTabelle() {
@@ -57,8 +57,6 @@ export function NutzungslogTabelle() {
         cmp = a.datum.localeCompare(b.datum)
       } else if (sortKey === 'betriebsstunden') {
         cmp = Number(a.betriebsstunden) - Number(b.betriebsstunden)
-      } else if (sortKey === 'treibstoff_liter') {
-        cmp = Number(a.treibstoff_liter ?? 0) - Number(b.treibstoff_liter ?? 0)
       }
       return sortDir === 'asc' ? cmp : -cmp
     })
@@ -69,7 +67,6 @@ export function NutzungslogTabelle() {
   const summary = useMemo(() => ({
     trips: filtered.length,
     hours: filtered.reduce((sum, l) => sum + Number(l.betriebsstunden), 0),
-    fuel: filtered.reduce((sum, l) => sum + Number(l.treibstoff_liter ?? 0), 0),
   }), [filtered])
 
   const sortIcon = (column: SortKey) => {
@@ -174,14 +171,6 @@ export function NutzungslogTabelle() {
               >
                 Stunden {sortIcon('betriebsstunden')}
               </th>
-              <th
-                scope="col"
-                className="cursor-pointer select-none px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
-                onClick={() => handleSort('treibstoff_liter')}
-                aria-sort={sortKey === 'treibstoff_liter' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
-              >
-                Liter {sortIcon('treibstoff_liter')}
-              </th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aktivitäten</th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Notiz</th>
               <th scope="col" className="w-10 px-4 py-3"></th>
@@ -198,9 +187,6 @@ export function NutzungslogTabelle() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">{log.betriebsstunden}h</td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {log.treibstoff_liter != null ? `${Number(log.treibstoff_liter)}L` : '-'}
-                </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {log.aktivitaeten && log.aktivitaeten.length > 0 ? formatAktivitaeten(log.aktivitaeten) : '-'}
                 </td>
@@ -237,9 +223,6 @@ export function NutzungslogTabelle() {
               <td className="px-4 py-3"></td>
               <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">
                 {summary.hours}h
-              </td>
-              <td className="px-4 py-3 text-right font-semibold tabular-nums text-foreground">
-                {summary.fuel > 0 ? `${summary.fuel}L` : '-'}
               </td>
               <td className="px-4 py-3" colSpan={3}></td>
             </tr>
@@ -304,13 +287,12 @@ function NutzungslogEditDialog({
 }: {
   log: Nutzungslog
   onClose: () => void
-  onSave: (fields: { datum: string; fahrer: Fahrer; betriebsstunden: number; treibstoff_liter?: number; aktivitaeten: Aktivitaet[]; notiz?: string }) => void
+  onSave: (fields: { datum: string; fahrer: Fahrer; betriebsstunden: number; aktivitaeten: Aktivitaet[]; notiz?: string }) => void
   isPending: boolean
 }) {
   const [datum, setDatum] = useState(log.datum)
   const [fahrer, setFahrer] = useState<Fahrer>(log.fahrer as Fahrer)
   const [betriebsstunden, setBetriebsstunden] = useState(String(log.betriebsstunden))
-  const [treibstoffLiter, setTreibstoffLiter] = useState(log.treibstoff_liter != null ? String(log.treibstoff_liter) : '')
   const [notiz, setNotiz] = useState(log.notiz ?? '')
   const trapRef = useFocusTrap<HTMLDivElement>(true)
 
@@ -333,12 +315,10 @@ function NutzungslogEditDialog({
       toast.error('Bitte Betriebsstunden angeben')
       return
     }
-    const liter = treibstoffLiter.trim() ? parseFloat(treibstoffLiter) : undefined
     onSave({
       datum,
       fahrer,
       betriebsstunden: stunden,
-      treibstoff_liter: liter,
       aktivitaeten: log.aktivitaeten ?? [],
       notiz: notiz.trim() || undefined,
     })
@@ -398,32 +378,17 @@ function NutzungslogEditDialog({
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="edit-nutzung-stunden" className="mb-1.5 block text-sm font-medium">Betriebsstunden *</label>
-                  <input
-                    id="edit-nutzung-stunden"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={betriebsstunden}
-                    onChange={e => setBetriebsstunden(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="edit-nutzung-treibstoff" className="mb-1.5 block text-sm font-medium">Treibstoff (L)</label>
-                  <input
-                    id="edit-nutzung-treibstoff"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={treibstoffLiter}
-                    onChange={e => setTreibstoffLiter(e.target.value)}
-                    className={inputClass}
-                    placeholder="Optional"
-                  />
-                </div>
+              <div>
+                <label htmlFor="edit-nutzung-stunden" className="mb-1.5 block text-sm font-medium">Betriebsstunden *</label>
+                <input
+                  id="edit-nutzung-stunden"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={betriebsstunden}
+                  onChange={e => setBetriebsstunden(e.target.value)}
+                  className={inputClass}
+                />
               </div>
               <div>
                 <label htmlFor="edit-nutzung-notiz" className="mb-1.5 block text-sm font-medium">Notiz</label>

@@ -15,7 +15,6 @@ export function NutzungslogForm() {
   const [datum, setDatum] = useState(todayISO())
   const [fahrer, setFahrer] = useState<Fahrer | ''>('')
   const [neueStunden, setNeueStunden] = useState('')
-  const [treibstoffLiter, setTreibstoffLiter] = useState('')
   const [aktivitaeten, setAktivitaeten] = useState<Aktivitaet[]>([])
   const [notiz, setNotiz] = useState('')
   const [expanded, setExpanded] = useState(false)
@@ -37,12 +36,6 @@ export function NutzungslogForm() {
       return
     }
 
-    const liter = treibstoffLiter ? parseFloat(treibstoffLiter) : undefined
-    if (liter !== undefined && (isNaN(liter) || liter < 0)) {
-      toast.error('Treibstoff darf nicht negativ sein')
-      return
-    }
-
     const delta = neueTotal - letzteGesamtstunden
 
     createNutzungslog.mutate(
@@ -51,7 +44,6 @@ export function NutzungslogForm() {
         fahrer,
         betriebsstunden: delta,
         neue_gesamtstunden: neueTotal,
-        treibstoff_liter: liter,
         aktivitaeten,
         notiz: notiz.trim() || undefined,
       },
@@ -60,7 +52,6 @@ export function NutzungslogForm() {
           toast.success('Eintrag gespeichert')
           setFahrer('')
           setNeueStunden('')
-          setTreibstoffLiter('')
           setAktivitaeten([])
           setNotiz('')
           setDatum(todayISO())
@@ -124,19 +115,6 @@ export function NutzungslogForm() {
           {differenz !== null && differenz > 0 && (
             <p className="mt-1 text-xs text-accent font-medium">+{differenz.toFixed(1)} h Differenz</p>
           )}
-        </div>
-        <div className="min-w-[120px] flex-1">
-          <label htmlFor="nutzung-treibstoff" className="mb-1.5 block text-xs font-medium text-muted-foreground">Treibstoff (L)</label>
-          <input
-            id="nutzung-treibstoff"
-            type="number"
-            step="0.1"
-            min="0"
-            value={treibstoffLiter}
-            onChange={e => setTreibstoffLiter(e.target.value)}
-            placeholder="Optional"
-            className={inputClass}
-          />
         </div>
         <div className="flex flex-shrink-0 items-end gap-2">
           <button

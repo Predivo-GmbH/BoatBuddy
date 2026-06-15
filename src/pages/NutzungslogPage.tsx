@@ -8,6 +8,7 @@ import { NutzungslogTabelle } from '@/components/nutzung/NutzungslogTabelle'
 import { PageSkeleton } from '@/components/shared/PageSkeleton'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
 import { useAusgaben } from '@/hooks/useAusgaben'
+import { useFuelStats } from '@/hooks/useFuelStats'
 import { FAHRER_LABELS, FAHRER_FARBEN, ALLE_FAHRER, type AlleFahrer } from '@/lib/fahrer'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,9 @@ export default function NutzungslogPage() {
     [ausgaben]
   )
 
+  // Fuel figures come from the shared hook (treibstoff expenses) — single source.
+  const { seasonFuelCost, seasonFuelCount, totalFuelCost, totalFuelCount } = useFuelStats(currentYear)
+
   const { seasonStats, allTimeStats } = useMemo(() => {
     const yearStr = currentYear.toString()
     const seasonLogs = logs.filter(l => l.datum.startsWith(yearStr))
@@ -36,26 +40,18 @@ export default function NutzungslogPage() {
     const sTrips = seasonLogs.length
     const sAvgHours = sTrips > 0 ? sHours / sTrips : 0
 
-    const sFuelCost = fuelAusgaben
-      .filter(a => a.datum.startsWith(yearStr))
-      .reduce((sum, a) => sum + Number(a.betrag), 0)
-    const sFuelCount = fuelAusgaben.filter(a => a.datum.startsWith(yearStr)).length
-
     let aHours = 0
     for (const log of logs) {
       aHours += Number(log.betriebsstunden)
     }
     const aTrips = logs.length
-
-    const aFuelCost = fuelAusgaben.reduce((sum, a) => sum + Number(a.betrag), 0)
-    const aFuelCount = fuelAusgaben.length
-    const aFuelPerHour = aHours > 0 ? aFuelCost / aHours : 0
+    const aFuelPerHour = aHours > 0 ? totalFuelCost / aHours : 0
 
     return {
-      seasonStats: { totalHours: sHours, fuelCost: sFuelCost, fuelCount: sFuelCount, trips: sTrips, avgHours: sAvgHours },
-      allTimeStats: { totalHours: aHours, fuelCost: aFuelCost, fuelCount: aFuelCount, trips: aTrips, fuelPerHour: aFuelPerHour },
+      seasonStats: { totalHours: sHours, fuelCost: seasonFuelCost, fuelCount: seasonFuelCount, trips: sTrips, avgHours: sAvgHours },
+      allTimeStats: { totalHours: aHours, fuelCost: totalFuelCost, fuelCount: totalFuelCount, trips: aTrips, fuelPerHour: aFuelPerHour },
     }
-  }, [logs, fuelAusgaben, currentYear])
+  }, [logs, currentYear, seasonFuelCost, seasonFuelCount, totalFuelCost, totalFuelCount])
 
   const { fuelPerFahrer, fuelTotal } = useMemo(() => {
     const map: Partial<Record<AlleFahrer, number>> = {}

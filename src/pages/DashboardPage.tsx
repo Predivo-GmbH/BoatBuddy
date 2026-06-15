@@ -26,6 +26,7 @@ import { useGastsessions } from '@/hooks/useGastsessions'
 import { useBootStats } from '@/hooks/useBootStats'
 import { useAusgaben } from '@/hooks/useAusgaben'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
+import { useFuelStats } from '@/hooks/useFuelStats'
 import { formatCurrency, formatDate, formatDateLong, todayISO } from '@/lib/format'
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_TEXT_FARBEN } from '@/lib/fahrer'
 import type { AlleFahrer, Fahrer } from '@/lib/fahrer'
@@ -71,9 +72,8 @@ export default function DashboardPage() {
     return seasonLogs.reduce((sum, l) => sum + Number(l.betriebsstunden), 0)
   }, [seasonLogs])
 
-  const seasonTotalFuel = useMemo(() => {
-    return seasonLogs.reduce((sum, l) => sum + Number(l.treibstoff_liter ?? 0), 0)
-  }, [seasonLogs])
+  // Fuel = treibstoff expenses (same source as the Nutzung page), not per-trip litres
+  const { seasonFuelCost, seasonFuelCount } = useFuelStats(currentYear)
 
   const seasonSessionsTotal = useMemo(() => {
     return seasonSessions.reduce((sum, s) => sum + Number(s.betrag), 0)
@@ -88,7 +88,6 @@ export default function DashboardPage() {
   const [fahrtFahrer, setFahrtFahrer] = useState<Fahrer>('roger')
   const [fahrtDatum, setFahrtDatum] = useState(todayISO())
   const [fahrtStunden, setFahrtStunden] = useState('')
-  const [fahrtTreibstoff, setFahrtTreibstoff] = useState('')
   const [fahrtNotiz, setFahrtNotiz] = useState('')
   const { createNutzungslog } = useNutzungslogs()
 
@@ -102,15 +101,13 @@ export default function DashboardPage() {
       return
     }
     const delta = neuerStand - letzteGesamtstunden
-    const liter = fahrtTreibstoff ? parseFloat(fahrtTreibstoff) : undefined
     createNutzungslog.mutate(
-      { datum: fahrtDatum, fahrer: fahrtFahrer, betriebsstunden: delta, neue_gesamtstunden: neuerStand, treibstoff_liter: liter, aktivitaeten: [], notiz: fahrtNotiz.trim() || undefined },
+      { datum: fahrtDatum, fahrer: fahrtFahrer, betriebsstunden: delta, neue_gesamtstunden: neuerStand, aktivitaeten: [], notiz: fahrtNotiz.trim() || undefined },
       {
         onSuccess: () => {
           toast.success('Fahrt erfasst')
           setShowFahrtForm(false)
           setFahrtStunden('')
-          setFahrtTreibstoff('')
           setFahrtDatum(todayISO())
           setFahrtNotiz('')
         },
@@ -342,18 +339,6 @@ export default function DashboardPage() {
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Treibstoff (Liter)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={fahrtTreibstoff}
-                  onChange={e => setFahrtTreibstoff(e.target.value)}
-                  placeholder="Optional"
-                  className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
-                />
-              </div>
-              <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Notiz / weitere Infos</label>
                 <input
                   value={fahrtNotiz}
@@ -441,10 +426,10 @@ export default function DashboardPage() {
               <span className="text-xs font-medium text-muted-foreground">Treibstoff</span>
             </div>
             <p className="text-lg font-bold tabular-nums text-foreground">
-              {seasonTotalFuel.toFixed(1)} L
+              {formatCurrency(seasonFuelCost)}
             </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Saison {currentYear}
+              {seasonFuelCount} {seasonFuelCount === 1 ? 'Tankfüllung' : 'Tankfüllungen'} · Saison {currentYear}
             </p>
           </Link>
         </div>
@@ -486,9 +471,6 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold tabular-nums text-foreground">{Number(l.betriebsstunden).toFixed(1)} h</p>
-                    {l.treibstoff_liter && (
-                      <p className="text-[11px] text-muted-foreground tabular-nums">{Number(l.treibstoff_liter).toFixed(1)} L</p>
-                    )}
                   </div>
                 </div>
               ))}
