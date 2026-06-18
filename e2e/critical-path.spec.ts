@@ -67,8 +67,13 @@ test.describe('Dashboard', () => {
   })
 
   test('shows stat cards', async ({ page }) => {
-    await expect(page.getByText(/Ausgaben \d{4}/)).toBeVisible({ timeout: 10_000 })
-    await expect(page.getByText('Betriebsstunden')).toBeVisible()
+    // "Betriebsstunden" also appears in the NeuigkeitenCard activity feed
+    // (e.g. "Betriebsstunden: 0.30h"), colliding with the StatCard label.
+    // Scope to the stat-card grid so only the hero StatCard label matches,
+    // independent of data state (same pattern as the hero balance card).
+    const statGrid = page.locator('div.slide-up-stagger.grid')
+    await expect(statGrid.getByText(/Ausgaben \d{4}/)).toBeVisible({ timeout: 10_000 })
+    await expect(statGrid.getByText('Betriebsstunden')).toBeVisible()
   })
 
   test('shows quick action buttons', async ({ page }) => {
@@ -132,8 +137,14 @@ test.describe('Boot & Eigentümer', () => {
   })
 
   test('Eigentümer tab shows ownership percentages', async ({ page }) => {
-    // Wait for data to load — only Roger and Dani (no Jan)
-    await expect(page.getByText('Roger')).toBeVisible({ timeout: 10_000 })
+    // The Eigentümer tab shows a Loader2 spinner until Supabase resolves.
+    // Wait on the section header + total indicator (always rendered once the
+    // tab's data has loaded, data-independent) before asserting names/percentages,
+    // so a slow Supabase load doesn't flake the data assertions.
+    await expect(page.getByText('Eigentumsanteile')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText(/Total: \d+\.\d+%/)).toBeVisible({ timeout: 15_000 })
+    // Data assertions — only Roger and Dani (no Jan)
+    await expect(page.getByText('Roger')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText('Dani')).toBeVisible()
     await expect(page.getByText('72.7%')).toBeVisible()
     await expect(page.getByText('27.3%')).toBeVisible()
