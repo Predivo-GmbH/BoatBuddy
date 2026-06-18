@@ -59,7 +59,11 @@ test.describe('Dashboard', () => {
   })
 
   test('shows hero balance card', async ({ page }) => {
-    await expect(page.getByText('Bootkonto')).toBeVisible({ timeout: 10_000 })
+    // "Bootkonto" also appears in the open-items/Abrechnung reimbursement rows
+    // (Bootkonto → driver). Scope to the 4-stat-card grid so only the hero
+    // StatCard label matches, independent of data state.
+    const statGrid = page.locator('div.slide-up-stagger.grid')
+    await expect(statGrid.getByText('Bootkonto')).toBeVisible({ timeout: 10_000 })
   })
 
   test('shows stat cards', async ({ page }) => {
@@ -166,17 +170,17 @@ test.describe('Supabase connectivity', () => {
 // ─── Navigation — extended ───────────────────────────────────────
 
 test.describe('Navigation — extended', () => {
-  test('bottom nav shows 6 items on mobile', async ({ page }) => {
+  test('bottom nav shows 4 primary tabs plus Mehr on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
     await bypassPasswordGate(page)
     const bottomNav = page.locator('nav.fixed.bottom-0')
     await expect(bottomNav).toBeVisible({ timeout: 10_000 })
+    // 4 primary tabs (Gäste/Boot/News moved into the "Mehr" sheet)
     await expect(bottomNav.getByText('Home')).toBeVisible()
     await expect(bottomNav.getByText('Finanzen')).toBeVisible()
     await expect(bottomNav.getByText('Kalender')).toBeVisible()
-    await expect(bottomNav.getByText('Gäste')).toBeVisible()
     await expect(bottomNav.getByText('Nutzung')).toBeVisible()
-    await expect(bottomNav.getByText('Boot')).toBeVisible()
+    await expect(bottomNav.getByText('Mehr')).toBeVisible()
   })
 
   test('dark mode toggle works', async ({ page }) => {
@@ -243,7 +247,7 @@ test.describe('Dashboard — extended', () => {
     await expect(page.getByRole('heading', { name: 'Fahrt loggen' })).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('Fahrer').first()).toBeVisible()
     await expect(page.getByText('Neuer Stand').first()).toBeVisible()
-    await expect(page.getByText('Treibstoff (Liter)')).toBeVisible()
+    // Treibstoff (Liter) input removed — fuel is now single-source (treibstoff expenses)
     await expect(page.getByText('Erfassen').first()).toBeVisible()
     await expect(page.getByText('Abbrechen').first()).toBeVisible()
     // Close dialog
@@ -549,7 +553,7 @@ test.describe('Nutzungslog — extended', () => {
   test('nutzungslog form has expected fields', async ({ page }) => {
     await expect(page.getByText('Neuen Eintrag erfassen')).toBeVisible({ timeout: 10_000 })
     await expect(page.getByText('Neuer Stand')).toBeVisible()
-    await expect(page.getByText('Treibstoff (L)')).toBeVisible()
+    // Treibstoff (L) input removed — fuel is now single-source (treibstoff expenses)
     await expect(page.getByText('Erweitert')).toBeVisible()
   })
 
