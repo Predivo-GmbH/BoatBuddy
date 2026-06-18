@@ -237,7 +237,13 @@ test.describe('Dashboard — extended', () => {
 
   test('shows season overview cards', async ({ page }) => {
     const currentYear = new Date().getFullYear().toString()
-    await expect(page.getByText(`Saison ${currentYear}`).first()).toBeVisible({ timeout: 10_000 })
+    // The whole Dashboard renders a PageSkeleton until 6 combined Supabase
+    // queries resolve; the season-overview heading + cards only appear past
+    // that load. Anchor first on the data-independent Dashboard heading with a
+    // tolerant timeout so a slow prod cold-load doesn't flake (same slow-load
+    // pattern as the Eigentümer ownership test).
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(`Saison ${currentYear}`).first()).toBeVisible({ timeout: 15_000 })
     // Season overview has 4 cards: Ausgaben, Gast-Sessions, Stunden, Treibstoff
     await expect(page.getByText('Ausgaben').first()).toBeVisible()
     await expect(page.getByText('Gast-Sessions').first()).toBeVisible()
