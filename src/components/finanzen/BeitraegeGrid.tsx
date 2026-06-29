@@ -12,6 +12,11 @@ const MONATE = [
   'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
 ]
 
+// Month index (0-based) from which each member starts paying. Omitted = pays from the beginning.
+const FAHRER_START: Partial<Record<Fahrer, { year: number; month: number }>> = {
+  jan: { year: 2026, month: 6 }, // July 2026 (0-indexed: 6)
+}
+
 export function BeitraegeGrid() {
   const [jahr, setJahr] = useState(new Date().getFullYear())
   const { beitraege, isLoading, createBeitrag, deleteBeitrag } = useBeitraege(jahr)
@@ -48,9 +53,16 @@ export function BeitraegeGrid() {
     return <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
   }
 
+  const isBeforeStart = (fahrer: Fahrer, monatIdx: number) => {
+    const start = FAHRER_START[fahrer]
+    if (!start) return false
+    return jahr < start.year || (jahr === start.year && monatIdx < start.month)
+  }
+
   const outstandingCount = FAHRER.reduce((total, fahrer) => {
     const now = new Date()
     for (let m = 0; m < 12; m++) {
+      if (isBeforeStart(fahrer, m)) continue
       const monthEnd = new Date(jahr, m + 1, 0)
       if (monthEnd < now && !getBeitrag(fahrer, m)) {
         total++
@@ -105,27 +117,30 @@ export function BeitraegeGrid() {
               </div>
               <div className="grid grid-cols-6 gap-1">
                 {Array.from({ length: 12 }, (_, monatIdx) => {
+                  const notYetMember = isBeforeStart(fahrer, monatIdx)
                   const paid = !!getBeitrag(fahrer, monatIdx)
                   const isPast = new Date(jahr, monatIdx + 1, 0) < new Date()
                   const isFuture = !isPast && !paid
                   return (
                     <button
                       key={monatIdx}
-                      disabled={mutating}
-                      onClick={() => handleToggle(fahrer, monatIdx)}
+                      disabled={mutating || notYetMember}
+                      onClick={() => !notYetMember && handleToggle(fahrer, monatIdx)}
                       className={cn(
                         'flex flex-col items-center justify-center rounded-lg py-1.5 transition-all min-h-[44px]',
-                        paid
-                          ? 'bg-success/20 text-success shadow-sm hover:bg-success/30'
-                          : isPast
-                            ? 'bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20 hover:bg-destructive/20'
-                            : 'bg-muted text-muted-foreground hover:bg-muted/80',
-                        isFuture && 'opacity-50'
+                        notYetMember
+                          ? 'bg-muted/50 text-muted-foreground/40 cursor-not-allowed'
+                          : paid
+                            ? 'bg-success/20 text-success shadow-sm hover:bg-success/30'
+                            : isPast
+                              ? 'bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20 hover:bg-destructive/20'
+                              : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                        !notYetMember && isFuture && 'opacity-50'
                       )}
-                      aria-label={`${FAHRER_LABELS[fahrer]} ${MONATE[monatIdx]}: ${paid ? 'Bezahlt' : isPast ? 'Ausstehend' : 'Zukünftig'}`}
+                      aria-label={`${FAHRER_LABELS[fahrer]} ${MONATE[monatIdx]}: ${notYetMember ? 'Noch nicht Mitglied' : paid ? 'Bezahlt' : isPast ? 'Ausstehend' : 'Zukünftig'}`}
                     >
                       <span className="text-[10px] font-medium leading-none mb-0.5">{MONATE[monatIdx]}</span>
-                      {paid ? <Check className="h-3.5 w-3.5" /> : <X className="h-3 w-3" />}
+                      {notYetMember ? <span className="text-[9px]">—</span> : paid ? <Check className="h-3.5 w-3.5" /> : <X className="h-3 w-3" />}
                     </button>
                   )
                 })}
