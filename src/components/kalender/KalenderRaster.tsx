@@ -6,6 +6,7 @@ import {
 import { de } from 'date-fns/locale'
 
 import { FAHRER, FAHRER_LABELS, FAHRER_FARBEN, FAHRER_TEXT_FARBEN } from '@/lib/fahrer'
+import { Palmtree } from 'lucide-react'
 import { getFeiertageMap } from '@/lib/feiertage'
 import { cn } from '@/lib/utils'
 import type { Reservierung, Ferien } from '@/types'
@@ -16,6 +17,7 @@ const WOCHENTAGE = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 const FAHRER_FERIEN_BG: Record<string, string> = {
   roger: 'bg-roger/15',
   dani: 'bg-dani/15',
+  jan: 'bg-jan/15',
 }
 
 interface KalenderRasterProps {
@@ -151,7 +153,7 @@ export function KalenderRaster({ currentDate, reservierungen, ferien = [], onDay
                       )}
                       title={`${FAHRER_LABELS[f]} — Ferien`}
                     >
-                      <span className="mr-0.5 text-[8px]">&#9992;</span>
+                      <Palmtree className="mr-0.5 h-2.5 w-2.5" />
                       {FAHRER_LABELS[f].charAt(0)}
                     </span>
                   ))}
