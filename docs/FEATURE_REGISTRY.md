@@ -72,7 +72,6 @@
 | BOOT-012 | Gentleman-Rules tab shows real rules from data | `critical-path.spec.ts:"Gentleman-Rules tab shows real rules from Excel"` | COVERED |
 | BOOT-013 | Gentleman-Rules tab: add new rule input | `critical-path.spec.ts:"Gentleman-Rules tab has add rule input"` | COVERED |
 | BOOT-014 | Gentleman-Rules tab: inline edit and delete rules | `critical-path.spec.ts:"Gentleman-Rules tab rules have edit and delete"` | COVERED |
-| BOOT-015 | Abrechnung tab: Kontostand zurücksetzen — account/season reset (sets calculated balance to a target via `reset_kontostand` RPC, auto-logged to Neuigkeiten) | `e2e/staging/authenticated.spec.ts:"Boot > Abrechnung shows the Kontostand-Reset feature"` | COVERED |
 | FER-001 | Ferien eintragen button on Kalender page | `critical-path.spec.ts:"Ferien eintragen button visible on Kalender page"` | COVERED |
 | FER-002 | FerienDialog opens on button click | `critical-path.spec.ts:"clicking Ferien eintragen opens FerienDialog"` | COVERED |
 | FER-003 | FerienDialog has date inputs and submit button | `critical-path.spec.ts:"FerienDialog has date inputs and submit button"` | COVERED |
@@ -90,7 +89,7 @@
 
 ## Summary
 
-- **Total features:** 79
-- **Covered by E2E:** 73
+- **Total features:** 78
+- **Covered by E2E:** 72
 - **Not covered:** 6 (NEWS-001 through NEWS-006)
 - **Coverage:** 92%
