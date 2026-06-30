@@ -1,7 +1,9 @@
-name: Deploy to Production
+name: Deploy
 
 on:
-  workflow_dispatch:
+  # Push to main runs validate -> staging -> E2E ONLY. Production is NOT deployed
+  # automatically — it requires an explicit manual run (workflow_dispatch) so we
+  # always review staging + E2E before going live ("ask before production").
   push:
     branches: [main]
     paths-ignore:
@@ -9,31 +11,166 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deployment (runs staging + E2E first)'
+        required: true
+        default: ''
 
 concurrency:
   group: deploy-production
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  # 1. Lint + unit/integration tests (integration runs against the staging Supabase DB)
+  validate-staging:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
-
       - run: npm ci
-
       - name: Lint
         run: npm run lint
-
       - name: Unit tests
         run: npm test -- --run --passWithNoTests
+      - name: Integration tests (staging Supabase)
+        run: npx vitest run tests/integration/critical-paths.test.ts
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
 
-      - name: Build
+  # 2. Build with staging env + deploy to staging.boatbuddy.predivo.ch (behind .htpasswd, noindex)
+  deploy-staging:
+    needs: validate-staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Build for staging
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
+          VITE_GATE_PASSWORD_HASH: ${{ secrets.VITE_GATE_PASSWORD_HASH }}
+
+      - name: Prepare staging .htaccess (real prod config + Basic auth + noindex)
+        run: |
+          # Start from the REAL production .htaccess (from the build) so staging catches
+          # any Apache syntax error BEFORE it can reach production.
+          mv dist/.htaccess /tmp/prod.htaccess
+          {
+            echo 'AuthType Basic'
+            echo 'AuthName "Staging"'
+            echo 'AuthUserFile /var/www/vhosts/predivo.ch/staging.boatbuddy.predivo.ch/.htpasswd'
+            echo 'Require valid-user'
+            echo ''
+            cat /tmp/prod.htaccess
+            echo ''
+            echo '# --- Staging overrides: never index staging ---'
+            echo '<IfModule mod_headers.c>'
+            echo '  Header always set X-Robots-Tag "noindex, nofollow"'
+            echo '</IfModule>'
+          } > dist/.htaccess
+
+      - name: Deploy staging via FTP
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASS: ${{ secrets.FTP_PASS }}
+        run: |
+          sudo apt-get install -y lftp
+          echo "boatbuddy-staging" > ./dist/.site-id
+          # Resilient FTPS for Metanet: force PASV, single data connection, retry loop.
+          # Exclude .htpasswd so the mirror's --delete never removes the auth file.
+          CMDS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 1; mirror --reverse --delete --no-perms --verbose --exclude .htpasswd --exclude cgi-bin/ ./dist/ staging.boatbuddy.predivo.ch/; bye"
+          n=0
+          until [ $n -ge 4 ]; do
+            if lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
+              echo "Staging FTP deploy succeeded (attempt $((n+1)))"; exit 0
+            fi
+            n=$((n + 1)); echo "::warning::Staging FTP attempt $n failed (transient Metanet timeout); retrying in 25s..."; sleep 25
+          done
+          echo "::error::Staging FTP deploy failed after 4 attempts"; exit 1
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Deploy edge functions to staging
+        run: supabase functions deploy $(find supabase/functions -mindepth 1 -maxdepth 1 -type d -not -name '_*' -printf '%f ') --project-ref svpewgbwousyheohlrtt
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+  # 3. Run Playwright E2E against the deployed staging site — the gate that protects prod
+  e2e-staging:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify staging is alive (catches .htaccess errors)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u "${{ secrets.STAGING_HTPASSWD_USER }}:${{ secrets.STAGING_HTPASSWD_PASS }}" https://staging.boatbuddy.predivo.ch --retry 3 --retry-all-errors --retry-delay 8 --max-time 30)
+          if [ "$STATUS" != "200" ]; then
+            echo "::error::Staging returned HTTP $STATUS — likely .htaccess error. Blocking production deploy."
+            exit 1
+          fi
+          echo "Staging health check passed (HTTP $STATUS)"
+
+      - name: Run staging E2E tests
+        run: npm run test:e2e:staging
+        env:
+          STAGING_URL: https://staging.boatbuddy.predivo.ch
+          STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
+          STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: staging-e2e-results
+          path: playwright-report/
+
+  # 4. PRODUCTION — only on a manual run with the typed "deploy" confirmation.
+  #    Push-to-main never reaches this job (staging + E2E only) — see `on:` above.
+  deploy:
+    needs: e2e-staging
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'deploy'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Build for production
         run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -47,32 +184,33 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASS }}
         run: |
           sudo apt-get install -y lftp
-          LFTP_SETTINGS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:passive-mode yes; set net:max-retries 3; set net:reconnect-interval-base 5;"
-
+          LFTP_SETTINGS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 1;"
           echo "boatbuddy" > ./dist/.site-id
 
-          REMOTE_ID=$(lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" <<LFTP_GUARD
-            $LFTP_SETTINGS
-            cat boatbuddy.predivo.ch/.site-id
-            quit
-          LFTP_GUARD
-          ) 2>/dev/null || REMOTE_ID=""
+          # Site-id guard — never deploy to the wrong target.
+          REMOTE_ID=$(lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$LFTP_SETTINGS cat boatbuddy.predivo.ch/.site-id; bye" 2>/dev/null | tr -d '[:space:]') || REMOTE_ID=""
           if [ -n "$REMOTE_ID" ] && [ "$REMOTE_ID" != "boatbuddy" ]; then
             echo "::error::DEPLOY ABORTED — remote .site-id is '$REMOTE_ID', expected 'boatbuddy'. Wrong FTP target!"
             exit 1
           fi
           echo "Site-id guard passed (remote='${REMOTE_ID:-<none>}')"
 
-          # Step 1: Upload new hashed assets alongside old ones
-          lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" <<LFTP_EOF
-            $LFTP_SETTINGS
-            mirror --reverse --no-perms --verbose ./dist/assets/ boatbuddy.predivo.ch/assets/
-            quit
-          LFTP_EOF
+          # Zero-downtime: assets first (no delete), then full mirror with delete. Retry loop.
+          CMDS="$LFTP_SETTINGS mirror --reverse --no-perms --verbose ./dist/assets/ boatbuddy.predivo.ch/assets/; mirror --reverse --delete --no-perms --verbose ./dist/ boatbuddy.predivo.ch/; bye"
+          n=0
+          until [ $n -ge 4 ]; do
+            if lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
+              echo "Production FTP deploy succeeded (attempt $((n+1)))"; exit 0
+            fi
+            n=$((n + 1)); echo "::warning::Production FTP attempt $n failed (transient Metanet timeout); retrying in 25s..."; sleep 25
+          done
+          echo "::error::Production FTP deploy failed after 4 attempts"; exit 1
 
-          # Step 2: Full mirror with deletion of stale files
-          lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" <<LFTP_EOF
-            $LFTP_SETTINGS
-            mirror --reverse --delete --no-perms --verbose ./dist/ boatbuddy.predivo.ch/
-            quit
-          LFTP_EOF
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Deploy edge functions to production
+        run: supabase functions deploy $(find supabase/functions -mindepth 1 -maxdepth 1 -type d -not -name '_*' -printf '%f ') --project-ref xzythvxmuxmczuiophwp
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
