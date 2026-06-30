@@ -7,6 +7,8 @@ import { useAbrechnung } from '@/hooks/useAbrechnung'
 import { useWartung } from '@/hooks/useWartung'
 import { useGentlemanRules } from '@/hooks/useGentlemanRules'
 import { useBootStats } from '@/hooks/useBootStats'
+import { useKontoberechnung } from '@/hooks/useKontoberechnung'
+import { useKontoReset } from '@/hooks/useKontoReset'
 import { useTabKeyboard } from '@/hooks/useTabKeyboard'
 import { FAHRER_LABELS, FAHRER_FARBEN, FAHRER_TEXT_FARBEN, type AlleFahrer } from '@/lib/fahrer'
 import { formatCurrency, formatDate } from '@/lib/format'
@@ -25,6 +27,8 @@ import {
   CheckCircle2,
   Circle,
   AlertTriangle,
+  RotateCcw,
+  Wallet,
 } from 'lucide-react'
 
 const TABS = ['Eigentümer', 'Abrechnung', 'Wartung', 'Gentleman-Rules'] as const
@@ -274,10 +278,41 @@ function EigentuemerTab() {
 function AbrechnungTab() {
   const { config, isLoading, updateConfig } = useAbrechnung()
   const { stats } = useBootStats()
+  const { data: konto } = useKontoberechnung()
+  const { resetKontostand } = useKontoReset()
   const [editing, setEditing] = useState(false)
   const [marktwert, setMarktwert] = useState('')
   const [kuendigung, setKuendigung] = useState('')
   const [beitrag, setBeitrag] = useState('')
+  const [resetTarget, setResetTarget] = useState('')
+  const [resetNote, setResetNote] = useState('')
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+
+  const openResetConfirm = () => {
+    if (isNaN(parseFloat(resetTarget))) {
+      toast.error('Bitte einen gültigen Betrag eingeben')
+      return
+    }
+    setShowResetConfirm(true)
+  }
+
+  const doReset = () => {
+    resetKontostand.mutate(
+      { target: parseFloat(resetTarget), note: resetNote },
+      {
+        onSuccess: () => {
+          toast.success('Kontostand zurückgesetzt')
+          setShowResetConfirm(false)
+          setResetNote('')
+          setResetTarget('')
+        },
+        onError: () => {
+          toast.error('Fehler beim Zurücksetzen')
+          setShowResetConfirm(false)
+        },
+      },
+    )
+  }
 
   const startEditing = () => {
     if (!config) return
@@ -442,6 +477,72 @@ function AbrechnungTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Kontostand zurücksetzen (Saison-Neustart) */}
+      <div className="card-premium card-glow rounded-xl border border-border bg-card p-5">
+        <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-3 flex items-center gap-2">
+          <Wallet className="h-4 w-4" />
+          Kontostand zurücksetzen
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Setzt den berechneten Bootkonto-Stand auf einen neuen Startwert (z.B. für einen Saison-Neustart).
+          Die Differenz wird über den Startsaldo verbucht und in den Neuigkeiten protokolliert.
+        </p>
+        {konto && (
+          <p className="text-sm text-muted-foreground mb-3">
+            Aktueller Kontostand:{' '}
+            <span className="font-semibold text-foreground tabular-nums">{formatCurrency(Number(konto.saldo))}</span>
+          </p>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="reset-target" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Neuer Kontostand (CHF)
+            </label>
+            <input
+              id="reset-target"
+              type="number"
+              step="0.05"
+              value={resetTarget}
+              onChange={(e) => setResetTarget(e.target.value)}
+              placeholder={konto ? String(Number(konto.saldo)) : '0.00'}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="reset-note" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Notiz (optional)
+            </label>
+            <input
+              id="reset-note"
+              value={resetNote}
+              onChange={(e) => setResetNote(e.target.value)}
+              placeholder="z.B. Saison-Neustart"
+              className={inputClass}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={openResetConfirm}
+            disabled={resetKontostand.isPending || !resetTarget}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-accent px-4 text-sm font-semibold text-accent-foreground shadow-sm hover:bg-accent/90 disabled:opacity-50"
+          >
+            {resetKontostand.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+            Zurücksetzen
+          </button>
+        </div>
+      </div>
+
+      {showResetConfirm && (
+        <ConfirmDialog
+          open
+          title="Kontostand zurücksetzen"
+          description={`Den berechneten Bootkonto-Stand auf ${formatCurrency(parseFloat(resetTarget) || 0)} setzen? Dies passt den Startsaldo an und erstellt einen Neuigkeiten-Eintrag.`}
+          onConfirm={doReset}
+          onCancel={() => setShowResetConfirm(false)}
+        />
       )}
     </div>
   )

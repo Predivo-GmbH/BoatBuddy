@@ -49,4 +49,13 @@ test.describe('Staging — authenticated', () => {
       expect(errors, `console errors on ${path}:\n${errors.join('\n')}`).toHaveLength(0)
     })
   }
+
+  // BOOT-015: account/season reset feature (Boot > Abrechnung)
+  test('Boot > Abrechnung shows the Kontostand-Reset feature', async ({ page }) => {
+    await page.goto('/boot')
+    await page.getByRole('tab', { name: 'Abrechnung' }).click()
+    await expect(page.getByRole('heading', { name: 'Kontostand zurücksetzen' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByLabel('Neuer Kontostand (CHF)')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Zurücksetzen' })).toBeVisible()
+  })
 })
