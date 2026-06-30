@@ -143,11 +143,12 @@ test.describe('Boot & Eigentümer', () => {
     // so a slow Supabase load doesn't flake the data assertions.
     await expect(page.getByText('Eigentumsanteile')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText(/Total: \d+\.\d+%/)).toBeVisible({ timeout: 15_000 })
-    // Data assertions — only Roger and Dani (no Jan)
+    // Data assertions — three equal owners (Roger, Dani, Jan), each ~33.3%
     await expect(page.getByText('Roger')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText('Dani')).toBeVisible()
-    await expect(page.getByText('72.7%')).toBeVisible()
-    await expect(page.getByText('27.3%')).toBeVisible()
+    await expect(page.getByText('Jan')).toBeVisible()
+    // All three hold an equal third — the 33.3% share is shown on each of the 3 cards
+    await expect(page.getByText('33.3%')).toHaveCount(3)
   })
 
   test('Wartung tab shows empty state or tasks', async ({ page }) => {
