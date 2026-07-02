@@ -148,7 +148,7 @@ describe('Footer', () => {
     // The tagline contains a middot HTML entity rendered as text
     const tagline = screen.getByText(/Swiss-made/)
     expect(tagline).toBeInTheDocument()
-    expect(tagline).toHaveTextContent('Software that Thinks Ahead')
+    expect(tagline).toHaveTextContent('Swiss-made')
   })
 
   it('renders a footer element as the root', () => {

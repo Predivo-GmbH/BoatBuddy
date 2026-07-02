@@ -6,7 +6,7 @@ export function Footer() {
       <span>BoatBuddy by Predivo GmbH. Alle Rechte vorbehalten.</span>
       <span className="hidden sm:flex items-center gap-1">
         <Shield className="h-3 w-3" />
-        Swiss-made &middot; Software that Thinks Ahead
+        Swiss-made
       </span>
     </footer>
   )
