@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { encode as encodeBase64 } from 'https://deno.land/std@0.208.0/encoding/base64.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { isModelNotFound, resolveModel, substituteModel } from '../_shared/anthropic-model.ts'
 
 /**
  * extract-expense: AI-powered invoice extraction for BoatBuddy
@@ -15,7 +16,9 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
  */
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const AI_MODEL = 'claude-haiku-4-5-20251001'
+// Model comes from the AI_MODEL_FAST secret via _shared/anthropic-model.ts
+// (fleet standard: dynamic Anthropic model resolution, 2026-07-05).
+const AI_TIER = 'fast' as const
 const MAX_RETRIES = 3
 const RETRY_BASE_DELAY_MS = 2000
 
@@ -39,6 +42,35 @@ async function fetchWithRetry(url: string, init: RequestInit, label: string): Pr
     }
   }
   throw new Error(`${label}: exhausted all retries`)
+}
+
+/**
+ * Anthropic Messages call with dynamic model resolution and automatic
+ * retirement fallback (fleet standard). `body` must NOT contain `model`.
+ * Keeps fetchWithRetry's 429/529 backoff per attempt.
+ */
+async function anthropicCall(
+  apiKey: string,
+  body: Record<string, unknown>,
+  label: string,
+): Promise<Response> {
+  let model = await resolveModel(AI_TIER, apiKey)
+  const call = (m: string) =>
+    fetchWithRetry(ANTHROPIC_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({ ...body, model: m }),
+    }, label)
+  let response = await call(model)
+  if (await isModelNotFound(response)) {
+    model = await substituteModel(model, AI_TIER, apiKey)
+    response = await call(model)
+  }
+  return response
 }
 
 const BOAT_CATEGORIES = [
@@ -120,15 +152,7 @@ serve(async (req) => {
     )
 
     // 2. Pass 1: Vision → Text transcription
-    const pass1Response = await fetchWithRetry(ANTHROPIC_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
+    const pass1Response = await anthropicCall(anthropicKey, {
         max_tokens: 4096,
         temperature: 0,
         system: `You are a precise document transcription engine. Transcribe ALL text visible on this document exactly as it appears. Organize by sections (header, recipient, details, line items, totals, payment terms, QR bill, footer). Preserve exact formatting of numbers, dates, amounts, IBANs. Do NOT interpret or summarize — just transcribe.`,
@@ -143,8 +167,7 @@ serve(async (req) => {
             text: 'Transcribe all text from this document.',
           }],
         }],
-      }),
-    }, 'Pass1-Vision')
+      }, 'Pass1-Vision')
 
     if (!pass1Response.ok) {
       const errBody = await pass1Response.text()
@@ -159,15 +182,7 @@ serve(async (req) => {
     }
 
     // 3. Pass 2: Text → Structured JSON
-    const pass2Response = await fetchWithRetry(ANTHROPIC_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
+    const pass2Response = await anthropicCall(anthropicKey, {
         max_tokens: 2048,
         temperature: 0,
         system: `You extract structured data from Swiss invoices/receipts related to a shared wake-surfing boat (Mastercraft X2).
@@ -197,8 +212,7 @@ Return ONLY the JSON object, no markdown, no explanation.`,
           role: 'user',
           content: `Here is the transcribed text from a boat-related invoice:\n\n${transcription}\n\nExtract the structured data as JSON.`,
         }],
-      }),
-    }, 'Pass2-Extract')
+      }, 'Pass2-Extract')
 
     if (!pass2Response.ok) {
       const errBody = await pass2Response.text()
