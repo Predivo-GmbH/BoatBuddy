@@ -139,7 +139,7 @@ describe('Footer', () => {
   it('renders the copyright text', () => {
     render(<Footer />)
     expect(
-      screen.getByText('BoatBuddy by Predivo GmbH. Alle Rechte vorbehalten.')
+      screen.getByText(/BoatBuddy by Predivo GmbH\. Alle Rechte vorbehalten\./)
     ).toBeInTheDocument()
   })
 
