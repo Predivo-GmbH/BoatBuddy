@@ -129,7 +129,7 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const serviceRoleKey = (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')!
 
     const supabase = createClient(supabaseUrl, serviceRoleKey)
@@ -278,7 +278,7 @@ Return ONLY the JSON object, no markdown, no explanation.`,
       if (body.ausgabe_id) {
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL')!,
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+          (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!,
         )
         await supabase
           .from('ausgaben')
