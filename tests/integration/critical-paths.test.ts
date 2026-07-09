@@ -6,7 +6,7 @@ import { describe, test, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 const STAGING_URL = process.env.STAGING_SUPABASE_URL ?? 'https://svpewgbwousyheohlrtt.supabase.co'
-const STAGING_ANON = process.env.STAGING_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cGV3Z2J3b3VzeWhlb2hscnR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzOTgzNzIsImV4cCI6MjA5NTk3NDM3Mn0.3Smv9Md-IAS5QEID3RBCE0BttSZ-GaD9WDA2Z5Aaw2s'
+const STAGING_ANON = process.env.STAGING_SUPABASE_ANON_KEY ?? ''
 
 // This suite runs against shared staging in BOTH workflows (CPT test.yml + Deploy
 // deploy.yml) on every push, so two runs hit the same DB concurrently. Shift every
