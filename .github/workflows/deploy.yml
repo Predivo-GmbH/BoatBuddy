@@ -38,11 +38,20 @@ jobs:
         run: npm run lint
       - name: Unit tests
         run: npm test -- --run --passWithNoTests
+        env:
+          # `npm test` (vitest run) also picks up tests/integration/critical-paths.test.ts
+          # (vitest.config excludes only e2e/**), which builds a Supabase client at beforeAll.
+          # Since c7152aa6 dropped the hardcoded staging-anon fallback, the key must come from
+          # the env here too or createClient() throws "supabaseKey is required."
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
       - name: Integration tests (staging Supabase)
         run: npx vitest run tests/integration/critical-paths.test.ts
         env:
           STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
-          STAGING_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
+          # Test reads process.env.STAGING_SUPABASE_ANON_KEY (was misnamed STAGING_ANON_KEY,
+          # previously masked by the hardcoded fallback).
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
 
   # 2. Build with staging env + deploy to staging.boatbuddy.predivo.ch (behind .htpasswd, noindex)
   deploy-staging:
