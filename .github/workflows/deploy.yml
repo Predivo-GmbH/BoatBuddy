@@ -145,12 +145,15 @@ jobs:
 
       - name: Verify staging is alive (catches .htaccess errors)
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u "${{ secrets.STAGING_HTPASSWD_USER }}:${{ secrets.STAGING_HTPASSWD_PASS }}" https://staging.boatbuddy.predivo.ch --retry 3 --retry-all-errors --retry-delay 8 --max-time 30)
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Staging returned HTTP $STATUS — likely .htaccess error. Blocking production deploy."
-            exit 1
-          fi
-          echo "Staging health check passed (HTTP $STATUS)"
+          # Retry loop survives transient curl failures (exit 23 etc.), not just non-200s.
+          for i in 1 2 3 4 5 6; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u "${{ secrets.STAGING_HTPASSWD_USER }}:${{ secrets.STAGING_HTPASSWD_PASS }}" https://staging.boatbuddy.predivo.ch --max-time 30 || echo 000)
+            if [ "$STATUS" = "200" ]; then echo "Staging health check passed (HTTP $STATUS, attempt $i)"; exit 0; fi
+            echo "::warning::Staging check attempt $i/6 got HTTP $STATUS - retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::Staging returned HTTP $STATUS after 6 attempts - likely .htaccess error. Blocking production deploy."
+          exit 1
 
       - name: Run staging E2E tests
         run: npm run test:e2e:staging
