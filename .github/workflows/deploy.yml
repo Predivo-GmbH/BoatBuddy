@@ -102,7 +102,7 @@ jobs:
           echo "boatbuddy-staging" > ./dist/.site-id
           # Resilient FTPS for Metanet: force PASV, single data connection, retry loop.
           # Exclude .htpasswd so the mirror's --delete never removes the auth file.
-          CMDS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 1; mirror --reverse --delete --no-perms --verbose --exclude .htpasswd --exclude cgi-bin/ ./dist/ staging.boatbuddy.predivo.ch/; bye"
+          CMDS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 4; mirror --reverse --delete --no-perms --verbose --exclude .htpasswd --exclude cgi-bin/ ./dist/ staging.boatbuddy.predivo.ch/; bye"
           n=0
           until [ $n -ge 4 ]; do
             if lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
@@ -197,7 +197,7 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASS }}
         run: |
           sudo apt-get install -y lftp
-          LFTP_SETTINGS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 1;"
+          LFTP_SETTINGS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 4;"
           echo "boatbuddy" > ./dist/.site-id
 
           # Site-id guard — never deploy to the wrong target.
