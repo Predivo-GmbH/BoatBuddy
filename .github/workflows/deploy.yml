@@ -1,9 +1,30 @@
 name: Deploy
 
+# ─────────────────────────────────────────────────────────────────────────────
+# TIERED PIPELINE (2026-07-15) — "gates guard prod, not every staging push".
+#
+# The old shape ran the FULL gauntlet (validate -> deploy-staging -> E2E) on
+# EVERY push to main, so a one-line content change took ~15 min. Industry
+# standard (DORA): deploy often, keep the per-push pipeline fast, and run the
+# heavy acceptance suite as a RELEASE gate + nightly — not on every push.
+#
+#   push -> main        FAST staging deploy: lint + unit + build + FTP + edge
+#                       fns + alive-smoke. ~5-6 min.  (job: deploy-staging)
+#   schedule (nightly)  FULL gauntlet against live staging — daily regression
+#                       signal even with no promotion.  (jobs: gate-*)
+#   workflow_dispatch   PROD promotion. Gated behind the FULL gauntlet
+#     confirm=deploy    (integration + E2E) THEN deploys prod.  (gate-* -> deploy)
+#
+# Nothing was weakened for PRODUCTION: prod still cannot ship unless the staging
+# integration suite and the staging E2E suite are both green for the promoted
+# commit. What changed is WHEN they run — release-time + nightly instead of on
+# every trivial staging push.
+# ─────────────────────────────────────────────────────────────────────────────
+
 on:
-  # Push to main runs validate -> staging -> E2E ONLY. Production is NOT deployed
+  # Push to main runs the fast staging deploy ONLY. Production is NOT deployed
   # automatically — it requires an explicit manual run (workflow_dispatch) so we
-  # always review staging + E2E before going live ("ask before production").
+  # always review the gates before going live ("ask before production").
   push:
     branches: [main]
     paths-ignore:
@@ -11,6 +32,9 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
+  schedule:
+    # Nightly full gauntlet against whatever is currently live on staging.
+    - cron: '35 4 * * *'
   workflow_dispatch:
     inputs:
       confirm:
@@ -25,15 +49,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # 1. Lint + unit/integration tests (integration runs against the staging Supabase DB)
-  validate-staging:
-    # Staging chain (validate -> deploy-staging -> e2e-staging) runs ONLY on push to main. A
-    # production promotion (workflow_dispatch) does NOT re-run it — the `deploy` job instead
-    # verifies the commit already has a green staging run (see its "Verify staging gate" step).
-    # Gating here cascade-skips deploy-staging -> e2e-staging on dispatch (both `needs` this job).
+  # ===========================================================================
+  # 1. FAST STAGING DEPLOY — every push. One job, one checkout, one npm ci,
+  #    build once. lint + unit tests are the per-push gates (the test pyramid's
+  #    fast base): a change that lints, typechecks (tsc in build), and passes
+  #    unit tests cannot white-screen the site. The heavy integration / E2E
+  #    suites run on the nightly + prod-promotion gauntlet below, NOT here.
+  # ===========================================================================
+  deploy-staging:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -41,8 +67,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
       - name: Lint
         run: npm run lint
+
       - name: Unit tests
         run: npm test -- --run --passWithNoTests
         env:
@@ -52,26 +80,6 @@ jobs:
           # the env here too or createClient() throws "supabaseKey is required."
           STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
-      - name: Integration tests (staging Supabase)
-        run: npx vitest run tests/integration/critical-paths.test.ts
-        env:
-          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
-          # Test reads process.env.STAGING_SUPABASE_ANON_KEY (was misnamed STAGING_ANON_KEY,
-          # previously masked by the hardcoded fallback).
-          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
-
-  # 2. Build with staging env + deploy to staging.boatbuddy.predivo.ch (behind .htpasswd, noindex)
-  deploy-staging:
-    needs: validate-staging
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
 
       - name: Build for staging
         run: npm run build
@@ -138,9 +146,47 @@ jobs:
           done
           echo "::error::Edge functions deploy to staging failed after 4 attempts"; exit 1
 
+      - name: Verify staging is alive (catches .htaccess errors)
+        run: |
+          # Retry loop survives transient curl failures (exit 23 etc.), not just non-200s.
+          for i in 1 2 3 4 5 6; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" -u "${{ secrets.STAGING_HTPASSWD_USER }}:${{ secrets.STAGING_HTPASSWD_PASS }}" https://staging.boatbuddy.predivo.ch --max-time 30 || echo 000)
+            if [ "$STATUS" = "200" ]; then echo "Staging health check passed (HTTP $STATUS, attempt $i)"; exit 0; fi
+            echo "::warning::Staging check attempt $i/6 got HTTP $STATUS - retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::Staging returned HTTP $STATUS after 6 attempts - likely .htaccess error. Blocking production deploy."
+          exit 1
+
+  # ===========================================================================
+  # FULL GAUNTLET — runs on the nightly schedule AND on prod promotion, NOT on push.
+  # These jobs are the un-skippable PRODUCTION gates: the prod `deploy` job
+  # `needs` them, so prod cannot ship unless every one is green. They test
+  # against the LIVE staging site/DB (which the push above already deployed).
+  # ===========================================================================
+  # 2. Integration tests against the staging Supabase DB.
+  gate-integration:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Integration tests (staging Supabase)
+        run: npx vitest run tests/integration/critical-paths.test.ts
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          # Test reads process.env.STAGING_SUPABASE_ANON_KEY (was misnamed STAGING_ANON_KEY,
+          # previously masked by the hardcoded fallback).
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
+
   # 3. Run Playwright E2E against the deployed staging site — the gate that protects prod
-  e2e-staging:
-    needs: deploy-staging
+  gate-e2e:
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -188,13 +234,19 @@ jobs:
           name: staging-e2e-results
           path: playwright-report/
 
+  # ===========================================================================
   # 4. PRODUCTION — only on a manual run with the typed "deploy" confirmation.
-  #    Push-to-main never reaches this job (staging + E2E only) — see `on:` above.
-  #    Intentionally does NOT `needs: e2e-staging` — staging already ran on the push being
-  #    promoted; re-running it here re-exposed prod to transient staging/Supabase/FTP failures.
-  #    Instead the first step GATES on the recorded staging result for this exact commit.
+  #    Push-to-main never reaches this job (staging only) — see `on:` above.
+  #    Gated behind the full gauntlet (needs: gate-integration + gate-e2e) so prod
+  #    cannot ship unless integration AND E2E are green for the promoted commit.
+  #    Intentionally does NOT `needs` the staging-deploy chain — staging already ran
+  #    on the push being promoted; re-running it re-exposed prod to transient
+  #    staging/Supabase/FTP failures. Instead the first step GATES on the recorded
+  #    staging result for this exact commit.
+  # ===========================================================================
   deploy:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'deploy'
+    needs: [gate-integration, gate-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
