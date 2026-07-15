@@ -278,3 +278,14 @@ jobs:
             n=$((n + 1)); echo "::warning::Supabase functions-deploy attempt $n failed (transient API error, e.g. 502); backing off 60s..."; sleep 60
           done
           echo "::error::Edge functions deploy to production failed after 4 attempts"; exit 1
+
+      - name: Post-deploy production smoke test
+        run: |
+          # Confirm prod actually serves after the promotion (catches a broken build
+          # that FTP'd cleanly but renders a 5xx). Retry to ride out CDN warm-up.
+          for i in 1 2 3 4; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://boatbuddy.predivo.ch || echo 000)
+            if [ "$STATUS" = "200" ]; then echo "Production smoke passed (HTTP $STATUS, attempt $i)"; exit 0; fi
+            echo "::warning::prod smoke attempt $i got HTTP $STATUS — retrying in 15s"; sleep 15
+          done
+          echo "::error::Production smoke FAILED — boatbuddy.predivo.ch not serving 200"; exit 1
