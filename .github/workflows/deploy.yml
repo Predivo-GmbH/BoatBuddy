@@ -20,7 +20,9 @@ on:
 
 concurrency:
   group: deploy-production
-  cancel-in-progress: true
+  # Queue deploys, never cancel mid-run — cancelling a multi-step FTP mirror mid-flight
+  # left prod half-applied when a fast follow-up push superseded it (Audits/BREAKAGE_ROOT_CAUSE_INVESTIGATION_2026-07-14.md §6).
+  cancel-in-progress: false
 
 jobs:
   # 1. Lint + unit/integration tests (integration runs against the staging Supabase DB)
