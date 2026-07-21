@@ -1,63 +1,149 @@
 /**
- * Fleet standard: dynamic Anthropic model resolution (2026-07-05).
+ * Fleet standard: AI provider + model resolution (2026-07-05, provider dimension 2026-07-21).
  * CANONICAL REFERENCE — copy into <project>/supabase/functions/_shared/anthropic-model.ts
  * and do not diverge functionally. Doc: standards/ai-model-resolution.md
  *
- * No hard-coded model IDs in call sites. The model comes from a Supabase secret
- * (AI_MODEL_FAST / AI_MODEL_SMART) and self-heals via the live /v1/models list
- * when the pinned model has been retired (404 model_not_found).
+ * The file name and the exported function names are unchanged on purpose: every call site
+ * in the fleet already imports `anthropicMessages` / `resolveModel`, and this layer must stay
+ * a drop-in. What changed is that a call can now be served by a DIFFERENT PROVIDER.
+ *
+ *   AI_PROVIDER           primary   — 'anthropic' (default) | 'kimi'
+ *   AI_FALLBACK_PROVIDER  optional  — used only when the primary fails RETRYABLY (5xx/429/network)
+ *   AI_MODEL_FAST / AI_MODEL_SMART        Anthropic pins (unchanged)
+ *   KIMI_MODEL_FAST / KIMI_MODEL_SMART    Kimi pins (default kimi-k2.6)
+ *   MOONSHOT_API_KEY                      Kimi credential
+ *
+ * With nothing configured the behaviour is byte-for-byte the old Anthropic-only path.
+ *
+ * ⚠️ THE ONE THING THAT WILL BITE YOU (verified 2026-07-21, Gate B):
+ * Kimi returns `content = [thinking, text]` by default. Every call site in this fleet reads
+ * `data.content[0].text`, which is then `undefined` — on HTTP 200, with no error. ReplyFlow at
+ * its real max_tokens=350 produced a COMPLETELY BLANK reply because thinking ate the budget.
+ * We therefore force `thinking: {type: 'disabled'}` on every Kimi request. Only kimi-k2.6
+ * supports disabling it — k2.7-code is always-on and k3 only has reasoning_effort.
+ * Never send `thinking` to Anthropic here: Haiku/Sonnet 4.5-class models reject that shape.
  */
 
-const MODELS_API = 'https://api.anthropic.com/v1/models?limit=100'
-const MESSAGES_API = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
 
 export type ModelTier = 'fast' | 'smart'
+export type Provider = 'anthropic' | 'kimi'
 
-const TIER_ENV: Record<ModelTier, string> = { fast: 'AI_MODEL_FAST', smart: 'AI_MODEL_SMART' }
-const TIER_FAMILY: Record<ModelTier, string> = { fast: 'claude-haiku', smart: 'claude-sonnet' }
+interface ProviderConfig {
+  messagesUrl: string
+  modelsUrl: string
+  /** Env var holding this provider's credential (Anthropic falls back to the caller's key). */
+  keyEnv: string
+  pinEnv: Record<ModelTier, string>
+  family: Record<ModelTier, string>
+  headers: (key: string) => Record<string, string>
+  /** Provider-specific request-body adjustments. */
+  shapeBody: (body: Record<string, unknown>) => Record<string, unknown>
+}
 
-let cache: { ids: string[]; at: number } | null = null
+const PROVIDERS: Record<Provider, ProviderConfig> = {
+  anthropic: {
+    messagesUrl: 'https://api.anthropic.com/v1/messages',
+    modelsUrl: 'https://api.anthropic.com/v1/models?limit=100',
+    keyEnv: 'ANTHROPIC_API_KEY',
+    pinEnv: { fast: 'AI_MODEL_FAST', smart: 'AI_MODEL_SMART' },
+    family: { fast: 'claude-haiku', smart: 'claude-sonnet' },
+    headers: (key) => ({
+      'x-api-key': key,
+      'anthropic-version': ANTHROPIC_VERSION,
+      'content-type': 'application/json',
+    }),
+    shapeBody: (body) => body,
+  },
+  kimi: {
+    // Moonshot ships an Anthropic-compatible Messages endpoint, so the request/response
+    // shape — including usage.input_tokens/output_tokens — matches ours as-is.
+    messagesUrl: 'https://api.moonshot.ai/anthropic/v1/messages',
+    modelsUrl: 'https://api.moonshot.ai/v1/models',
+    keyEnv: 'MOONSHOT_API_KEY',
+    pinEnv: { fast: 'KIMI_MODEL_FAST', smart: 'KIMI_MODEL_SMART' },
+    family: { fast: 'kimi-k2.6', smart: 'kimi-k2.6' },
+    headers: (key) => ({
+      Authorization: `Bearer ${key}`,
+      'anthropic-version': ANTHROPIC_VERSION,
+      'content-type': 'application/json',
+    }),
+    // See the warning at the top of this file — without this the response has no text block.
+    shapeBody: (body) => ({ thinking: { type: 'disabled' }, ...body }),
+  },
+}
 
-/** Live model IDs, newest first. Cached for the lifetime of the isolate (6h TTL). */
-async function liveModels(apiKey: string): Promise<string[]> {
-  if (cache && Date.now() - cache.at < 6 * 3600_000) return cache.ids
-  const res = await fetch(MODELS_API, {
-    headers: { 'x-api-key': apiKey, 'anthropic-version': ANTHROPIC_VERSION },
-  })
-  if (!res.ok) throw new Error(`models list failed: ${res.status}`)
+function primaryProvider(): Provider {
+  return Deno.env.get('AI_PROVIDER') === 'kimi' ? 'kimi' : 'anthropic'
+}
+
+function fallbackProvider(): Provider | null {
+  const v = Deno.env.get('AI_FALLBACK_PROVIDER')
+  if (v === 'kimi' || v === 'anthropic') return v
+  return null
+}
+
+/** Credential for a provider. Anthropic falls back to the key the caller already passed. */
+function keyFor(provider: Provider, callerKey: string): string | null {
+  const fromEnv = Deno.env.get(PROVIDERS[provider].keyEnv)
+  if (fromEnv) return fromEnv
+  return provider === 'anthropic' ? callerKey : null
+}
+
+const cache: Partial<Record<Provider, { ids: string[]; at: number }>> = {}
+
+/** Live model IDs for a provider, newest first. Cached for the isolate's lifetime (6h TTL). */
+async function liveModels(provider: Provider, apiKey: string): Promise<string[]> {
+  const hit = cache[provider]
+  if (hit && Date.now() - hit.at < 6 * 3600_000) return hit.ids
+  const cfg = PROVIDERS[provider]
+  const res = await fetch(cfg.modelsUrl, { headers: cfg.headers(apiKey) })
+  if (!res.ok) throw new Error(`models list failed (${provider}): ${res.status}`)
   const ids: string[] = ((await res.json()).data ?? []).map((m: { id: string }) => m.id)
-  if (ids.length === 0) throw new Error('models list empty')
-  cache = { ids, at: Date.now() }
+  if (ids.length === 0) throw new Error(`models list empty (${provider})`)
+  cache[provider] = { ids, at: Date.now() }
   return ids
 }
 
-function familyOf(model: string, tier: ModelTier): string {
-  const m = model.match(/^(claude-[a-z]+)/)
-  return m ? m[1] : TIER_FAMILY[tier]
+function familyOf(model: string, provider: Provider, tier: ModelTier): string {
+  const m = model.match(/^([a-z]+-[a-z0-9.]+)/)
+  return m ? m[1] : PROVIDERS[provider].family[tier]
 }
 
-/** Model to use for a tier: the pinned secret, else newest live model of the tier's family. */
-export async function resolveModel(tier: ModelTier, apiKey: string): Promise<string> {
-  const pin = Deno.env.get(TIER_ENV[tier])
+/**
+ * Model to use for a tier: the pinned secret, else the newest live model of the tier's family.
+ * Defaults to the primary provider; pass `provider` to resolve for a specific one.
+ */
+export async function resolveModel(tier: ModelTier, apiKey: string, provider?: Provider): Promise<string> {
+  const p = provider ?? primaryProvider()
+  const cfg = PROVIDERS[p]
+  const pin = Deno.env.get(cfg.pinEnv[tier])
   if (pin) return pin
-  const ids = await liveModels(apiKey)
-  return ids.find((id) => id.startsWith(TIER_FAMILY[tier])) ?? ids[0]
+  const key = keyFor(p, apiKey)
+  if (!key) throw new Error(`no credential for provider ${p} (${cfg.keyEnv})`)
+  const ids = await liveModels(p, key)
+  return ids.find((id) => id.startsWith(cfg.family[tier])) ?? ids[0]
 }
 
 /** Newest live model in the same family as `failed` (never `failed` itself). */
-export async function substituteModel(failed: string, tier: ModelTier, apiKey: string): Promise<string> {
-  const ids = await liveModels(apiKey)
-  const fam = familyOf(failed, tier)
+export async function substituteModel(
+  failed: string, tier: ModelTier, apiKey: string, provider?: Provider,
+): Promise<string> {
+  const p = provider ?? primaryProvider()
+  const cfg = PROVIDERS[p]
+  const key = keyFor(p, apiKey)
+  if (!key) throw new Error(`no credential for provider ${p}`)
+  const ids = await liveModels(p, key)
+  const fam = familyOf(failed, p, tier)
   const sub =
     ids.find((id) => id.startsWith(fam) && id !== failed) ??
-    ids.find((id) => id.startsWith(TIER_FAMILY[tier]) && id !== failed) ??
+    ids.find((id) => id.startsWith(cfg.family[tier]) && id !== failed) ??
     ids[0]
-  console.error(`[ai-model] "${failed}" unavailable (retired?) — substituting "${sub}". Update the AI_MODEL_* secret.`)
+  console.error(`[ai-model] "${failed}" unavailable (retired?) — substituting "${sub}". Update the pin secret.`)
   return sub
 }
 
-/** True when the response is Anthropic's "model not found" 404. */
+/** True when the response is the provider's "model not found" 404. */
 export async function isModelNotFound(res: Response): Promise<boolean> {
   if (res.status !== 404) return false
   try {
@@ -69,7 +155,16 @@ export async function isModelNotFound(res: Response): Promise<boolean> {
 }
 
 /**
- * Non-streaming Messages call with automatic retirement fallback.
+ * Retryable = the provider is having a bad time (rate limit, overload, outage).
+ * A 4xx other than 429 is OUR bug — failing over would just repeat it on someone else's bill.
+ */
+function isRetryable(status: number): boolean {
+  return status === 429 || status >= 500
+}
+
+/**
+ * Non-streaming Messages call with automatic model-retirement fallback and, when
+ * AI_FALLBACK_PROVIDER is set, automatic PROVIDER failover on retryable failures.
  * `body` must NOT contain `model` — pass a tier instead. Returns the raw Response.
  */
 export async function anthropicMessages(
@@ -77,21 +172,49 @@ export async function anthropicMessages(
   tier: ModelTier,
   body: Record<string, unknown>,
 ): Promise<Response> {
-  let model = await resolveModel(tier, apiKey)
-  const call = (m: string) =>
-    fetch(MESSAGES_API, {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ ...body, model: m }),
-    })
-  let res = await call(model)
-  if (await isModelNotFound(res)) {
-    model = await substituteModel(model, tier, apiKey)
-    res = await call(model)
+  const order: Provider[] = [primaryProvider()]
+  const fb = fallbackProvider()
+  if (fb && fb !== order[0]) order.push(fb)
+
+  let lastRes: Response | null = null
+  for (let i = 0; i < order.length; i++) {
+    const provider = order[i]
+    const cfg = PROVIDERS[provider]
+    const key = keyFor(provider, apiKey)
+    if (!key) {
+      console.error(`[ai-model] skipping provider ${provider} — ${cfg.keyEnv} not set`)
+      continue
+    }
+
+    let model: string
+    try {
+      model = await resolveModel(tier, apiKey, provider)
+    } catch (e) {
+      console.error(`[ai-model] cannot resolve model for ${provider}: ${(e as Error).message}`)
+      continue
+    }
+
+    const call = (m: string) =>
+      fetch(cfg.messagesUrl, {
+        method: 'POST',
+        headers: cfg.headers(key),
+        body: JSON.stringify(cfg.shapeBody({ ...body, model: m })),
+      })
+
+    let res = await call(model)
+    if (await isModelNotFound(res)) {
+      model = await substituteModel(model, tier, apiKey, provider)
+      res = await call(model)
+    }
+    if (res.ok || !isRetryable(res.status)) return res
+
+    lastRes = res
+    const next = order[i + 1]
+    if (next) {
+      console.error(`[ai-model] ${provider} returned ${res.status} — failing over to ${next}`)
+    }
   }
-  return res
+  // Every configured provider failed retryably; hand back the last response so the caller
+  // sees a real status code rather than a synthetic one.
+  return lastRes ?? new Response(JSON.stringify({ error: 'no AI provider available' }), { status: 503 })
 }

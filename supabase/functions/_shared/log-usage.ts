@@ -32,7 +32,14 @@ const MODEL_PRICING: Record<string, { input: number; output: number }> = {
 
 // Longest-prefix wins. Anthropic Opus-tier is 5/25 (NOT the old 15/75 — that was
 // Claude 3 Opus pricing and over-charged every opus-4-x call by 3x).
+// Kimi (Moonshot) verified against their pricing docs 2026-07-21. NOTE kimi-k2.6 at
+// 0.95/4.00 UNDERCUTS Anthropic Haiku 4.5 (1/5), which is the tier most of the fleet runs on.
 const FAMILY_PRICING: Array<[string, { input: number; output: number }]> = [
+  ['kimi-k2.6', { input: 0.95, output: 4 }],
+  ['kimi-k2.7-code-highspeed', { input: 1.90, output: 8 }],
+  ['kimi-k2.7-code', { input: 0.95, output: 4 }],
+  ['kimi-k3', { input: 3, output: 15 }],
+  ['kimi', { input: 0.95, output: 4 }],
   ['claude-fable-5', { input: 10, output: 50 }],
   ['claude-mythos', { input: 10, output: 50 }],
   ['claude-opus', { input: 5, output: 25 }],
@@ -83,7 +90,11 @@ export async function logAnthropicUsage(
   const outputTokens = response.usage?.output_tokens ?? 0
 
   const cost = costUsdFor(model, inputTokens, outputTokens)
-  const provider = model.startsWith('gemini') ? 'google' : 'anthropic'
+  // Provider is derived from the model ID so a provider failover is attributed correctly
+  // on the BackOffice API dashboard without the call site having to know what served it.
+  const provider = model.startsWith('gemini') ? 'google'
+    : model.startsWith('kimi') || model.startsWith('moonshot') ? 'kimi'
+    : 'anthropic'
 
   // A missing secret is the #1 cause of silent under-reporting — say so loudly.
   if (!CRON_SECRET) {
