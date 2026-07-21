@@ -3,8 +3,19 @@ name: Critical Path Tests
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
     branches: [main]
+
+# Collapse superseded runs: when several pushes land in a row only the
+# newest commit needs testing. Safe here — these jobs never write to prod.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   critical-path:

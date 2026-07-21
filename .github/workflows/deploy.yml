@@ -43,10 +43,12 @@ on:
         default: ''
 
 concurrency:
-  group: deploy-production
-  # Queue deploys, never cancel mid-run — cancelling a multi-step FTP mirror mid-flight
-  # left prod half-applied when a fast follow-up push superseded it (Audits/BREAKAGE_ROOT_CAUSE_INVESTIGATION_2026-07-14.md §6).
-  cancel-in-progress: false
+  # Production promotions (workflow_dispatch) keep their own serialized, NEVER-cancelled
+  # group: cancelling a mid-flight FTP mirror can leave prod half-uploaded.
+  # Pushes (the staging pipeline) get a per-ref group that DOES cancel — when several
+  # commits land in a row only the newest needs a staging deploy + E2E.
+  group: ${{ github.event_name == 'workflow_dispatch' && 'deploy-production' || format('staging-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   # ===========================================================================
