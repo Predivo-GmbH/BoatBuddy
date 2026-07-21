@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { encode as encodeBase64 } from 'https://deno.land/std@0.208.0/encoding/base64.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { isModelNotFound, resolveModel, substituteModel } from '../_shared/anthropic-model.ts'
+import { logAnthropicUsage } from '../_shared/log-usage.ts'
 
 /**
  * extract-expense: AI-powered invoice extraction for BoatBuddy
@@ -175,6 +176,7 @@ serve(async (req) => {
     }
 
     const pass1Result = await pass1Response.json()
+    await logAnthropicUsage('BoatBuddy', 'extract-expense', pass1Result)
     const transcription = pass1Result.content?.[0]?.text ?? ''
 
     if (!transcription || transcription.length < 20) {
@@ -220,6 +222,7 @@ Return ONLY the JSON object, no markdown, no explanation.`,
     }
 
     const pass2Result = await pass2Response.json()
+    await logAnthropicUsage('BoatBuddy', 'extract-expense', pass2Result)
     const extractionText = pass2Result.content?.[0]?.text ?? ''
 
     // Parse JSON from AI response
