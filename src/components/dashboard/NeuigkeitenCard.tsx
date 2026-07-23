@@ -4,6 +4,12 @@ import { useChangelog } from '@/hooks/useChangelog'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+// Event date once it has happened, else entry date (upcoming items surface when announced).
+const timelineDate = (e: { datum: string; erstellt_am: string }) => {
+  const today = new Date().toISOString().slice(0, 10)
+  return e.datum <= today ? e.datum : e.erstellt_am
+}
+
 const KATEGORIE_CONFIG = {
   neu: { label: 'Neu', icon: Sparkles, color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
   verbesserung: { label: 'Update', icon: Wrench, color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' },
@@ -16,13 +22,12 @@ export function NeuigkeitenCard() {
 
   if (isLoading || entries.length === 0) return null
 
-  const today = new Date().toISOString().slice(0, 10)
   const recent = [...entries]
-    // Only things that have actually happened — upcoming reservations/holidays aren't "news" yet
-    .filter((e) => e.datum <= today)
+    // Timeline date: event date once it happened, else entry date — matches the Neuigkeiten page
+    // so upcoming vacations/reservations don't jump to the top as "latest news".
     .sort((a, b) => {
-      const byEvent = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-      if (byEvent !== 0) return byEvent
+      const byDate = new Date(timelineDate(b)).getTime() - new Date(timelineDate(a)).getTime()
+      if (byDate !== 0) return byDate
       return new Date(b.erstellt_am).getTime() - new Date(a.erstellt_am).getTime()
     })
     .slice(0, 3)
@@ -62,7 +67,7 @@ export function NeuigkeitenCard() {
                       <Icon className="h-3 w-3" />
                       {config.label}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.datum)}</span>
+                    <span className="text-[11px] text-muted-foreground">{formatDate(timelineDate(entry))}</span>
                   </div>
                   <p className="text-sm font-medium text-foreground mt-0.5">{entry.titel}</p>
                   {entry.beschreibung && (

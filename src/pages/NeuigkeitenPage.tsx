@@ -35,6 +35,15 @@ const KATEGORIEN: Kategorie[] = ['neu', 'verbesserung', 'fix', 'daten']
 const inputClass =
   'min-h-[44px] w-full rounded-md border border-input bg-background px-3 text-base sm:text-sm transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
+// The date an entry occupies in the timeline: its real-world EVENT date (datum) once it has
+// happened — so a trip logged late shows on the day it happened — but its ENTRY date
+// (erstellt_am) while still in the future, so upcoming vacations/reservations surface when
+// they were announced instead of jumping ahead of recent activity.
+const timelineDate = (e: { datum: string; erstellt_am: string }) => {
+  const today = new Date().toISOString().slice(0, 10)
+  return e.datum <= today ? e.datum : e.erstellt_am
+}
+
 export default function NeuigkeitenPage() {
   useDocumentTitle('Neuigkeiten')
   const { entries, isLoading, addEntry, updateEntry, deleteEntry } = useChangelog()
@@ -75,21 +84,21 @@ export default function NeuigkeitenPage() {
     [entries, selectedCategories]
   )
 
-  // Order + group by datum = the real-world EVENT date (trip day, reservation day, …),
-  // so a trip logged late still appears on the day it happened, not the day it was entered.
+  // Order + group by the timeline date (see timelineDate): event date for things that have
+  // happened, entry date for still-upcoming ones.
   const grouped = useMemo(() => {
     const groups: { label: string; key: string; items: typeof filteredEntries }[] = []
     const map = new Map<string, typeof filteredEntries>()
 
-    // Sort by datum descending (event date), tie-break by erstellt_am (newest entered first)
+    // Sort by timeline date descending, tie-break by erstellt_am (newest entered first)
     const sorted = [...filteredEntries].sort((a, b) => {
-      const byEvent = new Date(b.datum).getTime() - new Date(a.datum).getTime()
-      if (byEvent !== 0) return byEvent
+      const byDate = new Date(timelineDate(b)).getTime() - new Date(timelineDate(a)).getTime()
+      if (byDate !== 0) return byDate
       return new Date(b.erstellt_am).getTime() - new Date(a.erstellt_am).getTime()
     })
 
     for (const entry of sorted) {
-      const key = entry.datum.slice(0, 7) // YYYY-MM from the event date
+      const key = timelineDate(entry).slice(0, 7) // YYYY-MM from the timeline date
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(entry)
     }
@@ -298,7 +307,7 @@ export default function NeuigkeitenPage() {
                                       <Icon className="h-3 w-3" />
                                       {config.label}
                                     </span>
-                                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.datum)}</span>
+                                    <span className="text-[11px] text-muted-foreground">{formatDate(timelineDate(entry))}</span>
                                   </div>
                                   <p className="text-sm font-semibold text-foreground mt-1.5">{entry.titel}</p>
                                   {entry.beschreibung && (
