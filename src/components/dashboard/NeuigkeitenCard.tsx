@@ -16,11 +16,14 @@ export function NeuigkeitenCard() {
 
   if (isLoading || entries.length === 0) return null
 
+  const today = new Date().toISOString().slice(0, 10)
   const recent = [...entries]
+    // Only things that have actually happened — upcoming reservations/holidays aren't "news" yet
+    .filter((e) => e.datum <= today)
     .sort((a, b) => {
-      const aDate = new Date(b.erstellt_am).getTime() - new Date(a.erstellt_am).getTime()
-      if (aDate !== 0) return aDate
-      return new Date(b.datum).getTime() - new Date(a.datum).getTime()
+      const byEvent = new Date(b.datum).getTime() - new Date(a.datum).getTime()
+      if (byEvent !== 0) return byEvent
+      return new Date(b.erstellt_am).getTime() - new Date(a.erstellt_am).getTime()
     })
     .slice(0, 3)
 
@@ -59,7 +62,7 @@ export function NeuigkeitenCard() {
                       <Icon className="h-3 w-3" />
                       {config.label}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.erstellt_am)}</span>
+                    <span className="text-[11px] text-muted-foreground">{formatDate(entry.datum)}</span>
                   </div>
                   <p className="text-sm font-medium text-foreground mt-0.5">{entry.titel}</p>
                   {entry.beschreibung && (

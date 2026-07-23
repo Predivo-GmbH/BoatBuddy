@@ -36,6 +36,7 @@ const CORS_HEADERS = {
 async function anthropicCall(
   apiKey: string,
   body: Record<string, unknown>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _label: string,
 ): Promise<Response> {
   return await anthropicMessages(apiKey, AI_TIER, body)
