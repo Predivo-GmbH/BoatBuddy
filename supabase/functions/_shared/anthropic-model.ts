@@ -155,16 +155,15 @@ export async function isModelNotFound(res: Response): Promise<boolean> {
 }
 
 /**
- * Retryable = the provider is having a bad time (rate limit, overload, outage).
- * A 4xx other than 429 is OUR bug — failing over would just repeat it on someone else's bill.
- */
-function isRetryable(status: number): boolean {
-  return status === 429 || status >= 500
-}
-
-/**
  * Non-streaming Messages call with automatic model-retirement fallback and, when
- * AI_FALLBACK_PROVIDER is set, automatic PROVIDER failover on retryable failures.
+ * AI_FALLBACK_PROVIDER is set, automatic PROVIDER failover.
+ *
+ * Failover policy (Roger, 2026-07-23): if the primary cannot produce a result for ANY
+ * reason, fall over to the second provider — full stop. That means not just 429/5xx/network
+ * but ALSO 4xx: 401/403 (a revoked key or exhausted quota is exactly when the OTHER
+ * provider's key saves the call) and 400 (e.g. Kimi rejecting a `document` PDF block — the
+ * fallback Anthropic then handles it). The only cost is that a genuinely malformed request
+ * now makes one wasted extra call before surfacing the error; resilience wins that trade.
  * `body` must NOT contain `model` — pass a tier instead. Returns the raw Response.
  */
 export async function anthropicMessages(
@@ -201,20 +200,30 @@ export async function anthropicMessages(
         body: JSON.stringify(cfg.shapeBody({ ...body, model: m })),
       })
 
-    let res = await call(model)
-    if (await isModelNotFound(res)) {
-      model = await substituteModel(model, tier, apiKey, provider)
-      res = await call(model)
-    }
-    if (res.ok || !isRetryable(res.status)) return res
-
-    lastRes = res
     const next = order[i + 1]
+    let res: Response
+    try {
+      res = await call(model)
+      if (await isModelNotFound(res)) {
+        model = await substituteModel(model, tier, apiKey, provider)
+        res = await call(model)
+      }
+    } catch (e) {
+      // Network-level failure (DNS, TLS, timeout): the primary produced nothing at all.
+      console.error(`[ai-model] ${provider} network error: ${(e as Error).message}` +
+        (next ? ` — failing over to ${next}` : ''))
+      lastRes = new Response(JSON.stringify({ error: `${provider} network error: ${(e as Error).message}` }), { status: 503 })
+      continue
+    }
+
+    // Success is the only thing that stops us. ANY failure falls over to the next provider.
+    if (res.ok) return res
+    lastRes = res
     if (next) {
       console.error(`[ai-model] ${provider} returned ${res.status} — failing over to ${next}`)
     }
   }
-  // Every configured provider failed retryably; hand back the last response so the caller
-  // sees a real status code rather than a synthetic one.
+  // Every configured provider failed; hand back the last response so the caller sees a real
+  // status code rather than a synthetic one.
   return lastRes ?? new Response(JSON.stringify({ error: 'no AI provider available' }), { status: 503 })
 }

@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { encode as encodeBase64 } from 'https://deno.land/std@0.208.0/encoding/base64.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { isModelNotFound, resolveModel, substituteModel } from '../_shared/anthropic-model.ts'
+import { anthropicMessages } from '../_shared/anthropic-model.ts'
 import { logAnthropicUsage } from '../_shared/log-usage.ts'
 
 /**
@@ -16,12 +16,9 @@ import { logAnthropicUsage } from '../_shared/log-usage.ts'
  * 3. Update ausgaben record with extracted data
  */
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-// Model comes from the AI_MODEL_FAST secret via _shared/anthropic-model.ts
-// (fleet standard: dynamic Anthropic model resolution, 2026-07-05).
+// Model + PROVIDER come from the fleet secrets via _shared/anthropic-model.ts:
+// AI_PROVIDER (anthropic|kimi), AI_FALLBACK_PROVIDER, AI_MODEL_FAST / KIMI_MODEL_FAST.
 const AI_TIER = 'fast' as const
-const MAX_RETRIES = 3
-const RETRY_BASE_DELAY_MS = 2000
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -29,49 +26,19 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-async function fetchWithRetry(url: string, init: RequestInit, label: string): Promise<Response> {
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const response = await fetch(url, init)
-    if (response.ok || (response.status !== 429 && response.status !== 529)) {
-      return response
-    }
-    if (attempt < MAX_RETRIES) {
-      const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt)
-      await new Promise((r) => setTimeout(r, delay))
-    } else {
-      return response
-    }
-  }
-  throw new Error(`${label}: exhausted all retries`)
-}
-
 /**
- * Anthropic Messages call with dynamic model resolution and automatic
- * retirement fallback (fleet standard). `body` must NOT contain `model`.
- * Keeps fetchWithRetry's 429/529 backoff per attempt.
+ * Model API call, routed through the fleet provider layer: primary provider, automatic
+ * failover to AI_FALLBACK_PROVIDER on ANY failure (incl. Kimi rejecting a PDF `document`
+ * block → falls back to Anthropic), thinking-disabled forced for Kimi, model-retirement
+ * substitution, and 429/5xx handling — all inside anthropicMessages. `body` must NOT
+ * contain `model`. `_label` is retained for call-site compatibility.
  */
 async function anthropicCall(
   apiKey: string,
   body: Record<string, unknown>,
-  label: string,
+  _label: string,
 ): Promise<Response> {
-  let model = await resolveModel(AI_TIER, apiKey)
-  const call = (m: string) =>
-    fetchWithRetry(ANTHROPIC_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({ ...body, model: m }),
-    }, label)
-  let response = await call(model)
-  if (await isModelNotFound(response)) {
-    model = await substituteModel(model, AI_TIER, apiKey)
-    response = await call(model)
-  }
-  return response
+  return await anthropicMessages(apiKey, AI_TIER, body)
 }
 
 const BOAT_CATEGORIES = [
