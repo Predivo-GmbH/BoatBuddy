@@ -32,6 +32,7 @@ export function useNutzungslogs() {
       treibstoff_liter?: number
       aktivitaeten: Aktivitaet[]
       notiz?: string
+      reservierung_id?: string | null
     }) => {
       // Pass raw arrays (NOT JSON.stringify): the RPC params are jsonb, and the
       // function calls jsonb_array_elements_text(p_teilnehmer). A stringified '[]'
@@ -46,6 +47,7 @@ export function useNutzungslogs() {
         p_notiz: input.notiz ?? null,
         p_teilnehmer: [],
         p_neue_gesamtstunden: input.neue_gesamtstunden ?? null,
+        p_reservierung_id: input.reservierung_id ?? null,
       })
       if (error) throw new Error(error.message)
       return data

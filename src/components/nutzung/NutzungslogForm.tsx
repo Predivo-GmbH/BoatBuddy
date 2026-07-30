@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
+import { useReservierungen } from '@/hooks/useReservierungen'
 import { useBootStats } from '@/hooks/useBootStats'
 import { FAHRER, FAHRER_LABELS, type Fahrer } from '@/lib/fahrer'
 import { todayISO } from '@/lib/format'
+import { reservierungLabel } from '@/lib/reservierung'
 import type { Aktivitaet } from '@/types'
 import { AktivitaetenEditor } from './AktivitaetenEditor'
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react'
@@ -17,9 +19,14 @@ export function NutzungslogForm() {
   const [neueStunden, setNeueStunden] = useState('')
   const [aktivitaeten, setAktivitaeten] = useState<Aktivitaet[]>([])
   const [notiz, setNotiz] = useState('')
+  const [reservierungId, setReservierungId] = useState('')
   const [expanded, setExpanded] = useState(false)
   const { createNutzungslog } = useNutzungslogs()
+  const { reservierungen } = useReservierungen()
   const { stats } = useBootStats()
+
+  // Reservations this driver holds on the selected day — the slots a trip can be tagged to.
+  const tagesReservierungen = reservierungen.filter(r => r.datum === datum && fahrer && r.fahrer === fahrer)
 
   const letzteGesamtstunden = stats ? Number(stats.gesamtstunden) : 0
   const neueTotal = parseFloat(neueStunden)
@@ -46,6 +53,8 @@ export function NutzungslogForm() {
         neue_gesamtstunden: neueTotal,
         aktivitaeten,
         notiz: notiz.trim() || undefined,
+        // Only send a link that still matches the current day + driver.
+        reservierung_id: tagesReservierungen.some(r => r.id === reservierungId) ? reservierungId : null,
       },
       {
         onSuccess: () => {
@@ -54,6 +63,7 @@ export function NutzungslogForm() {
           setNeueStunden('')
           setAktivitaeten([])
           setNotiz('')
+          setReservierungId('')
           setDatum(todayISO())
           setExpanded(false)
         },
@@ -80,7 +90,7 @@ export function NutzungslogForm() {
             id="nutzung-datum"
             type="date"
             value={datum}
-            onChange={e => setDatum(e.target.value)}
+            onChange={e => { setDatum(e.target.value); setReservierungId('') }}
             className={inputClass}
           />
         </div>
@@ -89,7 +99,7 @@ export function NutzungslogForm() {
           <select
             id="nutzung-fahrer"
             value={fahrer}
-            onChange={e => setFahrer(e.target.value as Fahrer)}
+            onChange={e => { setFahrer(e.target.value as Fahrer); setReservierungId('') }}
             className={inputClass}
           >
             <option value="" disabled>Fahrer wählen</option>
@@ -98,6 +108,24 @@ export function NutzungslogForm() {
             ))}
           </select>
         </div>
+        {tagesReservierungen.length > 0 && (
+          <div className="min-w-[150px] flex-1">
+            <label htmlFor="nutzung-reservierung" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Reservierung <span className="text-muted-foreground/60">(optional)</span>
+            </label>
+            <select
+              id="nutzung-reservierung"
+              value={reservierungId}
+              onChange={e => setReservierungId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Keine</option>
+              {tagesReservierungen.map(r => (
+                <option key={r.id} value={r.id}>{reservierungLabel(r)}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="min-w-[140px] flex-1">
           <label htmlFor="nutzung-neuer-stand" className="mb-1.5 block text-xs font-medium text-muted-foreground">
             Neuer Stand * <span className="text-muted-foreground/60">(Letzter: {letzteGesamtstunden} h)</span>

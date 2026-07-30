@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useKontoberechnung } from '@/hooks/useKontoberechnung'
 import { useReservierungen } from '@/hooks/useReservierungen'
+import { reservierungLabel } from '@/lib/reservierung'
 import { useGastsessions } from '@/hooks/useGastsessions'
 import { useBootStats } from '@/hooks/useBootStats'
 import { useAusgaben } from '@/hooks/useAusgaben'
@@ -109,7 +110,11 @@ export default function DashboardPage() {
   const [fahrtDatum, setFahrtDatum] = useState(todayISO())
   const [fahrtStunden, setFahrtStunden] = useState('')
   const [fahrtNotiz, setFahrtNotiz] = useState('')
+  const [fahrtReservierungId, setFahrtReservierungId] = useState('')
   const { createNutzungslog } = useNutzungslogs()
+
+  // Reservations this driver holds on the chosen day — the slots the trip can be tagged to.
+  const fahrtTagesReservierungen = reservierungen.filter(r => r.datum === fahrtDatum && r.fahrer === fahrtFahrer)
 
   const letzteGesamtstunden = stats ? Number(stats.gesamtstunden) : 0
   const neuerStand = parseFloat(fahrtStunden)
@@ -122,7 +127,15 @@ export default function DashboardPage() {
     }
     const delta = neuerStand - letzteGesamtstunden
     createNutzungslog.mutate(
-      { datum: fahrtDatum, fahrer: fahrtFahrer, betriebsstunden: delta, neue_gesamtstunden: neuerStand, aktivitaeten: [], notiz: fahrtNotiz.trim() || undefined },
+      {
+        datum: fahrtDatum,
+        fahrer: fahrtFahrer,
+        betriebsstunden: delta,
+        neue_gesamtstunden: neuerStand,
+        aktivitaeten: [],
+        notiz: fahrtNotiz.trim() || undefined,
+        reservierung_id: fahrtTagesReservierungen.some(r => r.id === fahrtReservierungId) ? fahrtReservierungId : null,
+      },
       {
         onSuccess: () => {
           toast.success('Fahrt erfasst')
@@ -130,6 +143,7 @@ export default function DashboardPage() {
           setFahrtStunden('')
           setFahrtDatum(todayISO())
           setFahrtNotiz('')
+          setFahrtReservierungId('')
         },
         onError: (err) => toast.error(err instanceof Error ? err.message : 'Fehler beim Speichern'),
       },
@@ -324,7 +338,7 @@ export default function DashboardPage() {
                 <input
                   type="date"
                   value={fahrtDatum}
-                  onChange={e => setFahrtDatum(e.target.value)}
+                  onChange={e => { setFahrtDatum(e.target.value); setFahrtReservierungId('') }}
                   className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
@@ -332,7 +346,7 @@ export default function DashboardPage() {
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Fahrer</label>
                 <select
                   value={fahrtFahrer}
-                  onChange={e => setFahrtFahrer(e.target.value as Fahrer)}
+                  onChange={e => { setFahrtFahrer(e.target.value as Fahrer); setFahrtReservierungId('') }}
                   className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   {FAHRER.map(f => (
@@ -340,6 +354,23 @@ export default function DashboardPage() {
                   ))}
                 </select>
               </div>
+              {fahrtTagesReservierungen.length > 0 && (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Reservierung <span className="text-muted-foreground/60">(optional)</span>
+                  </label>
+                  <select
+                    value={fahrtReservierungId}
+                    onChange={e => setFahrtReservierungId(e.target.value)}
+                    className="min-h-[44px] w-full rounded-lg border border-input bg-background px-3 text-base sm:text-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+                  >
+                    <option value="">Keine</option>
+                    {fahrtTagesReservierungen.map(r => (
+                      <option key={r.id} value={r.id}>{reservierungLabel(r)}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">
                   Neuer Stand * <span className="text-muted-foreground/60">(Letzter: {letzteGesamtstunden} h)</span>

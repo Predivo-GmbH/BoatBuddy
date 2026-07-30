@@ -72,6 +72,7 @@ export interface Nutzungslog {
   aktivitaeten: Aktivitaet[]
   teilnehmer: AlleFahrer[]
   motorstunden_stand: number | null
+  reservierung_id: string | null
   notiz: string | null
   erstellt_am: string
 }

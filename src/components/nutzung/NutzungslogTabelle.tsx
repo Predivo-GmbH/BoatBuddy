@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useNutzungslogs } from '@/hooks/useNutzungslogs'
+import { useReservierungen } from '@/hooks/useReservierungen'
 import { FAHRER, ALLE_FAHRER, FAHRER_LABELS, FAHRER_FARBEN, AKTIVITAET_LABELS, type AlleFahrer, type Fahrer, type AktivitaetTyp } from '@/lib/fahrer'
 import { formatDate } from '@/lib/format'
+import { reservierungLabel } from '@/lib/reservierung'
 import { cn } from '@/lib/utils'
 import type { Aktivitaet, Nutzungslog } from '@/types'
-import { Trash2, Loader2, Navigation, ArrowUpDown, ArrowUp, ArrowDown, Pencil, X } from 'lucide-react'
+import { Trash2, Loader2, Navigation, ArrowUpDown, ArrowUp, ArrowDown, Pencil, X, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
@@ -18,6 +20,11 @@ type SortDir = 'asc' | 'desc'
 
 export function NutzungslogTabelle() {
   const { logs, isLoading, deleteNutzungslog, updateNutzungslog } = useNutzungslogs()
+  const { reservierungen } = useReservierungen()
+  const reservierungById = useMemo(
+    () => new Map(reservierungen.map(r => [r.id, r])),
+    [reservierungen],
+  )
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editingLog, setEditingLog] = useState<Nutzungslog | null>(null)
   const [filterFahrer, setFilterFahrer] = useState<AlleFahrer | ''>('')
@@ -179,7 +186,15 @@ export function NutzungslogTabelle() {
           <tbody>
             {filtered.map(log => (
               <tr key={log.id} className="row-accent border-b border-border/50 transition-colors hover:bg-muted/30">
-                <td className="px-4 py-3 tabular-nums text-muted-foreground">{formatDate(log.datum)}</td>
+                <td className="px-4 py-3 tabular-nums text-muted-foreground">
+                  {formatDate(log.datum)}
+                  {log.reservierung_id && reservierungById.has(log.reservierung_id) && (
+                    <span className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-accent">
+                      <Clock className="h-3 w-3" />
+                      {reservierungLabel(reservierungById.get(log.reservierung_id)!)}
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-2 font-medium text-foreground">
                     <span className={cn('h-2 w-2 rounded-full', FAHRER_FARBEN[log.fahrer as AlleFahrer])} />
