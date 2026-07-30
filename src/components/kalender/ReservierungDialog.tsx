@@ -25,6 +25,45 @@ function formatTimeRange(von: string | null, bis: string | null): string | null 
   return `${von.slice(0, 5)} – ${bis.slice(0, 5)}`
 }
 
+function toMin(t: string): number {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+// True if two "HH:MM" ranges overlap. A range ending at/before its start is
+// treated as crossing midnight (matches the DB overlap constraint in mig 028).
+function slotsOverlap(aVon: string, aBis: string, bVon: string, bBis: string): boolean {
+  const a1 = toMin(aVon); let a2 = toMin(aBis); if (a2 <= a1) a2 += 1440
+  const b1 = toMin(bVon); let b2 = toMin(bBis); if (b2 <= b1) b2 += 1440
+  return a1 < b2 && b1 < a2
+}
+
+// Maps the DB overlap-constraint violation (mig 028) to a friendly message,
+// as a backstop if two slots are created concurrently. Returns null otherwise.
+function overlapMessage(err: unknown): string | null {
+  const msg = err instanceof Error ? err.message : String(err)
+  return msg.includes('reservierungen_no_overlap')
+    ? 'Zeitüberschneidung – dieser Zeitraum ist bereits reserviert'
+    : null
+}
+
+// A same-driver reservation that would clash with the new [von,bis] slot.
+// Whole-day existing reservations (no times) always clash.
+function findConflict(
+  slots: Reservierung[],
+  fahrer: string,
+  von: string,
+  bis: string,
+  ignoreId: string | null,
+): Reservierung | undefined {
+  return slots.find(
+    r =>
+      r.fahrer === fahrer &&
+      r.id !== ignoreId &&
+      (!r.von_zeit || !r.bis_zeit || slotsOverlap(von, bis, r.von_zeit.slice(0, 5), r.bis_zeit.slice(0, 5))),
+  )
+}
+
 interface ReservierungDialogProps {
   datum: string
   reservierungen: Reservierung[]
@@ -90,6 +129,10 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
     }
 
     if (editingId) {
+      if (findConflict(existing, fahrer, vonZeit, bisZeit, editingId)) {
+        toast.error(`${FAHRER_LABELS[fahrer]} hat sich in diesem Zeitraum bereits reserviert`)
+        return
+      }
       updateReservierung.mutate(
         {
           id: editingId,
@@ -104,14 +147,14 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
             toast.success('Reservierung aktualisiert')
             cancelEdit()
           },
-          onError: () => toast.error('Fehler beim Aktualisieren'),
+          onError: (err) => toast.error(overlapMessage(err) ?? 'Fehler beim Aktualisieren'),
         },
       )
       return
     }
 
-    if (existing.some(r => r.fahrer === fahrer)) {
-      toast.error(`${FAHRER_LABELS[fahrer]} hat an diesem Tag bereits reserviert`)
+    if (findConflict(existing, fahrer, vonZeit, bisZeit, null)) {
+      toast.error(`${FAHRER_LABELS[fahrer]} hat sich in diesem Zeitraum bereits reserviert`)
       return
     }
     createReservierung.mutate(
@@ -128,7 +171,7 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
           toast.success('Reservierung erstellt')
           onClose()
         },
-        onError: () => toast.error('Fehler beim Erstellen'),
+        onError: (err) => toast.error(overlapMessage(err) ?? 'Fehler beim Erstellen'),
       },
     )
   }
@@ -251,13 +294,12 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
           <div className="flex gap-2" role="radiogroup" aria-label="Fahrer auswählen">
             {FAHRER.map(f => {
               const isSelected = fahrer === f
-              const alreadyBooked = existing.some(r => r.fahrer === f && r.id !== editingId)
               return (
                 <button
                   key={f}
                   type="button"
                   onClick={() => setFahrer(f)}
-                  disabled={alreadyBooked || isPending}
+                  disabled={isPending}
                   role="radio"
                   aria-checked={isSelected}
                   className={cn(
@@ -266,7 +308,6 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
                     isSelected
                       ? 'bg-accent/10 text-accent shadow-sm ring-1 ring-accent/30'
                       : 'bg-muted text-muted-foreground hover:text-foreground',
-                    alreadyBooked && 'cursor-not-allowed opacity-40',
                   )}
                 >
                   <span
