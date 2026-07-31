@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { extractFromStorage } from '@/lib/extractInvoice'
+import type { ReceiptDraft } from '@/types'
 
 interface PhoneUploadSession {
   id: string
@@ -12,12 +13,20 @@ interface PhoneUploadSession {
   expiresAt: Date
 }
 
-export function usePhoneUpload() {
+interface UsePhoneUploadOptions {
+  /** Fired when the phone photo has been read by the AI. NOTHING is saved yet —
+   *  the parent opens a review dialog and the row is inserted only on Speichern. */
+  onExtracted?: (draft: ReceiptDraft) => void
+}
+
+export function usePhoneUpload({ onExtracted }: UsePhoneUploadOptions = {}) {
   const [session, setSession] = useState<PhoneUploadSession | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
-  const queryClient = useQueryClient()
+  const processedRef = useRef(false)
+  const onExtractedRef = useRef(onExtracted)
+  useEffect(() => { onExtractedRef.current = onExtracted }, [onExtracted])
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -42,53 +51,20 @@ export function usePhoneUpload() {
   useEffect(() => cleanup, [cleanup])
 
   const processUpload = useCallback(async (storagePath: string) => {
+    if (processedRef.current) return
+    processedRef.current = true
     cleanup()
 
-    // Create ausgabe from the uploaded photo
-    const { data: ausgabe, error } = await supabase
-      .from('ausgaben')
-      .insert({
-        bezeichnung: 'Handy-Upload',
-        betrag: 0,
-        kategorie: 'sonstiges',
-        datum: new Date().toISOString().split('T')[0],
-        bezahlt_von: 'bootkonto',
-        dokument_pfad: storagePath,
-        verarbeitungs_status: 'verarbeitung',
-      })
-      .select()
-      .single()
-
-    if (error || !ausgabe) {
-      toast.error('Fehler beim Erstellen des Eintrags')
-      return
-    }
-
-    // Fire-and-forget AI extraction
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-    fetch(`${supabaseUrl}/functions/v1/extract-expense`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
-        'apikey': anonKey,
-      },
-      body: JSON.stringify({
-        ausgabe_id: ausgabe.id,
-        storage_path: storagePath,
-      }),
-    }).catch(() => {})
-
-    queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
-    queryClient.invalidateQueries({ queryKey: ['kontoberechnung'] })
-    toast.success('Foto empfangen — KI-Extraktion läuft')
-
+    // Show "photo received" in the modal while the AI reads it.
     setSession(prev => prev ? { ...prev, status: 'uploaded', storagePath } : null)
 
-    return ausgabe
-  }, [cleanup, queryClient])
+    try {
+      const extracted = await extractFromStorage(storagePath)
+      onExtractedRef.current?.({ status: 'ready', data: extracted, dokument_pfad: storagePath })
+    } catch {
+      onExtractedRef.current?.({ status: 'error', dokument_pfad: storagePath })
+    }
+  }, [cleanup])
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const startPolling = useCallback((sessionId: string, _sessionToken: string) => {
@@ -100,15 +76,14 @@ export function usePhoneUpload() {
         .single()
 
       if (data?.status === 'uploaded' && data.storage_path) {
-        stopPolling()
-        cleanupChannel()
         processUpload(data.storage_path)
       }
     }, 2000)
-  }, [stopPolling, cleanupChannel, processUpload])
+  }, [processUpload])
 
   const createSession = useCallback(async () => {
     setIsCreating(true)
+    processedRef.current = false
     cleanup()
 
     try {
@@ -175,6 +150,7 @@ export function usePhoneUpload() {
 
   const cancelSession = useCallback(() => {
     cleanup()
+    processedRef.current = false
     setSession(null)
   }, [cleanup])
 

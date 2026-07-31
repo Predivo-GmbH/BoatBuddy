@@ -1,19 +1,31 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Smartphone, Loader2, CheckCircle } from 'lucide-react'
+import { X, Smartphone, Loader2, ScanText } from 'lucide-react'
 import { usePhoneUpload } from '@/hooks/usePhoneUpload'
+import type { ReceiptDraft } from '@/types'
 import QRCode from 'qrcode'
 
 interface PhoneUploadModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Fired when the photo has been read by the AI — parent opens the review dialog. */
+  onExtracted: (draft: ReceiptDraft) => void
 }
 
-export function PhoneUploadModal({ open, onOpenChange }: PhoneUploadModalProps) {
-  const { session, isCreating, createSession, cancelSession } = usePhoneUpload()
+export function PhoneUploadModal({ open, onOpenChange, onExtracted }: PhoneUploadModalProps) {
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [timeLeft, setTimeLeft] = useState(0)
   const backdropRef = useRef<HTMLDivElement>(null)
+
+  // When the AI finishes reading the phone photo, hand the draft to the parent
+  // (opens the review dialog) and close this modal.
+  const handleExtracted = useCallback((draft: ReceiptDraft) => {
+    onExtracted(draft)
+    setQrDataUrl('')
+    onOpenChange(false)
+  }, [onExtracted, onOpenChange])
+
+  const { session, isCreating, createSession, cancelSession } = usePhoneUpload({ onExtracted: handleExtracted })
 
   // Create session when modal opens
   useEffect(() => {
@@ -54,16 +66,6 @@ export function PhoneUploadModal({ open, onOpenChange }: PhoneUploadModalProps) 
     setQrDataUrl('')
     onOpenChange(false)
   }, [cancelSession, onOpenChange])
-
-  // Auto-close after successful upload
-  useEffect(() => {
-    if (session?.status === 'uploaded') {
-      const timeout = setTimeout(() => {
-        handleClose()
-      }, 2500)
-      return () => clearTimeout(timeout)
-    }
-  }, [session?.status, handleClose])
 
   // Close on backdrop click
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
@@ -133,9 +135,12 @@ export function PhoneUploadModal({ open, onOpenChange }: PhoneUploadModalProps) 
 
           {session?.status === 'uploaded' && (
             <div className="flex flex-col items-center gap-3 py-6">
-              <CheckCircle className="h-12 w-12 text-emerald-500" />
+              <div className="relative">
+                <ScanText className="h-12 w-12 text-accent" />
+                <Loader2 className="absolute -right-1 -top-1 h-5 w-5 animate-spin text-accent" />
+              </div>
               <p className="font-medium text-foreground">Foto empfangen!</p>
-              <p className="text-sm text-muted-foreground">KI-Extraktion wird gestartet...</p>
+              <p className="text-sm text-muted-foreground">KI liest den Beleg…</p>
             </div>
           )}
         </div>

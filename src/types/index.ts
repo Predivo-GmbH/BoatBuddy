@@ -34,6 +34,17 @@ export interface Ausgabe {
   erstellt_am: string
 }
 
+/**
+ * A receipt being reviewed before it is saved. Held in memory only — no
+ * `ausgaben` row exists until the user clicks Speichern. `status: 'extracting'`
+ * lets the review dialog open immediately with a loader while the AI reads the
+ * document; `dokument_pfad` is the uploaded file so Speichern can link it.
+ */
+export type ReceiptDraft =
+  | { status: 'extracting' }
+  | { status: 'ready'; data: import('@/lib/extractInvoice').ExtractedInvoice; dokument_pfad: string }
+  | { status: 'error'; dokument_pfad: string | null }
+
 export interface Reservierung {
   id: string
   fahrer: Fahrer

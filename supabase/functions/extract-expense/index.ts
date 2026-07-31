@@ -8,12 +8,15 @@ import { logAnthropicUsage } from '../_shared/log-usage.ts'
  * extract-expense: AI-powered invoice extraction for BoatBuddy
  *
  * POST /extract-expense
- * Body: { ausgabe_id: string, storage_path: string }
+ * Body: { storage_path: string, ausgabe_id?: string }
  *
  * Pipeline:
  * 1. Download document from Supabase Storage (dokumente bucket)
  * 2. Two-pass AI extraction (Vision → Text → JSON)
- * 3. Update ausgaben record with extracted data
+ * 3. Return the extracted JSON. If `ausgabe_id` is supplied, ALSO write the
+ *    result onto that row (legacy path). When it is omitted the function is a
+ *    pure read: NOTHING is persisted — the client holds the draft and only
+ *    inserts an ausgaben row when the user clicks Speichern (draft-in-memory).
  */
 
 // Model + PROVIDER come from the fleet secrets via _shared/anthropic-model.ts:
@@ -90,8 +93,8 @@ serve(async (req) => {
 
   try {
     const { ausgabe_id, storage_path } = await req.json()
-    if (!ausgabe_id || !storage_path) {
-      return new Response(JSON.stringify({ error: 'ausgabe_id and storage_path required' }), {
+    if (!storage_path) {
+      return new Response(JSON.stringify({ error: 'storage_path required' }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
@@ -217,23 +220,26 @@ Return ONLY the JSON object, no markdown, no explanation.`,
       extracted.kategorie = 'sonstiges'
     }
 
-    // 4. Update ausgaben record
-    const { error: updateError } = await supabase
-      .from('ausgaben')
-      .update({
-        bezeichnung: extracted.bezeichnung ?? null,
-        betrag: extracted.betrag ?? null,
-        datum: extracted.datum ?? null,
-        kategorie: extracted.kategorie ?? 'sonstiges',
-        treibstoff_liter: extracted.kategorie === 'treibstoff' ? (extracted.liter ?? null) : null,
-        notiz: extracted.notiz ?? null,
-        verarbeitungs_status: 'fertig',
-        extraktion_daten: extracted,
-      })
-      .eq('id', ausgabe_id)
+    // 4. Persist onto the row ONLY when a legacy caller passed an ausgabe_id.
+    //    Draft-in-memory callers omit it → this stays a pure read (no DB write).
+    if (ausgabe_id) {
+      const { error: updateError } = await supabase
+        .from('ausgaben')
+        .update({
+          bezeichnung: extracted.bezeichnung ?? null,
+          betrag: extracted.betrag ?? null,
+          datum: extracted.datum ?? null,
+          kategorie: extracted.kategorie ?? 'sonstiges',
+          treibstoff_liter: extracted.kategorie === 'treibstoff' ? (extracted.liter ?? null) : null,
+          notiz: extracted.notiz ?? null,
+          verarbeitungs_status: 'fertig',
+          extraktion_daten: extracted,
+        })
+        .eq('id', ausgabe_id)
 
-    if (updateError) {
-      throw new Error(`DB update failed: ${updateError.message}`)
+      if (updateError) {
+        throw new Error(`DB update failed: ${updateError.message}`)
+      }
     }
 
     return new Response(JSON.stringify({ success: true, extracted }), {

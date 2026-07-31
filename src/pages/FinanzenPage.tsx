@@ -17,11 +17,10 @@ import { useGastsessions } from '@/hooks/useGastsessions'
 import { useTabKeyboard } from '@/hooks/useTabKeyboard'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
-import { useQueryClient } from '@tanstack/react-query'
+import { uploadReceipt, extractFromStorage, validateReceiptFile } from '@/lib/extractInvoice'
 import { toast } from 'sonner'
 import { DollarSign, Wallet, Camera, Smartphone } from 'lucide-react'
-import type { Ausgabe } from '@/types'
+import type { ReceiptDraft } from '@/types'
 
 const TABS = ['Übersicht', 'Ausgaben', 'Einnahmen'] as const
 type Tab = typeof TABS[number]
@@ -29,10 +28,9 @@ type Tab = typeof TABS[number]
 export default function FinanzenPage() {
   useDocumentTitle('Finanzen')
   const [tab, setTab] = useState<Tab>('Übersicht')
-  const [extractedAusgabe, setExtractedAusgabe] = useState<Ausgabe | null>(null)
+  const [draftAusgabe, setDraftAusgabe] = useState<ReceiptDraft | null>(null)
   const [phoneUploadOpen, setPhoneUploadOpen] = useState(false)
   const cameraInputRef = useRef<HTMLInputElement>(null)
-  const queryClient = useQueryClient()
   const tabKeyDown = useTabKeyboard(TABS, tab, setTab)
   const currentYear = new Date().getFullYear()
   const { ausgaben } = useAusgaben()
@@ -86,66 +84,25 @@ export default function FinanzenPage() {
     if (cameraInputRef.current) cameraInputRef.current.value = ''
     if (!file) return
 
+    const validationError = validateReceiptFile(file)
+    if (validationError) {
+      toast.error(validationError)
+      return
+    }
+
+    // Open the review dialog immediately with a loader; nothing is saved until Speichern.
+    setDraftAusgabe({ status: 'extracting' })
+    let storagePath: string | null = null
     try {
-      toast.info('Foto wird hochgeladen...')
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
-      const storagePath = `${crypto.randomUUID()}.${ext}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('dokumente')
-        .upload(storagePath, file, { contentType: file.type })
-      if (uploadError) throw new Error(`Upload fehlgeschlagen: ${uploadError.message}`)
-
-      const { data: ausgabe, error: insertError } = await supabase
-        .from('ausgaben')
-        .insert({
-          bezeichnung: 'Handy-Foto',
-          betrag: 0,
-          kategorie: 'sonstiges',
-          datum: new Date().toISOString().split('T')[0],
-          bezahlt_von: '', // scanned receipt — payer chosen explicitly in the review dialog
-          dokument_pfad: storagePath,
-          verarbeitungs_status: 'verarbeitung',
-        })
-        .select()
-        .single()
-      if (insertError || !ausgabe) throw new Error(`DB-Eintrag fehlgeschlagen: ${insertError?.message}`)
-
-      toast.info('Foto hochgeladen — KI-Extraktion läuft...')
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      fetch(`${supabaseUrl}/functions/v1/extract-expense`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${anonKey}`, 'apikey': anonKey },
-        body: JSON.stringify({ ausgabe_id: ausgabe.id, storage_path: storagePath }),
-      }).catch((err) => console.error('extract-expense call failed:', err))
-
-      // Poll for extraction, then open the review dialog so the payer is chosen explicitly
-      for (let i = 0; i < 20; i++) {
-        await new Promise(r => setTimeout(r, 3000))
-        const { data: updated } = await supabase.from('ausgaben').select('*').eq('id', ausgabe.id).single()
-        if (updated?.verarbeitungs_status === 'fertig') {
-          queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
-          setExtractedAusgabe(updated as Ausgabe)
-          return
-        }
-        if (updated?.verarbeitungs_status === 'fehler') {
-          queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
-          toast.error('KI-Extraktion fehlgeschlagen — bitte manuell ergänzen')
-          setExtractedAusgabe(updated as Ausgabe)
-          return
-        }
-      }
-      const { data: final } = await supabase.from('ausgaben').select('*').eq('id', ausgabe.id).single()
-      queryClient.invalidateQueries({ queryKey: ['ausgaben'] })
-      if (final) {
-        toast.warning('Extraktion dauert länger als erwartet — bitte Felder prüfen')
-        setExtractedAusgabe(final as Ausgabe)
-      }
+      storagePath = await uploadReceipt(file)
+      const extracted = await extractFromStorage(storagePath)
+      setDraftAusgabe({ status: 'ready', data: extracted, dokument_pfad: storagePath })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Upload fehlgeschlagen')
+      // Keep the dialog open for manual entry if the file reached storage.
+      setDraftAusgabe(storagePath ? { status: 'error', dokument_pfad: storagePath } : null)
     }
-  }, [queryClient])
+  }, [])
 
   const handlePhotoClick = useCallback(() => {
     if (isMobile) {
@@ -233,7 +190,7 @@ export default function FinanzenPage() {
 
       {tab === 'Ausgaben' && (
         <div className="section-fade-in space-y-4">
-          <InvoiceUpload onExtracted={setExtractedAusgabe} />
+          <InvoiceUpload onExtracted={setDraftAusgabe} />
           <input
             ref={cameraInputRef}
             type="file"
@@ -253,13 +210,17 @@ export default function FinanzenPage() {
             </button>
             <AusgabeFormDialog />
           </div>
-          <PhoneUploadModal open={phoneUploadOpen} onOpenChange={setPhoneUploadOpen} />
+          <PhoneUploadModal
+            open={phoneUploadOpen}
+            onOpenChange={setPhoneUploadOpen}
+            onExtracted={setDraftAusgabe}
+          />
           <AusgabenTabelle />
-          {extractedAusgabe && (
+          {draftAusgabe && (
             <AusgabeFormDialog
-              editAusgabe={extractedAusgabe}
-              onClose={() => setExtractedAusgabe(null)}
-              forcePayerSelection
+              key={draftAusgabe.status === 'ready' ? draftAusgabe.dokument_pfad : draftAusgabe.status}
+              draft={draftAusgabe}
+              onClose={() => setDraftAusgabe(null)}
             />
           )}
         </div>
