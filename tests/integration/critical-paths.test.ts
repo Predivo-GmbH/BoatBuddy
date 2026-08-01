@@ -21,7 +21,13 @@ const d = (iso: string): string => {
 
 let supabase: SupabaseClient
 
+// These tests hit a live staging Supabase project. Without STAGING_SUPABASE_ANON_KEY
+// (e.g. a local `npm test`) there is nothing to connect to, so skip the whole suite
+// cleanly instead of failing on an empty-key client.
+const describeStaging = STAGING_ANON ? describe : describe.skip
+
 beforeAll(() => {
+  if (!STAGING_ANON) return
   supabase = createClient(STAGING_URL, STAGING_ANON)
 })
 
@@ -34,7 +40,7 @@ afterAll(async () => {
   }
 })
 
-describe('Beitraege (contributions)', () => {
+describeStaging('Beitraege (contributions)', () => {
   test('insert and read beitrag', async () => {
     const { data, error } = await supabase
       .from('beitraege')
@@ -69,7 +75,7 @@ describe('Beitraege (contributions)', () => {
   })
 })
 
-describe('Ausgaben (expenses)', () => {
+describeStaging('Ausgaben (expenses)', () => {
   test('insert expense with all fields', async () => {
     const { data, error } = await supabase
       .from('ausgaben')
@@ -115,7 +121,7 @@ describe('Ausgaben (expenses)', () => {
   })
 })
 
-describe('Kontostand (balance snapshots)', () => {
+describeStaging('Kontostand (balance snapshots)', () => {
   test('insert and read snapshot', async () => {
     const { data, error } = await supabase
       .from('kontostand_snapshots')
@@ -129,7 +135,7 @@ describe('Kontostand (balance snapshots)', () => {
   })
 })
 
-describe('Reservierungen (calendar)', () => {
+describeStaging('Reservierungen (calendar)', () => {
   test('insert reservation', async () => {
     const { data, error } = await supabase
       .from('reservierungen')
@@ -150,7 +156,7 @@ describe('Reservierungen (calendar)', () => {
   })
 })
 
-describe('Gastsessions', () => {
+describeStaging('Gastsessions', () => {
   test('insert guest session with default betrag', async () => {
     const { data, error } = await supabase
       .from('gastsessions')
@@ -170,7 +176,7 @@ describe('Gastsessions', () => {
   })
 })
 
-describe('Nutzungslogs (usage)', () => {
+describeStaging('Nutzungslogs (usage)', () => {
   test('insert usage log', async () => {
     const { data, error } = await supabase
       .from('nutzungslogs')
@@ -190,7 +196,7 @@ describe('Nutzungslogs (usage)', () => {
   })
 })
 
-describe('Boot Stats', () => {
+describeStaging('Boot Stats', () => {
   test('insert and read boot stats', async () => {
     const { data, error } = await supabase
       .from('boot_stats')
@@ -208,7 +214,7 @@ describe('Boot Stats', () => {
   })
 })
 
-describe('Ferien (vacations)', () => {
+describeStaging('Ferien (vacations)', () => {
   test('insert vacation', async () => {
     const { data, error } = await supabase
       .from('ferien')
@@ -229,7 +235,7 @@ describe('Ferien (vacations)', () => {
   })
 })
 
-describe('RPC: adjust_gesamtstunden', () => {
+describeStaging('RPC: adjust_gesamtstunden', () => {
   test('RPC is callable without error', async () => {
     // Just verify the RPC is deployed and callable (delta=0 is a no-op)
     const { error } = await supabase.rpc('adjust_gesamtstunden', { delta: 0 })
@@ -237,7 +243,7 @@ describe('RPC: adjust_gesamtstunden', () => {
   })
 })
 
-describe('Storage: dokumente bucket', () => {
+describeStaging('Storage: dokumente bucket', () => {
   test('bucket exists and is accessible', async () => {
     const { data, error } = await supabase.storage.getBucket('dokumente')
     // On staging without storage setup, this may return error
