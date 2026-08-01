@@ -57,9 +57,9 @@ export async function removeReceipt(storagePath: string): Promise<void> {
 export async function extractFromStorage(storagePath: string): Promise<ExtractedInvoice> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-  // Shared secret gating the AI-cost DoS guard in the edge fn. Only sent when
-  // provisioned as a build var; when unset the fn allows the call (backward-compatible).
-  const extractSecret = import.meta.env.VITE_EXTRACT_SECRET
+  // The edge fn's AI-cost DoS guard is now a SERVER-SIDE per-IP rate limit — no
+  // frontend header needed (the earlier shared-secret approach broke uploads
+  // because Vite didn't inline the build var).
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 120_000) // 2 min ceiling
@@ -70,7 +70,6 @@ export async function extractFromStorage(storagePath: string): Promise<Extracted
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${anonKey}`,
         'apikey': anonKey,
-        ...(extractSecret ? { 'x-extract-secret': extractSecret } : {}),
       },
       body: JSON.stringify({ storage_path: storagePath }),
       signal: controller.signal,
