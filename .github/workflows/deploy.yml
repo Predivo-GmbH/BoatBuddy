@@ -89,6 +89,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
           VITE_GATE_PASSWORD_HASH: ${{ secrets.VITE_GATE_PASSWORD_HASH }}
+          VITE_EXTRACT_SECRET: ${{ secrets.EXTRACT_SECRET_SHARED }}
 
       - name: Prepare staging .htaccess (real prod config + Basic auth + noindex)
         run: |
@@ -284,6 +285,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_GATE_PASSWORD_HASH: ${{ secrets.VITE_GATE_PASSWORD_HASH }}
+          VITE_EXTRACT_SECRET: ${{ secrets.EXTRACT_SECRET_SHARED }}
 
       - name: Deploy via FTP (zero-downtime)
         env:
