@@ -25,28 +25,74 @@ const AI_TIER = 'fast' as const
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-extract-secret',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/**
- * Timing-safe string comparison. Deno's std has no `crypto.subtle.timingSafeEqual`,
- * so we XOR every byte and fold the differences into a single accumulator — the loop
- * runs to the longer length and never early-returns, so it leaks neither the match
- * result nor the secret length through timing.
- */
-function timingSafeEqualStr(a: string, b: string): boolean {
-  const enc = new TextEncoder()
-  const ab = enc.encode(a)
-  const bb = enc.encode(b)
-  let diff = ab.length ^ bb.length
-  const len = Math.max(ab.length, bb.length)
-  for (let i = 0; i < len; i++) {
-    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0)
+// AI-cost DoS guard: this fn is anon-callable with the public publishable key and
+// fires two Anthropic passes per call, so a leaked key could burn the AI budget.
+// Server-side rate limit (no frontend dependency — can't break uploads): per-IP
+// hourly cap AND a fleet-wide daily cap, both enforced via an atomic DB counter
+// BEFORE any Anthropic call. Values tuned for a personal tool (a handful of
+// receipts a day); raise if legit use ever bumps them.
+const IP_HOURLY_LIMIT = 30
+const GLOBAL_DAILY_LIMIT = 300
+
+/** Best client IP: first hop of x-forwarded-for, else cf-connecting-ip, else 'unknown'. */
+function getClientIp(req: Request): string {
+  const xff = req.headers.get('x-forwarded-for')
+  if (xff) {
+    const first = xff.split(',')[0]?.trim()
+    if (first) return first
   }
-  return diff === 0
+  return req.headers.get('cf-connecting-ip')?.trim() || 'unknown'
+}
+
+async function enforceRateLimit(
+  supabase: ReturnType<typeof createClient>,
+  ip: string,
+): Promise<{ ok: boolean; message?: string }> {
+  // Fail-OPEN: if the rate-limit machinery itself errors (RPC missing, DB hiccup),
+  // never block a legit upload — log and allow.
+  try {
+    const now = new Date()
+    // UTC-aligned window buckets so every replica agrees on the same key.
+    const hourWindow = new Date(Date.UTC(
+      now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(),
+    )).toISOString()
+    const dayWindow = new Date(Date.UTC(
+      now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+    )).toISOString()
+
+    const { data: ipCount, error: ipErr } = await supabase.rpc('bump_extract_rate', {
+      p_key: `ip:${ip}`, p_window: hourWindow,
+    })
+    if (ipErr) {
+      console.error('extract-expense rate-limit ip bump failed (fail-open):', ipErr.message)
+      return { ok: true }
+    }
+    if ((ipCount ?? 0) > IP_HOURLY_LIMIT) {
+      return { ok: false, message: `Rate limit: max ${IP_HOURLY_LIMIT} extractions per hour from your network. Please try again later.` }
+    }
+
+    const { data: globalCount, error: gErr } = await supabase.rpc('bump_extract_rate', {
+      p_key: 'global', p_window: dayWindow,
+    })
+    if (gErr) {
+      console.error('extract-expense rate-limit global bump failed (fail-open):', gErr.message)
+      return { ok: true }
+    }
+    if ((globalCount ?? 0) > GLOBAL_DAILY_LIMIT) {
+      return { ok: false, message: `Daily extraction cap reached (${GLOBAL_DAILY_LIMIT}/day). Please try again tomorrow.` }
+    }
+
+    return { ok: true }
+  } catch (e) {
+    console.error('extract-expense rate-limit check errored (fail-open):', e)
+    return { ok: true }
+  }
 }
 
 /**
@@ -111,25 +157,6 @@ serve(async (req) => {
     })
   }
 
-  // AI-cost DoS guard: the gateway only proves the caller holds the public
-  // publishable key — which every visitor has — and each invocation fires two
-  // Anthropic passes (vision + text). Require a shared secret so a leaked
-  // publishable key alone can't burn the AI budget. Backward-compatible: when
-  // EXTRACT_SECRET is unset we allow the call and warn, so nothing breaks before
-  // the secret is provisioned on both the edge fn and the frontend build.
-  const extractSecret = Deno.env.get('EXTRACT_SECRET')
-  if (extractSecret) {
-    const provided = req.headers.get('x-extract-secret') ?? ''
-    if (!timingSafeEqualStr(provided, extractSecret)) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 401,
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-      })
-    }
-  } else {
-    console.warn('extract-expense: EXTRACT_SECRET not set — AI-cost DoS guard disabled')
-  }
-
   try {
     const { ausgabe_id, storage_path } = await req.json()
     if (!storage_path) {
@@ -152,6 +179,16 @@ serve(async (req) => {
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')!
 
     const supabase = createClient(supabaseUrl, serviceRoleKey)
+
+    // Rate limit BEFORE any Anthropic call (each request = two paid passes).
+    // Uses the service-role client + an atomic DB counter; keyed by client IP.
+    const { ok: allowed, message: limitMsg } = await enforceRateLimit(supabase, getClientIp(req))
+    if (!allowed) {
+      return new Response(JSON.stringify({ error: limitMsg }), {
+        status: 429,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
 
     // 1. Download document from Storage
     const { data: fileData, error: dlError } = await supabase.storage

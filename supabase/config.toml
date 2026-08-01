@@ -2,9 +2,9 @@
 # can't silently flip a function to a wrong value.
 
 # extract-expense is called from the browser with the public publishable key.
-# verify_jwt = false lets that call reach the handler, where the real gate is the
-# in-function x-extract-secret shared-secret check (EXTRACT_SECRET). This matches
-# the fleet pattern of verifying auth inside the function rather than at the gateway.
+# verify_jwt = false lets that call reach the handler, where the AI-cost DoS guard
+# is a server-side per-IP rate limit (see migration 030 + bump_extract_rate RPC).
+# This matches the fleet pattern of gating inside the function rather than at the gateway.
 [functions.extract-expense]
 verify_jwt = false
 
