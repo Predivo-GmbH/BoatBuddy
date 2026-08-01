@@ -25,8 +25,28 @@ const AI_TIER = 'fast' as const
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-extract-secret',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Timing-safe string comparison. Deno's std has no `crypto.subtle.timingSafeEqual`,
+ * so we XOR every byte and fold the differences into a single accumulator — the loop
+ * runs to the longer length and never early-returns, so it leaks neither the match
+ * result nor the secret length through timing.
+ */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const enc = new TextEncoder()
+  const ab = enc.encode(a)
+  const bb = enc.encode(b)
+  let diff = ab.length ^ bb.length
+  const len = Math.max(ab.length, bb.length)
+  for (let i = 0; i < len; i++) {
+    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0)
+  }
+  return diff === 0
 }
 
 /**
@@ -91,10 +111,37 @@ serve(async (req) => {
     })
   }
 
+  // AI-cost DoS guard: the gateway only proves the caller holds the public
+  // publishable key — which every visitor has — and each invocation fires two
+  // Anthropic passes (vision + text). Require a shared secret so a leaked
+  // publishable key alone can't burn the AI budget. Backward-compatible: when
+  // EXTRACT_SECRET is unset we allow the call and warn, so nothing breaks before
+  // the secret is provisioned on both the edge fn and the frontend build.
+  const extractSecret = Deno.env.get('EXTRACT_SECRET')
+  if (extractSecret) {
+    const provided = req.headers.get('x-extract-secret') ?? ''
+    if (!timingSafeEqualStr(provided, extractSecret)) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
+  } else {
+    console.warn('extract-expense: EXTRACT_SECRET not set — AI-cost DoS guard disabled')
+  }
+
   try {
     const { ausgabe_id, storage_path } = await req.json()
     if (!storage_path) {
       return new Response(JSON.stringify({ error: 'storage_path required' }), {
+        status: 400,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      })
+    }
+    // ausgabe_id is optional (draft-in-memory callers omit it), but when present it
+    // must be a UUID before it reaches an `.eq('id', …)` filter.
+    if (ausgabe_id != null && (typeof ausgabe_id !== 'string' || !UUID_RE.test(ausgabe_id))) {
+      return new Response(JSON.stringify({ error: 'invalid ausgabe_id' }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       })
