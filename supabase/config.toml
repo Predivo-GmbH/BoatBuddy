@@ -1,0 +1,17 @@
+# Edge-function JWT verification, pinned explicitly so a CI `--use-api` deploy
+# can't silently flip a function to a wrong value.
+
+# extract-expense is called from the browser with the public publishable key.
+# verify_jwt = false lets that call reach the handler, where the real gate is the
+# in-function x-extract-secret shared-secret check (EXTRACT_SECRET). This matches
+# the fleet pattern of verifying auth inside the function rather than at the gateway.
+[functions.extract-expense]
+verify_jwt = false
+
+# backfill-reservierungen is an admin-only, one-off backfill that writes to the
+# changelog and has NO in-function auth. It is never called from the browser
+# (no frontend caller), only invoked manually with the service-role key. Keep JWT
+# verification ON (the Supabase default) so an anonymous caller can't trigger this
+# privileged writer; a manual service-role invocation still passes the gateway.
+[functions.backfill-reservierungen]
+verify_jwt = true
