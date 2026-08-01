@@ -5,7 +5,7 @@ import { FAHRER, FAHRER_LABELS, KATEGORIEN, KATEGORIE_LABELS, type Kategorie } f
 import { todayISO } from '@/lib/format'
 import { Plus, X, Upload, Camera, FileCheck } from 'lucide-react'
 import { toast } from 'sonner'
-import { uploadReceipt, extractFromStorage, validateReceiptFile, type ExtractedInvoice } from '@/lib/extractInvoice'
+import { uploadReceipt, extractFromStorage, removeReceipt, validateReceiptFile, type ExtractedInvoice } from '@/lib/extractInvoice'
 import { ExtractionProgress, type ExtractionState } from './ExtractionProgress'
 import type { Ausgabe, ReceiptDraft } from '@/types'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
@@ -75,6 +75,24 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
   const [uploadName, setUploadName] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
+
+  // Orphan-file guard: a receipt uploaded to storage this session but never
+  // committed to an ausgaben row (dialog abandoned via Cancel/Esc/backdrop, or the
+  // component unmounted on navigation) must be removed so it doesn't leak in the
+  // bucket. committedRef flips true on a successful save so we NEVER delete a file
+  // that was saved; dokumentPfadRef mirrors the current path for the unmount path
+  // where close() never runs.
+  const committedRef = useRef(false)
+  const dokumentPfadRef = useRef<string | null>(dokumentPfad)
+  useEffect(() => { dokumentPfadRef.current = dokumentPfad }, [dokumentPfad])
+
+  const discardOrphan = useCallback(() => {
+    const path = dokumentPfadRef.current
+    dokumentPfadRef.current = null // claim it so we never double-remove
+    if (path && !committedRef.current) {
+      removeReceipt(path).catch(() => {})
+    }
+  }, [])
 
   // Fields for a ready draft are seeded via the useState initializers above.
   // The parent remounts this dialog (via `key`) when the draft flips from
@@ -158,13 +176,14 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
 
   const close = useCallback(() => {
     if (isPending) return
+    discardOrphan()
     reset()
     if (onClose) {
       onClose()
     } else {
       setOpen(false)
     }
-  }, [onClose, isPending])
+  }, [onClose, isPending, discardOrphan])
 
   useEffect(() => {
     if (!isVisible) return
@@ -174,6 +193,9 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [isVisible, close])
+
+  // Abandonment via unmount (e.g. route change) skips close() — clean up there too.
+  useEffect(() => () => discardOrphan(), [discardOrphan])
 
   const handleBezeichnungChange = (value: string) => {
     setBezeichnung(value)
@@ -202,6 +224,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
         { id: editAusgabe.id, bezeichnung: bezeichnung.trim(), betrag: betragNum, kategorie, datum, bezahlt_von: bezahltVon, notiz: notiz.trim() || undefined, treibstoff_liter: literNum },
         {
           onSuccess: () => {
+            committedRef.current = true
             toast.success('Ausgabe aktualisiert')
             close()
           },
@@ -220,6 +243,8 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
         },
         {
           onSuccess: () => {
+            // File is now linked to a real row — must NOT be cleaned up as an orphan.
+            committedRef.current = true
             toast.success('Ausgabe gespeichert')
             close()
           },

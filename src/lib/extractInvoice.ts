@@ -41,6 +41,15 @@ export async function uploadReceipt(file: File): Promise<string> {
 }
 
 /**
+ * Remove a receipt that was uploaded to `dokumente` but never committed to an
+ * ausgaben row (dialog abandoned before Speichern). Best-effort — the caller
+ * ignores failures. NEVER call this for a file that was already saved.
+ */
+export async function removeReceipt(storagePath: string): Promise<void> {
+  await supabase.storage.from('dokumente').remove([storagePath])
+}
+
+/**
  * Run AI extraction on an already-uploaded document. Calls extract-expense
  * WITHOUT an ausgabe_id, so the function returns the JSON without touching the
  * DB. Awaits the two-pass extraction synchronously (no polling).
