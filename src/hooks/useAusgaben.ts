@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { fetchAllRows } from '@/lib/fetchAllRows'
 import type { Ausgabe } from '@/types'
 import type { Kategorie } from '@/lib/fahrer'
 
@@ -8,14 +9,16 @@ export function useAusgaben() {
 
   const { data: ausgaben = [], isLoading, error } = useQuery({
     queryKey: ['ausgaben'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ausgaben')
-        .select('*')
-        .order('datum', { ascending: false })
-      if (error) throw new Error(error.message)
-      return data as Ausgabe[]
-    },
+    queryFn: async () =>
+      // Paginate past the 1000-row PostgREST cap so year totals/counts stay correct
+      // once expenses exceed 1000 (v11 Gate I). See src/lib/fetchAllRows.ts.
+      fetchAllRows<Ausgabe>((from, to) =>
+        supabase
+          .from('ausgaben')
+          .select('*')
+          .order('datum', { ascending: false })
+          .range(from, to),
+      ),
   })
 
   const invalidate = () => {
