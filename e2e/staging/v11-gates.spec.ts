@@ -153,6 +153,9 @@ test.describe('BoatBuddy v11 gates', () => {
     test.setTimeout(220_000)
     expect(MGMT, 'BB_MGMT_TOKEN required').not.toBe('')
 
+    // Pre-clean stale test rows a prior/cancelled run may have left, so a shared-staging
+    // race can't poison the absolute-count baseline below (rows are marker-scoped).
+    await sql(`delete from public.ausgaben where bezeichnung like '${MARKER}%';`)
     const created: string[] = []           // storage objects that appear during the test
     const baseline = await listDocs()
     const beforeCount = await ausgabenCount()
@@ -302,6 +305,8 @@ test.describe('BoatBuddy v11 gates', () => {
   test('Gate I — Finanzen counts ALL rows past the 1000-cap (no silent truncation)', async ({ page }) => {
     test.setTimeout(120_000)
     expect(MGMT, 'BB_MGMT_TOKEN required').not.toBe('')
+    // Pre-clean stale seed rows from a prior/cancelled run (shared-staging hygiene).
+    await sql(`delete from public.ausgaben where bezeichnung like '${MARKER}%';`)
     const SEED = 1001
 
     // The Übersicht stat card renders "<n> Ausgabe(n)" = current-year filtered.length.
