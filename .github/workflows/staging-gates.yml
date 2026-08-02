@@ -48,7 +48,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run v11 hardened gates against staging
-        run: npx playwright test --config playwright.staging.config.ts
+        run: npx playwright test --config playwright.v11-gates.config.ts
         env:
           STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
           STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
