@@ -1,0 +1,63 @@
+name: v11 Staging Gates
+
+# Runs the v11 hardened audit gates (e2e/staging/) against the LIVE staging site:
+#   Gate A  constrained-viewport reachability (off-screen-Save class)
+#   Gate B/J commit-boundary + orphan-file residue (draft-in-memory + storage)
+#   Gate I  correctness under real data volume (>1000-row PostgREST cap)
+#   Gate K  fault-injected 500/empty loads render gracefully
+#   Gate M  deployed-bundle identity — staging bundle talks to STAGING, never prod
+# A red run here IS the alert (same model as the fleet grant-drift + auth-email guards).
+
+on:
+  workflow_run:
+    workflows: ['Deploy'] # re-verify staging right after every deploy
+    types: [completed]
+  schedule:
+    - cron: '30 6 * * 1' # weekly Mon 06:30 UTC (after the fleet monitors)
+  workflow_dispatch: {}
+
+concurrency:
+  group: v11-staging-gates
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Skip when a Deploy run FAILED (nothing new to verify); always run on schedule/manual.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run v11 hardened gates against staging
+        run: npx playwright test --config playwright.staging.config.ts
+        env:
+          STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
+          STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
+          BB_MGMT_TOKEN: ${{ secrets.BB_MGMT_TOKEN }}
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: v11-gates-report
+          path: playwright-report/
