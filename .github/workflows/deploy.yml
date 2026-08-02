@@ -122,7 +122,7 @@ jobs:
           CMDS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 4; mirror --reverse --delete --no-perms --verbose --exclude .htpasswd --exclude cgi-bin/ ./dist/ staging.boatbuddy.predivo.ch/; bye"
           n=0
           until [ $n -ge 4 ]; do
-            if lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
+            if timeout 420 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
               echo "Staging FTP deploy succeeded (attempt $((n+1)))"; exit 0
             fi
             n=$((n + 1)); echo "::warning::Staging FTP attempt $n failed (transient FTPS data-channel failure — runner-side; Metanet FTP verified reachable); retrying in 25s..."; sleep 25
@@ -296,7 +296,7 @@ jobs:
           echo "boatbuddy" > ./dist/.site-id
 
           # Site-id guard — never deploy to the wrong target.
-          REMOTE_ID=$(lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$LFTP_SETTINGS cat boatbuddy.predivo.ch/.site-id; bye" 2>/dev/null | tr -d '[:space:]') || REMOTE_ID=""
+          REMOTE_ID=$(timeout 90 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$LFTP_SETTINGS cat boatbuddy.predivo.ch/.site-id; bye" 2>/dev/null | tr -d '[:space:]') || REMOTE_ID=""
           if [ -n "$REMOTE_ID" ] && [ "$REMOTE_ID" != "boatbuddy" ]; then
             echo "::error::DEPLOY ABORTED — remote .site-id is '$REMOTE_ID', expected 'boatbuddy'. Wrong FTP target!"
             exit 1
@@ -307,7 +307,7 @@ jobs:
           CMDS="$LFTP_SETTINGS mirror --reverse --no-perms --verbose ./dist/assets/ boatbuddy.predivo.ch/assets/; mirror --reverse --delete --no-perms --verbose ./dist/ boatbuddy.predivo.ch/; bye"
           n=0
           until [ $n -ge 4 ]; do
-            if lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
+            if timeout 420 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
               echo "Production FTP deploy succeeded (attempt $((n+1)))"; exit 0
             fi
             n=$((n + 1)); echo "::warning::Production FTP attempt $n failed (transient FTPS data-channel failure — runner-side; Metanet FTP verified reachable); retrying in 25s..."; sleep 25
