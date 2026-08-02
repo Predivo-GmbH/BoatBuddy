@@ -353,8 +353,10 @@ test.describe('BoatBuddy v11 gates', () => {
       if (u.includes('.supabase.co')) hosts.add(new URL(u).host)
     })
     await page.goto('/finanzen')
-    await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(1000)
+    // Wait for the app to actually render (guarantees mount) before judging network.
+    await expect(page.getByRole('heading', { name: 'Finanzen' })).toBeVisible({ timeout: 15_000 })
+    // The data fetch can land after networkidle on a slow CI runner — poll for it.
+    for (let i = 0; i < 25 && hosts.size === 0; i++) await page.waitForTimeout(300)
     const hostList = [...hosts]
     console.log(`[GATE M] supabase hosts contacted: ${JSON.stringify(hostList)}`)
     expect(hostList.some((h) => h.startsWith(REF)), `staging app talks to STAGING (${REF})`).toBe(true)
