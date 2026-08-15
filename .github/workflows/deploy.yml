@@ -246,9 +246,33 @@ jobs:
   #    staging/Supabase/FTP failures. Instead the first step GATES on the recorded
   #    staging result for this exact commit.
   # ===========================================================================
+  # ===========================================================================
+  # SECURITY GATE (G3, deploy-standard §4d) — blocks prod promotion. gitleaks
+  # full-history secret scan + `npm audit --audit-level=critical`. AI
+  # security-review stays advisory. Fleet retrofit 2026-08-15 (clean at critical).
+  # ===========================================================================
+  gate-security:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Dependency audit (blocking at critical)
+        run: npm audit --audit-level=critical
+
   deploy:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'deploy'
-    needs: [gate-integration, gate-e2e]
+    needs: [gate-integration, gate-e2e, gate-security]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
