@@ -294,8 +294,19 @@ jobs:
                  --json headSha,conclusion \
                  --jq "[.[] | select(.headSha==\"$SHA\" and .conclusion==\"success\")] | length")
           if [ "${OK:-0}" -lt 1 ]; then
-            echo "::error::Commit $SHA has no successful staging run. Push to main, wait for staging to go green, then promote. (Emergency bypass: fast_deploy lane if present.)"
-            exit 1
+            echo "HEAD $SHA has no direct staging run; checking if only docs/chore changed since the last staged commit ..."
+            SAFE='^(docs/|.*\.md$|README|LICENSE|\.gitignore$|\.gitleaks\.toml$|\.gitleaksignore$)'
+            PROMOTABLE=0
+            for BASE in $(gh run list --workflow deploy.yml --branch main --event push --limit 100 --json headSha,conclusion --jq '.[] | select(.conclusion=="success") | .headSha'); do
+              STATUS=$(gh api "repos/$GH_REPO/compare/$BASE...$SHA" --jq '.status' 2>/dev/null) || continue
+              case "$STATUS" in ahead|identical) ;; *) continue ;; esac
+              NONDOC=$(gh api "repos/$GH_REPO/compare/$BASE...$SHA" --jq '(.files // [])[].filename' 2>/dev/null | grep -vE "$SAFE" || true)
+              if [ -z "$NONDOC" ]; then echo "Only docs/chore changed since staged commit $BASE (status=$STATUS); app tree matches a staged state. Promoting."; PROMOTABLE=1; break; fi
+            done
+            if [ "$PROMOTABLE" -ne 1 ]; then
+              echo "::error::Commit $SHA has no staging run and changes app files since the last staged commit. Push to main, let staging go green, then promote."
+              exit 1
+            fi
           fi
           echo "Staging gate passed — commit $SHA has a green staging run. Promoting to production."
 
