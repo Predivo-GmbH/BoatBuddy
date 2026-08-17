@@ -248,8 +248,8 @@ jobs:
   # ===========================================================================
   # ===========================================================================
   # SECURITY GATE (G3, deploy-standard §4d) — blocks prod promotion. gitleaks
-  # full-history secret scan + `npm audit --audit-level=critical`. AI
-  # security-review stays advisory. Fleet retrofit 2026-08-15 (clean at critical).
+  # full-history secret scan + `npm audit --audit-level=high`. AI
+  # security-review stays advisory. Fleet retrofit 2026-08-15 (clean at high).
   # ===========================================================================
   gate-security:
     if: github.event_name != 'push'
@@ -271,8 +271,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Dependency audit (blocking at critical)
-        run: npm audit --audit-level=critical
+      - name: Dependency audit (blocking at high)
+        run: npm audit --audit-level=high
       # SAST — code-level security (fleet-hardening Wave 2, proven route from project-starter).
       # A different layer than npm audit (deps) + gitleaks (secrets in git): semgrep reads OUR
       # code for injection / XSS / hardcoded secrets. `.semgrepignore` excludes test/dev files
