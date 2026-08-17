@@ -273,6 +273,15 @@ jobs:
           cache: npm
       - name: Dependency audit (blocking at critical)
         run: npm audit --audit-level=critical
+      # SAST — code-level security (fleet-hardening Wave 2, proven route from project-starter).
+      # A different layer than npm audit (deps) + gitleaks (secrets in git): semgrep reads OUR
+      # code for injection / XSS / hardcoded secrets. `.semgrepignore` excludes test/dev files
+      # (example tokens + fixtures = false positives). --severity=ERROR = highest confidence;
+      # --error fails the gate on a real finding.
+      - name: SAST scan (semgrep)
+        run: |
+          python3 -m pip install --quiet semgrep
+          semgrep scan --config=p/security-audit --config=p/secrets --severity=ERROR --error --metrics=off .
 
   deploy:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'deploy'
