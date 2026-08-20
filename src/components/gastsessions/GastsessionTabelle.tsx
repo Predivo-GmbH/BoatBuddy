@@ -388,7 +388,7 @@ function GastsessionEditDialog({
         aria-modal="true"
         aria-labelledby="gastsession-edit-title"
         onClick={e => e.stopPropagation()}
-        className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl animate-in zoom-in-95 duration-200"
+        className="mx-4 w-full max-w-md max-h-[85dvh] overflow-y-auto overscroll-contain rounded-xl border border-border bg-card p-6 shadow-xl animate-in zoom-in-95 duration-200"
       >
         <form onSubmit={handleSubmit}>
           <fieldset disabled={isPending} className="contents">

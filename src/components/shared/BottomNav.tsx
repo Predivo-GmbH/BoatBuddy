@@ -82,7 +82,7 @@ export function BottomNav() {
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="fixed bottom-0 left-0 right-0 rounded-t-2xl border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl slide-up"
+            className="fixed bottom-0 left-0 right-0 max-h-[85dvh] overflow-y-auto overscroll-contain rounded-t-2xl border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl slide-up"
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" />
             <div className="mb-2 flex items-center justify-between">

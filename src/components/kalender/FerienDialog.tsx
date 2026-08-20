@@ -119,7 +119,7 @@ export function FerienDialog({ editFerien, onClose }: FerienDialogProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="ferien-dialog-title"
-        className="mx-4 w-full max-w-sm origin-center animate-in zoom-in-95 fade-in space-y-4 rounded-xl border border-border bg-card p-6 shadow-xl duration-200"
+        className="mx-4 w-full max-w-sm max-h-[85dvh] overflow-y-auto overscroll-contain origin-center animate-in zoom-in-95 fade-in space-y-4 rounded-xl border border-border bg-card p-6 shadow-xl duration-200"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

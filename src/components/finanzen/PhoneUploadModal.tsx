@@ -94,7 +94,7 @@ export function PhoneUploadModal({ open, onOpenChange, onExtracted }: PhoneUploa
       aria-modal="true"
       aria-label="Handy-Upload"
     >
-      <div className="relative mx-4 w-full max-w-sm rounded-xl bg-card p-6 shadow-xl border border-border">
+      <div className="relative mx-4 w-full max-w-sm max-h-[85dvh] overflow-y-auto overscroll-contain rounded-xl bg-card p-6 shadow-xl border border-border">
         <button
           onClick={handleClose}
           className="absolute right-3 top-3 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
