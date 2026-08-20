@@ -406,7 +406,7 @@ test('Gate A — coverage denominator (surfaces enumerated vs driven)', async ()
   let multiFieldForms = 0
   const RX = /role=["']dialog["']|aria-modal|fixed\s+inset-0|<Modal[\s>]/
   const walk = (dir: string) => {
-    let entries: any[] = []
+    let entries: import('node:fs').Dirent[]
     try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
     for (const e of entries) {
       const p = path.join(dir, e.name)
