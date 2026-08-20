@@ -1,0 +1,26 @@
+{
+  "$comment": [
+    "Gate A route coverage, declared. Every route the router declares must be swept, or excluded here with",
+    "a reason. Enforced by @predivo-gmbh/gate-kit/conformance checkRouteCoverage() once this product is",
+    "converted to the shared crawl engine.",
+    "",
+    "Measured 2026-08-20: 9 routes declared, 8 swept, and the ninth is the catch-all. Route coverage in this",
+    "product is complete. That is worth stating plainly, because SURFACE coverage was not: the crawl reported",
+    "'2 dialogs, 0 findings' here while seven panels had no scroller (fixed in d36eca7). Sweeping every route",
+    "is necessary and not sufficient."
+  ],
+  "routerSources": ["src/App.tsx"],
+  "swept": [
+    "/dashboard",
+    "/finanzen",
+    "/kalender",
+    "/gastsessions",
+    "/nutzung",
+    "/boot",
+    "/neuigkeiten",
+    "/phone-upload"
+  ],
+  "exclusions": [
+    { "route": "/*", "reason": "Catch-all 404. No interactive surface." }
+  ]
+}
