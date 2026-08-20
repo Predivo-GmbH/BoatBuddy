@@ -5,7 +5,7 @@ name: v11 Staging Gates
 #   Gate B/J commit-boundary + orphan-file residue (draft-in-memory + storage)
 #   Gate I  correctness under real data volume (>1000-row PostgREST cap)
 #   Gate K  fault-injected 500/empty loads render gracefully
-#   Gate M  deployed-bundle identity — staging bundle talks to STAGING, never prod
+#   Gate M  deployed-bundle identity - staging bundle talks to STAGING, never prod
 # A red run here IS the alert (same model as the fleet grant-drift + auth-email guards).
 
 on:
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   gates:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40  # v11 gates + the Gate A runtime crawl (8 routes x 2 widths, ~1.2 min)
     # Skip when a Deploy run FAILED (nothing new to verify); always run on schedule/manual.
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     steps:
@@ -54,6 +54,25 @@ jobs:
           STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
           BB_MGMT_TOKEN: ${{ secrets.BB_MGMT_TOKEN }}
           BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
+
+      # Gate A runtime crawl (2026-08-20), the sixth and last product to get it. Gate A was
+      # WRITTEN after this product shipped a dialog whose Save button sat below the fold and
+      # a full audit passed it anyway; the B4 meta-audit then found the gate itself driving
+      # 3 of 9 dialog-class surfaces here while the report published "Gate A: PASS".
+      # This discovers dialogs by DRIVING the app at BOTH a desktop and a mobile width, so
+      # nothing has to be remembered. First run: 8 routes x 2 widths, 2 dialogs, 2 of 2
+      # controls, 0 findings. This product came back CLEAN, unlike the other five.
+      # READ-ONLY: commit controls are measured, never clicked. The create/edit triggers ARE
+      # driven on purpose because they were traced to source and are pure state setters that
+      # open a dialog and write nothing; only destructive/off-site names are denied.
+      # always(): a known-red earlier gate must not silently disable this layer.
+      - name: Run Gate A runtime crawl against staging
+        if: always()
+        run: npx playwright test --config playwright.gate-a-crawl.config.ts
+        env:
+          STAGING_URL: https://staging.boatbuddy.predivo.ch
+          STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
+          STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
 
       - name: Upload report on failure
         if: failure()
