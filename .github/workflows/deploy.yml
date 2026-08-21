@@ -11,11 +11,7 @@ name: Deploy
 #   push -> main        FAST staging deploy: lint + unit + build + FTP + edge
 #                       fns + alive-smoke. ~5-6 min.  (job: deploy-staging)
 #   schedule (nightly)  FULL gauntlet against live staging — daily regression
-#                       signal even with no promotion.  (env:
-  # Needed by npm ci: .npmrc points @predivo-gmbh at GitHub Packages.
-  NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
-
-jobs: gate-*)
+#                       signal even with no promotion.  (jobs: gate-*)
 #   workflow_dispatch   PROD promotion. Gated behind the FULL gauntlet
 #     confirm=deploy    (integration + E2E) THEN deploys prod.  (gate-* -> deploy)
 #
@@ -53,6 +49,10 @@ concurrency:
   # commits land in a row only the newest needs a staging deploy + E2E.
   group: ${{ github.event_name == 'workflow_dispatch' && 'deploy-production' || format('staging-{0}', github.ref) }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+env:
+  # Needed by npm ci: .npmrc points @predivo-gmbh at GitHub Packages.
+  NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
 
 jobs:
   # ===========================================================================
