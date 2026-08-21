@@ -330,8 +330,21 @@ export default function DashboardPage() {
       {/* Quick Trip Log Dialog */}
       {showFahrtForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowFahrtForm(false)}>
-          <div className="w-full max-w-sm rounded-xl bg-card border border-border p-6 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-foreground mb-4">Fahrt loggen</h3>
+          {/* This was the only modal in the app that was not announced as one: no role, no
+              aria-modal, no accessible name. Two consequences, and the second is how it was
+              found. (1) A screen reader read it as an anonymous group instead of a dialog.
+              (2) The Gate A crawl defines a surface as role="dialog" / aria-modal, so this
+              panel was invisible to it, AND its overlay silently swallowed the next clicks on
+              /dashboard, which is why "Neue Ausgabe" never opened anything either. Measured
+              2026-08-21. It also had no scroller, so it gets the same cap as the rest. */}
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="fahrt-loggen-title"
+            className="max-h-[85dvh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-xl bg-card border border-border p-6 shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 id="fahrt-loggen-title" className="text-lg font-semibold text-foreground mb-4">Fahrt loggen</h3>
             <div className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Datum</label>
