@@ -30,7 +30,7 @@ edit → commit → push main
 - **Push to `main` deploys to STAGING only.** It never touches production.
 - **Production requires an explicit manual run** with the typed confirmation:
   `gh workflow run deploy.yml -f confirm=deploy` (or the "Run workflow" button → type `deploy`).
-- DB schema changes are SQL files in `supabase/migrations/`. CI does **not** auto-apply them — apply to **staging first**, verify, then production (see `scripts/` / the Supabase Management API). Never apply a migration straight to prod.
+- DB schema changes are SQL files in `supabase/migrations/`. Since 2026-08-21 CI auto-applies them: `scripts/apply-migrations.mjs` runs on both deploy lanes before the edge-function deploy (staging on push, production on the manual promotion run). Migrations reach staging first, then production — never apply one straight to prod manually.
 
 ## 2. Business / operational data → through the app UI
 
