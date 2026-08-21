@@ -66,6 +66,17 @@ jobs:
       # driven on purpose because they were traced to source and are pure state setters that
       # open a dialog and write nothing; only destructive/off-site names are denied.
       # always(): a known-red earlier gate must not silently disable this layer.
+      # Two of this product's nine dialog surfaces are per-row: GastsessionTabelle and
+      # NutzungslogTabelle render their edit dialog only when a row exists. With both tables
+      # empty on staging the crawl found no row-level trigger at all and could never open them,
+      # which is why coverage sat at 7 of 9. This seeds one marked row in each, idempotently.
+      - name: Seed the Gate A row fixtures
+        if: always()
+        run: node e2e/staging/seed-gate-a-fixtures.mjs
+        env:
+          STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
+
       - name: Run Gate A runtime crawl against staging
         if: always()
         run: npx playwright test --config playwright.gate-a-crawl.config.ts
