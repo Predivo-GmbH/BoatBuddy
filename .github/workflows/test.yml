@@ -17,6 +17,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Needed by npm ci: .npmrc points @predivo-gmbh at GitHub Packages.
+  NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
+
 jobs:
   critical-path:
     runs-on: ubuntu-latest
