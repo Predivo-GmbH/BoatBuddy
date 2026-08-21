@@ -77,6 +77,7 @@ export function BottomNav() {
           onClick={closeMore}
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm lg:hidden"
           role="dialog"
+          data-gate-a="BottomNav"
           aria-modal="true"
           aria-label="Weitere Navigation"
         >

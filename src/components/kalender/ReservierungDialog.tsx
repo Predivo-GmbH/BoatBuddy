@@ -184,6 +184,7 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
       <div
         ref={trapRef}
         role="dialog"
+        data-gate-a="ReservierungDialog"
         aria-modal="true"
         aria-labelledby="reservierung-dialog-title"
         className="mx-4 w-full max-w-sm max-h-[85dvh] overflow-y-auto overscroll-contain origin-center animate-in zoom-in-95 fade-in space-y-4 rounded-xl border border-border bg-card p-6 shadow-xl duration-200"

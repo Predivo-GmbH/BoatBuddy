@@ -43,6 +43,7 @@ export function ConfirmDialog({
       <div
         ref={trapRef}
         role="dialog"
+        data-gate-a="ConfirmDialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         className="mx-4 w-full max-w-sm max-h-[85dvh] overflow-y-auto overscroll-contain origin-center animate-in zoom-in-95 fade-in space-y-4 rounded-xl border border-border bg-card p-6 shadow-xl duration-200"

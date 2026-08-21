@@ -339,6 +339,7 @@ export default function DashboardPage() {
               2026-08-21. It also had no scroller, so it gets the same cap as the rest. */}
           <div
             role="dialog"
+            data-gate-a="DashboardPage"
             aria-modal="true"
             aria-labelledby="fahrt-loggen-title"
             className="max-h-[85dvh] w-full max-w-sm overflow-y-auto overscroll-contain rounded-xl bg-card border border-border p-6 shadow-xl"

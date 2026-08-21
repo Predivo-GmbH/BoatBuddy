@@ -347,6 +347,7 @@ function NutzungslogEditDialog({
       <div
         ref={trapRef}
         role="dialog"
+        data-gate-a="NutzungslogTabelle"
         aria-modal="true"
         aria-labelledby="nutzungslog-edit-title"
         onClick={e => e.stopPropagation()}

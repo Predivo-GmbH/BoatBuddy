@@ -385,6 +385,7 @@ function GastsessionEditDialog({
       <div
         ref={trapRef}
         role="dialog"
+        data-gate-a="GastsessionTabelle"
         aria-modal="true"
         aria-labelledby="gastsession-edit-title"
         onClick={e => e.stopPropagation()}

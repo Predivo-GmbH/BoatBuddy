@@ -13,6 +13,10 @@ export default defineConfig([
   // deploy. One implementation for all six products, with its own fixture suite, in
   // Predivo-GmbH/gate-kit.
   ...gateKit.configs.recommended,
+  // Every dialog must declare data-gate-a="<id>". That id is what lets the v11 coverage gate
+  // prove the crawl really opened it, instead of matching on text, which was measured wrong in
+  // both directions on 2026-08-21.
+  ...gateKit.configs.coverage,
   globalIgnores(['dist', 'src/test/**', 'src/components/ui/**']),
   {
     files: ['**/*.{ts,tsx}'],

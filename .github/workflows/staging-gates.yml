@@ -51,14 +51,10 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
-      - name: Run v11 hardened gates against staging
-        run: npx playwright test --config playwright.v11-gates.config.ts
-        env:
-          STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
-          STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
-          BB_MGMT_TOKEN: ${{ secrets.BB_MGMT_TOKEN }}
-          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
-
+      # ORDER MATTERS. The crawl runs FIRST because the v11 coverage gate reads the manifest
+      # it writes. With the gates first, that gate scored the PREVIOUS run's crawl, so a
+      # surface fixed in this commit still read as uncovered, and a surface broken in this
+      # commit still read as covered. Same defect ReplyFlow had on 2026-08-20.
       # Gate A runtime crawl (2026-08-20), the sixth and last product to get it. Gate A was
       # WRITTEN after this product shipped a dialog whose Save button sat below the fold and
       # a full audit passed it anyway; the B4 meta-audit then found the gate itself driving
@@ -77,6 +73,14 @@ jobs:
           STAGING_URL: https://staging.boatbuddy.predivo.ch
           STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
           STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
+
+      - name: Run v11 hardened gates against staging
+        run: npx playwright test --config playwright.v11-gates.config.ts
+        env:
+          STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
+          STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
+          BB_MGMT_TOKEN: ${{ secrets.BB_MGMT_TOKEN }}
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
 
       - name: Upload report on failure
         if: failure()

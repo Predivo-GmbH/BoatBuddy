@@ -273,6 +273,7 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
       <div
         ref={trapRef}
         role="dialog"
+        data-gate-a="AusgabeFormDialog"
         aria-modal="true"
         aria-labelledby="ausgabe-dialog-title"
         onClick={e => e.stopPropagation()}

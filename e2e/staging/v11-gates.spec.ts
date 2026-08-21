@@ -391,50 +391,41 @@ test.describe('BoatBuddy v11 gates', () => {
   })
 })
 
-// ══════════ GATE A COVERAGE DENOMINATOR (v13.2, 2026-08-19) ══════════
+// ══════════ GATE A COVERAGE DENOMINATOR ══════════
 // audit-framework.md v13.2 pins the v11 coverage manifest to `surfaces ENUMERATED [M]` +
-// `surfaces DRIVEN [N of M]`. A bare N is an assertion, not an artifact, and N < M FAILS.
-// Origin: the 2026-08-19 B4 meta-audit found every fleet harness driving 1-3 hand-picked
-// modals while its report published "Gates A-M ALL PASS".
-const GATE_A_DRIVEN = ['AusgabeForm', 'Reservierung', 'FerienDialog']
-const GATE_A_ROOTS = ['src']
+// `surfaces DRIVEN [N of M]`, and N < M FAILS. Origin: the 2026-08-19 B4 meta-audit found
+// every fleet harness driving 1-3 hand-picked modals while its report published "Gates A-M
+// ALL PASS".
+//
+// N is no longer a hand-typed array. It is computed from the crawl manifest written by the
+// step that runs immediately before this one: a file counts only when the crawl OPENED a
+// dialog carrying that file's declared data-gate-a id. Roger's rule, 2026-08-21: "they cannot
+// stay green unless it has really opened".
+import { gateACoverage, formatCoverage } from '@predivo-gmbh/gate-kit/conformance'
 
-test('Gate A — coverage denominator (surfaces enumerated vs driven)', async () => {
+/** Surfaces unreachable BY DESIGN. Each needs a reason, and a dated one expires. */
+const ACCEPTED_UNREACHABLE: { file: string; reason: string; expires?: string }[] = []
+
+test('Gate A — coverage denominator (surfaces enumerated vs actually opened)', async () => {
   const fs = await import('node:fs')
-  const path = await import('node:path')
-  const surfaces: string[] = []
-  let multiFieldForms = 0
-  const RX = /role=["']dialog["']|aria-modal|fixed\s+inset-0|<Modal[\s>]/
-  const walk = (dir: string) => {
-    let entries: import('node:fs').Dirent[]
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
-    for (const e of entries) {
-      const p = path.join(dir, e.name)
-      if (e.isDirectory()) { if (!/node_modules|__tests__|\.next|dist|build/.test(e.name)) walk(p); continue }
-      if (!/\.(tsx|jsx)$/.test(e.name)) continue
-      if (/\.(test|spec)\./.test(e.name)) continue
-      const src = fs.readFileSync(p, 'utf8')
-      if (RX.test(src)) surfaces.push(path.relative(process.cwd(), p).replace(/\\/g, '/'))
-      const forms = src.match(/<form[\s>]/g)
-      if (forms && (src.match(/<(input|select|textarea)[\s>]/g) || []).length >= 2) multiFieldForms += forms.length
-    }
-  }
-  for (const r of GATE_A_ROOTS) walk(path.resolve(process.cwd(), r))
-
-  console.log([
-    '',
-    'GATE A COVERAGE MANIFEST (v13.2)',
-    `  surfaces ENUMERATED (dialog-class) [M] = ${surfaces.length}`,
-    ...surfaces.map((s) => `    - ${s}`),
-    `  surfaces DRIVEN [N] = ${GATE_A_DRIVEN.length}  (${GATE_A_DRIVEN.join(', ')})`,
-    `  multi-field <form> surfaces enumerated but NOT yet driven = ${multiFieldForms}`,
-    '',
-  ].join('\n'))
-
+  const manifestPath = 'playwright/.gate-a/crawl-manifest.json'
   expect(
-    GATE_A_DRIVEN.length,
-    `Gate A drives ${GATE_A_DRIVEN.length} of ${surfaces.length} enumerated dialog surfaces. ` +
-      `Framework v13.2: N < M = FAIL (unvisited surfaces are not "assumed fine"). ` +
-      `Add a runGateA/Gate-A test per uncovered surface, or record it in the Accepted-Risk Register with proof.`,
-  ).toBeGreaterThanOrEqual(surfaces.length)
+    fs.existsSync(manifestPath),
+    'no crawl manifest: the Gate A crawl step must run BEFORE this gate, or its result is stale',
+  ).toBe(true)
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+  const cov = gateACoverage({ repo: process.cwd(), roots: ['src'], manifest, accepted: ACCEPTED_UNREACHABLE })
+  console.log(formatCoverage(cov))
+
+  expect(cov.staleAccepted, 'accepted-unreachable entries for files that are no longer dialogs').toEqual([])
+  expect(
+    cov.unprovable.map((u) => u.file),
+    'dialog files that declare no data-gate-a id, so nothing can prove whether they were opened',
+  ).toEqual([])
+  expect(
+    cov.undriven.map((u) => u.file),
+    `Gate A opened ${cov.N} of ${cov.M} dialog surfaces. A surface that was never opened is not covered: ` +
+      `make the crawl reach it, or record it in ACCEPTED_UNREACHABLE with a reason.`,
+  ).toEqual([])
 })
