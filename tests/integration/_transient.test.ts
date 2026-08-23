@@ -38,7 +38,7 @@ describe('q', () => {
     expect(res.data).toEqual({ id: 'x' })
   })
 
-  test('does NOT retry a 23505 unique violation — the suite deliberately expects one', async () => {
+  test('does NOT retry a 23505 unique violation, the suite deliberately expects one', async () => {
     let calls = 0
     const res = await q(() => {
       calls++
