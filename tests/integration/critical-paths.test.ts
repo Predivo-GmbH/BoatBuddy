@@ -4,6 +4,7 @@
  */
 import { describe, test, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { q } from './_transient'
 
 const STAGING_URL = process.env.STAGING_SUPABASE_URL ?? 'https://svpewgbwousyheohlrtt.supabase.co'
 const STAGING_ANON = process.env.STAGING_SUPABASE_ANON_KEY ?? ''
@@ -42,11 +43,13 @@ afterAll(async () => {
 
 describeStaging('Beitraege (contributions)', () => {
   test('insert and read beitrag', async () => {
-    const { data, error } = await supabase
-      .from('beitraege')
-      .insert({ fahrer: 'roger', betrag: 400, monat: d('2026-01-01') })
-      .select()
-      .single()
+    const { data, error } = await q(() =>
+      supabase
+        .from('beitraege')
+        .insert({ fahrer: 'roger', betrag: 400, monat: d('2026-01-01') })
+        .select()
+        .single(),
+    )
 
     expect(error).toBeNull()
     expect(data).toBeTruthy()
@@ -56,19 +59,23 @@ describeStaging('Beitraege (contributions)', () => {
   })
 
   test('unique constraint on fahrer+monat', async () => {
-    const { data } = await supabase
-      .from('beitraege')
-      .insert({ fahrer: 'dani', betrag: 400, monat: d('2026-02-01') })
-      .select()
-      .single()
+    const { data } = await q(() =>
+      supabase
+        .from('beitraege')
+        .insert({ fahrer: 'dani', betrag: 400, monat: d('2026-02-01') })
+        .select()
+        .single(),
+    )
 
     cleanup.push({ table: 'beitraege', id: data!.id })
 
-    const { error: dupError } = await supabase
-      .from('beitraege')
-      .insert({ fahrer: 'dani', betrag: 400, monat: d('2026-02-01') })
-      .select()
-      .single()
+    const { error: dupError } = await q(() =>
+      supabase
+        .from('beitraege')
+        .insert({ fahrer: 'dani', betrag: 400, monat: d('2026-02-01') })
+        .select()
+        .single(),
+    )
 
     expect(dupError).toBeTruthy()
     expect(dupError!.code).toBe('23505') // unique violation
@@ -77,18 +84,20 @@ describeStaging('Beitraege (contributions)', () => {
 
 describeStaging('Ausgaben (expenses)', () => {
   test('insert expense with all fields', async () => {
-    const { data, error } = await supabase
-      .from('ausgaben')
-      .insert({
-        bezeichnung: 'Test Winterservice',
-        betrag: 1250.50,
-        kategorie: 'service',
-        datum: '2026-03-15',
-        bezahlt_von: 'bootkonto',
-        notiz: 'Integration test',
-      })
-      .select()
-      .single()
+    const { data, error } = await q(() =>
+      supabase
+        .from('ausgaben')
+        .insert({
+          bezeichnung: 'Test Winterservice',
+          betrag: 1250.50,
+          kategorie: 'service',
+          datum: '2026-03-15',
+          bezahlt_von: 'bootkonto',
+          notiz: 'Integration test',
+        })
+        .select()
+        .single(),
+    )
 
     expect(error).toBeNull()
     expect(data).toBeTruthy()
@@ -100,19 +109,21 @@ describeStaging('Ausgaben (expenses)', () => {
   })
 
   test('expense with dokument_pfad and verarbeitungs_status', async () => {
-    const { data, error } = await supabase
-      .from('ausgaben')
-      .insert({
-        bezeichnung: 'Invoice test',
-        betrag: 0,
-        kategorie: 'sonstiges',
-        datum: '2026-06-01',
-        bezahlt_von: 'bootkonto',
-        dokument_pfad: 'test-file.pdf',
-        verarbeitungs_status: 'verarbeitung',
-      })
-      .select()
-      .single()
+    const { data, error } = await q(() =>
+      supabase
+        .from('ausgaben')
+        .insert({
+          bezeichnung: 'Invoice test',
+          betrag: 0,
+          kategorie: 'sonstiges',
+          datum: '2026-06-01',
+          bezahlt_von: 'bootkonto',
+          dokument_pfad: 'test-file.pdf',
+          verarbeitungs_status: 'verarbeitung',
+        })
+        .select()
+        .single(),
+    )
 
     expect(error).toBeNull()
     expect(data!.verarbeitungs_status).toBe('verarbeitung')
@@ -123,11 +134,13 @@ describeStaging('Ausgaben (expenses)', () => {
 
 describeStaging('Kontostand (balance snapshots)', () => {
   test('insert and read snapshot', async () => {
-    const { data, error } = await supabase
-      .from('kontostand_snapshots')
-      .insert({ betrag: 5432.10, datum: '2026-06-01', notiz: 'Test' })
-      .select()
-      .single()
+    const { data, error } = await q(() =>
+      supabase
+        .from('kontostand_snapshots')
+        .insert({ betrag: 5432.10, datum: '2026-06-01', notiz: 'Test' })
+        .select()
+        .single(),
+    )
 
     expect(error).toBeNull()
     expect(Number(data!.betrag)).toBe(5432.10)
@@ -137,17 +150,19 @@ describeStaging('Kontostand (balance snapshots)', () => {
 
 describeStaging('Reservierungen (calendar)', () => {
   test('insert reservation', async () => {
-    const { data, error } = await supabase
-      .from('reservierungen')
-      .insert({
-        fahrer: 'roger',
-        datum: d('2026-07-15'),
-        von_zeit: '10:00',
-        bis_zeit: '14:00',
-        notiz: 'Wakesurfen',
-      })
-      .select()
-      .single()
+    const { data, error } = await q(() =>
+      supabase
+        .from('reservierungen')
+        .insert({
+          fahrer: 'roger',
+          datum: d('2026-07-15'),
+          von_zeit: '10:00',
+          bis_zeit: '14:00',
+          notiz: 'Wakesurfen',
+        })
+        .select()
+        .single(),
+    )
 
     expect(error).toBeNull()
     expect(data!.fahrer).toBe('roger')
@@ -158,16 +173,18 @@ describeStaging('Reservierungen (calendar)', () => {
 
 describeStaging('Gastsessions', () => {
   test('insert guest session with default betrag', async () => {
-    const { data, error } = await supabase
-      .from('gastsessions')
-      .insert({
-        gast_name: 'Test Gast',
-        bezahlt_an: 'roger',
-        datum: '2026-06-01',
-        auf_konto_eingezahlt: false,
-      })
-      .select()
-      .single()
+    const { data, error } = await q(() =>
+      supabase
+        .from('gastsessions')
+        .insert({
+          gast_name: 'Test Gast',
+          bezahlt_an: 'roger',
+          datum: '2026-06-01',
+          auf_konto_eingezahlt: false,
+        })
+        .select()
+        .single(),
+    )
 
     expect(error).toBeNull()
     expect(data!.gast_name).toBe('Test Gast')
@@ -178,17 +195,19 @@ describeStaging('Gastsessions', () => {
 
 describeStaging('Nutzungslogs (usage)', () => {
   test('insert usage log', async () => {
-    const { data, error } = await supabase
-      .from('nutzungslogs')
-      .insert({
-        datum: '2026-06-01',
-        fahrer: 'dani',
-        betriebsstunden: 2.5,
-        treibstoff_liter: 45,
-        aktivitaeten: [{ typ: 'wakesurfen', dauer_min: 120 }],
-      })
-      .select()
-      .single()
+    const { data, error } = await q(() =>
+      supabase
+        .from('nutzungslogs')
+        .insert({
+          datum: '2026-06-01',
+          fahrer: 'dani',
+          betriebsstunden: 2.5,
+          treibstoff_liter: 45,
+          aktivitaeten: [{ typ: 'wakesurfen', dauer_min: 120 }],
+        })
+        .select()
+        .single(),
+    )
 
     expect(error).toBeNull()
     expect(Number(data!.betriebsstunden)).toBe(2.5)
@@ -198,15 +217,17 @@ describeStaging('Nutzungslogs (usage)', () => {
 
 describeStaging('Boot Stats', () => {
   test('insert and read boot stats', async () => {
-    const { data, error } = await supabase
-      .from('boot_stats')
-      .insert({
-        gesamtstunden: 150,
-        modell: 'Mastercraft X2',
-        kaufdatum: '2023-04-01',
-      })
-      .select()
-      .single()
+    const { data, error } = await q(() =>
+      supabase
+        .from('boot_stats')
+        .insert({
+          gesamtstunden: 150,
+          modell: 'Mastercraft X2',
+          kaufdatum: '2023-04-01',
+        })
+        .select()
+        .single(),
+    )
 
     expect(error).toBeNull()
     expect(data!.modell).toBe('Mastercraft X2')
@@ -216,16 +237,18 @@ describeStaging('Boot Stats', () => {
 
 describeStaging('Ferien (vacations)', () => {
   test('insert vacation', async () => {
-    const { data, error } = await supabase
-      .from('ferien')
-      .insert({
-        fahrer: 'roger',
-        von_datum: '2026-07-01',
-        bis_datum: '2026-07-14',
-        notiz: 'Sommerferien',
-      })
-      .select()
-      .single()
+    const { data, error } = await q(() =>
+      supabase
+        .from('ferien')
+        .insert({
+          fahrer: 'roger',
+          von_datum: '2026-07-01',
+          bis_datum: '2026-07-14',
+          notiz: 'Sommerferien',
+        })
+        .select()
+        .single(),
+    )
 
     expect(error).toBeNull()
     expect(data!.fahrer).toBe('roger')
@@ -238,14 +261,18 @@ describeStaging('Ferien (vacations)', () => {
 describeStaging('RPC: adjust_gesamtstunden', () => {
   test('RPC is callable without error', async () => {
     // Just verify the RPC is deployed and callable (delta=0 is a no-op)
-    const { error } = await supabase.rpc('adjust_gesamtstunden', { delta: 0 })
+    const { error } = await q(() =>
+      supabase.rpc('adjust_gesamtstunden', { delta: 0 }),
+    )
     expect(error).toBeNull()
   })
 })
 
 describeStaging('Storage: dokumente bucket', () => {
   test('bucket exists and is accessible', async () => {
-    const { data, error } = await supabase.storage.getBucket('dokumente')
+    const { data, error } = await q(() =>
+      supabase.storage.getBucket('dokumente'),
+    )
     // On staging without storage setup, this may return error
     // but we at least verify the storage API is reachable
     if (error) {
