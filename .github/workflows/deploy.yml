@@ -442,6 +442,15 @@ jobs:
 
           # Site-id guard — never deploy to the wrong target.
           REMOTE_ID=$(timeout 90 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$LFTP_SETTINGS cat boatbuddy.predivo.ch/.site-id; bye" 2>/dev/null | tr -d '[:space:]') || REMOTE_ID=""
+          # An EMPTY id is not a match failure, so `-n` below let it through - which is exactly
+          # what a 530, a timeout or a dropped connection produces. The guard cannot tell those
+          # apart from "file absent", so it must not deploy blind. Every live target has a seeded
+          # .site-id (all 13 verified reading non-empty on 2026-08-23); a genuinely new target must
+          # have its .site-id seeded first. Copied in spirit from Valrano, which had this right.
+          if [ -z "$REMOTE_ID" ]; then
+            echo "::error::Site-id guard INCONCLUSIVE: read no .site-id (timeout, dropped connection, bad credential or missing file - indistinguishable). Refusing to deploy blind."
+            exit 1
+          fi
           if [ -n "$REMOTE_ID" ] && [ "$REMOTE_ID" != "boatbuddy" ]; then
             echo "::error::DEPLOY ABORTED — remote .site-id is '$REMOTE_ID', expected 'boatbuddy'. Wrong FTP target!"
             exit 1
