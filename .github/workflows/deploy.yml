@@ -158,6 +158,13 @@ jobs:
           } > dist/.htaccess
 
       - name: Deploy staging via FTP
+        # Zero-downtime, matching this repo's own production job. A single
+        # `mirror --delete` uploads and deletes in ONE pass, so mid-mirror the new
+        # index.html can be live while its hashed chunks are not yet uploaded and the old
+        # ones are already gone: every chunk 404s and the page renders BLANK. Proven
+        # 2026-08-23 in ReplyFlow run 32662317038 (index.html 200, five chunks 404, blank
+        # screenshot) where it failed an E2E gate and read as a flaky test. Assets first
+        # without --delete, so new chunks exist before anything references them.
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
@@ -167,7 +174,7 @@ jobs:
           echo "boatbuddy-staging" > ./dist/.site-id
           # Resilient FTPS for Metanet: force PASV, single data connection, retry loop.
           # Exclude .htpasswd so the mirror's --delete never removes the auth file.
-          CMDS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 4; mirror --reverse --delete --no-perms --verbose --exclude .htpasswd --exclude cgi-bin/ ./dist/ staging.boatbuddy.predivo.ch/; bye"
+          CMDS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 4; mirror --reverse --no-perms --verbose ./dist/assets/ staging.boatbuddy.predivo.ch/assets/; mirror --reverse --delete --no-perms --verbose --exclude .htpasswd --exclude cgi-bin/ ./dist/ staging.boatbuddy.predivo.ch/; bye"
           n=0
           until [ $n -ge 4 ]; do
             if timeout 420 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
