@@ -271,7 +271,20 @@ jobs:
       # 2026-08-24 on run 32745305595: host had chromium-1208, this repo needs 1223.
       # `playwright install` is idempotent and returns in seconds when the build is present.
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: |
+          # --with-deps shells out to `sudo apt-get` to install OS libraries. On our self-hosted
+          # runner the runner user's sudo is deliberately limited (01-provision-wsl.sh step 4),
+          # because a job that can sudo freely can take the machine it runs on - and these jobs
+          # execute repo code. The OS libraries are installed ONCE on the host instead, so here
+          # we only need the browser binaries, which need no root at all.
+          # GitHub-hosted runners are throwaway boxes with no such provisioning, so they keep
+          # --with-deps. This matters: clearing RUNNER_LABEL sends every job back to them, and
+          # that fallback has to actually work.
+          if [ "${{ runner.environment }}" = "self-hosted" ]; then
+            npx playwright install chromium
+          else
+            npx playwright install --with-deps chromium
+          fi
 
       - name: Verify staging is alive (catches .htaccess errors)
         run: |
