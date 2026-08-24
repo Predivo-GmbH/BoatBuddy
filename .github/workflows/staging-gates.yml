@@ -47,7 +47,7 @@ jobs:
   # previous run's crawl is the exact defect the ORDER MATTERS comment below was written for.
   # ---------------------------------------------------------------------------------------
   gates:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 15
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
     steps:
@@ -91,7 +91,7 @@ jobs:
   # Unchanged from what used to run after every deploy; only its cadence changed.
   # ---------------------------------------------------------------------------------------
   full:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 40  # v11 gates + the Gate A runtime crawl (measured 7.8 min/run, 2026-08-24)
     if: ${{ github.event_name != 'workflow_run' }}
     steps:

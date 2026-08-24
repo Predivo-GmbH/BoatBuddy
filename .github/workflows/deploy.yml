@@ -64,7 +64,7 @@ jobs:
   # ===========================================================================
   deploy-staging:
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - name: Verify FTP credentials (fail fast on a stale secret)
@@ -229,7 +229,7 @@ jobs:
   # 2. Integration tests against the staging Supabase DB.
   gate-integration:
     if: github.event_name != 'push'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
@@ -249,7 +249,7 @@ jobs:
   # 3. Run Playwright E2E against the deployed staging site — the gate that protects prod
   gate-e2e:
     if: github.event_name != 'push'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
@@ -313,7 +313,7 @@ jobs:
   # ===========================================================================
   gate-security:
     if: github.event_name != 'push'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
@@ -346,7 +346,7 @@ jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'deploy'
     needs: [gate-integration, gate-e2e, gate-security]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 20
     permissions:
       actions: read
