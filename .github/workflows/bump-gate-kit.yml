@@ -1,0 +1,49 @@
+name: Bump gate-kit
+
+# One-shot, manually triggered. The lockfile pins @predivo-gmbh/gate-kit exactly, so a
+# published fix does not reach this repo until the lock moves. Nobody can run that install
+# from a laptop without a read:packages token, but CI already holds PACKAGES_READ_TOKEN,
+# so the bump belongs here rather than behind a new personal credential.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'gate-kit version to pin (e.g. 0.2.10)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: '@predivo-gmbh'
+      - name: Install the requested version
+        run: npm install "@predivo-gmbh/gate-kit@${{ github.event.inputs.version }}" --no-audit --no-fund
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
+      - name: Verify the lock actually moved
+        run: |
+          got=$(node -p "require('./node_modules/@predivo-gmbh/gate-kit/package.json').version")
+          echo "installed: $got"
+          [ "$got" = "${{ github.event.inputs.version }}" ] || { echo "::error::wanted ${{ github.event.inputs.version }}, got $got"; exit 1; }
+          grep -q "\"version\": \"${{ github.event.inputs.version }}\"" package-lock.json || { echo "::error::package-lock.json was not updated"; exit 1; }
+      - name: Commit the lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- package.json package-lock.json; then
+            echo "already at ${{ github.event.inputs.version }}, nothing to commit"
+            exit 0
+          fi
+          git add package.json package-lock.json
+          git commit -m "chore(deps): gate-kit ${{ github.event.inputs.version }}" -m "The lockfile pins gate-kit exactly, so the per-route identity fix published in 0.2.10 does not reach this repo until the lock moves. Bumped from CI because that is where the read:packages token lives."
+          git push
