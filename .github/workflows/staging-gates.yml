@@ -13,7 +13,12 @@ on:
     workflows: ['Deploy'] # re-verify staging right after every deploy
     types: [completed]
   schedule:
-    - cron: '30 6 * * 1' # weekly Mon 06:30 UTC (after the fleet monitors)
+    # DAILY 06:30 UTC (was weekly Mon). 2026-08-24: the Gate A runtime crawl moved off the
+    # per-deploy path to this schedule. Measured over 320 gate runs fleet-wide, the crawl was
+    # 71.4 percent of gate wall time (2202 of 3084 min) and here 7.8 min of a 9.8 min run, while
+    # the file comment below still claimed ~1.2 min. Discovery of NEW dialog surfaces is a daily
+    # concern; the assertions stay on every deploy.
+    - cron: '30 6 * * *'
   workflow_dispatch: {}
 
 concurrency:
@@ -32,11 +37,63 @@ env:
   NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
 
 jobs:
+  # ---------------------------------------------------------------------------------------
+  # PER-DEPLOY: the v11 assertions only. No crawl, no seed. ~2 min instead of ~10.
+  # The Gate A COVERAGE DENOMINATOR is excluded here and only here, because it reads
+  # playwright/.gate-a/crawl-manifest.json which only the crawl writes. It is not weakened:
+  # it still runs, in the `full` job below, in the same job as the crawl that feeds it, and it
+  # still FAILS on a missing manifest (v11-gates.spec.ts asserts existsSync(...) is true).
+  # Excluding it here rather than letting it read a stale manifest is the point: scoring a
+  # previous run's crawl is the exact defect the ORDER MATTERS comment below was written for.
+  # ---------------------------------------------------------------------------------------
   gates:
     runs-on: ubuntu-latest
-    timeout-minutes: 40  # v11 gates + the Gate A runtime crawl (8 routes x 2 widths, ~1.2 min)
-    # Skip when a Deploy run FAILED (nothing new to verify); always run on schedule/manual.
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 15
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run v11 hardened gates against staging (coverage denominator runs in `full`)
+        run: npx playwright test --config playwright.v11-gates.config.ts --grep-invert "coverage denominator"
+        env:
+          STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
+          STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
+          BB_MGMT_TOKEN: ${{ secrets.BB_MGMT_TOKEN }}
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: v11-gates-report
+          path: playwright-report/
+
+  # ---------------------------------------------------------------------------------------
+  # DAILY + MANUAL: seed -> crawl -> the FULL v11 suite including the coverage denominator.
+  # Unchanged from what used to run after every deploy; only its cadence changed.
+  # ---------------------------------------------------------------------------------------
+  full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40  # v11 gates + the Gate A runtime crawl (measured 7.8 min/run, 2026-08-24)
+    if: ${{ github.event_name != 'workflow_run' }}
     steps:
       - uses: actions/checkout@v5
 
