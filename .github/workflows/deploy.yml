@@ -248,7 +248,17 @@ jobs:
 
   # 3. Run Playwright E2E against the deployed staging site — the gate that protects prod
   gate-e2e:
-    if: github.event_name != 'push'
+    # SERIALIZED behind gate-integration on purpose: both jobs use the ONE staging
+    # database. gate-integration writes rows that move the number the app computes
+    # (a 400 CHF Beitrag, a 1250.50 bootkonto Ausgabe, both summed by
+    # src/hooks/useKontoberechnung.ts), and gate-e2e loads /finanzen and /dashboard.
+    # Run in parallel, either gate can fail on the other gate's in-flight rows, which
+    # is a failure that says nothing about the commit being promoted.
+    # `!cancelled()` keeps the E2E signal even when integration goes red, so one bad
+    # run still reports both gates rather than hiding one behind the other. Prod stays
+    # blocked either way: the deploy job needs gate-integration as well.
+    needs: gate-integration
+    if: ${{ !cancelled() && github.event_name != 'push' }}
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:

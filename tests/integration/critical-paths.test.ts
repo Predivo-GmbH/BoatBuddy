@@ -9,16 +9,73 @@ import { q } from './_transient'
 const STAGING_URL = process.env.STAGING_SUPABASE_URL ?? 'https://svpewgbwousyheohlrtt.supabase.co'
 const STAGING_ANON = process.env.STAGING_SUPABASE_ANON_KEY ?? ''
 
-// This suite runs against shared staging in BOTH workflows (CPT test.yml + Deploy
-// deploy.yml) on every push, so two runs hit the same DB concurrently. Shift every
-// date that participates in a unique constraint — reservierungen(datum,fahrer),
-// beitraege(fahrer,monat) — by a per-run offset so concurrent runs can't collide.
-const RUN_OFFSET_DAYS = Number(String(process.env.GITHUB_RUN_ID ?? Date.now()).replace(/\D/g, '').slice(-7)) % 4000
+// ---------------------------------------------------------------------------
+// ISOLATION
+//
+// This suite writes into the SHARED staging database. The staging site, the E2E
+// gate and the next run of this very suite all read the same rows, so a run can
+// be failed by another run's leftovers: a failure that says nothing about the
+// commit under test, and that trains everyone to just hit rerun.
+//
+// Three rules stop that:
+//
+//   1. MARKER  every row this suite writes carries RUN_TAG in `notiz`. That makes
+//              its rows always distinguishable from real staging data and from
+//              the Gate A fixtures, which never carry the prefix.
+//   2. SWEEP   beforeAll deletes marked rows older than the grace window. This is
+//              not belt-and-braces: test.yml sets `cancel-in-progress: true`, so a
+//              superseded run is KILLED mid-suite and vitest's afterAll never
+//              runs. Orphaned rows are routine, not hypothetical.
+//   3. PROVEN  afterAll deletes this run's rows and then RE-QUERIES to prove they
+//              are gone. Swallowing a failed delete is exactly how a shared
+//              database starts carrying state between runs.
+//
+// Dates that feed a constraint are still shifted per run (see `d`), because two
+// runs genuinely can overlap: the daily scheduled Deploy and a push-triggered
+// test.yml run are different workflows hitting one database.
+// ---------------------------------------------------------------------------
+const MARKER = '[itest]'
+const RUN_ID = process.env.GITHUB_RUN_ID ?? 'local'
+// The ATTEMPT is part of the key on purpose. GITHUB_RUN_ID is UNCHANGED when a
+// failed run is re-run, so without it a rerun reuses the exact dates of the
+// attempt that just left rows behind, and then fails on its own garbage.
+const RUN_ATTEMPT = process.env.GITHUB_RUN_ATTEMPT ?? '1'
+const RUN_TAG = `${MARKER} run=${RUN_ID}.${RUN_ATTEMPT}`
+
+const RUN_KEY = `${RUN_ID}.${RUN_ATTEMPT}`.replace(/\D/g, '') || String(Date.now())
+const RUN_OFFSET_DAYS = Number(RUN_KEY.slice(-7)) % 4000
+
+// Shift every date that participates in a constraint. Live constraints as of
+// migration 028: beitraege has `unique (fahrer, monat)` (001); reservierungen no
+// longer has `unique (datum, fahrer)`, because 028 dropped it and replaced it with
+// the GiST exclusion `reservierungen_no_overlap`, which two concurrent runs can
+// still violate on the same driver and slot, so the shift stays.
+//
+// The base year in the callers below is deliberately outside anything real or
+// seeded: staging carries a hand-seeded beitraege set on the 1st of every month of
+// 2026 for roger/dani/jan, and a shifted 2026 date can land exactly on one of those.
 const d = (iso: string): string => {
   const dt = new Date(iso + 'T00:00:00Z')
   dt.setUTCDate(dt.getUTCDate() + RUN_OFFSET_DAYS)
   return dt.toISOString().slice(0, 10)
 }
+
+// Every table this suite writes to. All seven carry `notiz` and `erstellt_am`
+// (checked against supabase/migrations), which is what makes the sweep possible.
+// boot_stats is deliberately absent, see the Boot Stats block below.
+const WRITTEN_TABLES = [
+  'beitraege',
+  'ausgaben',
+  'kontostand_snapshots',
+  'reservierungen',
+  'gastsessions',
+  'nutzungslogs',
+  'ferien',
+] as const
+
+// A suite still in flight is younger than this; anything marked and older than it
+// belongs to a run that is long gone.
+const SWEEP_GRACE_MINUTES = 30
 
 let supabase: SupabaseClient
 
@@ -27,17 +84,54 @@ let supabase: SupabaseClient
 // cleanly instead of failing on an empty-key client.
 const describeStaging = STAGING_ANON ? describe : describe.skip
 
-beforeAll(() => {
+beforeAll(async () => {
   if (!STAGING_ANON) return
   supabase = createClient(STAGING_URL, STAGING_ANON)
+
+  // Clear what earlier runs could not clear themselves.
+  const cutoff = new Date(Date.now() - SWEEP_GRACE_MINUTES * 60_000).toISOString()
+  for (const table of WRITTEN_TABLES) {
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .like('notiz', `${MARKER}%`)
+      .lt('erstellt_am', cutoff)
+    if (error) {
+      throw new Error(`orphan sweep failed on ${table}: ${error.message}`)
+    }
+  }
 })
 
 // Cleanup IDs
 const cleanup: { table: string; id: string }[] = []
 
 afterAll(async () => {
+  if (!STAGING_ANON) return
+
+  const failures: string[] = []
+
   for (const { table, id } of cleanup.reverse()) {
-    await supabase.from(table).delete().eq('id', id)
+    const { error } = await supabase.from(table).delete().eq('id', id)
+    if (error) failures.push(`delete ${table}/${id}: ${error.message}`)
+  }
+
+  // Deleting by id and hoping is how the leftovers appear in the first place.
+  for (const table of WRITTEN_TABLES) {
+    const { data, error } = await supabase.from(table).select('id').eq('notiz', RUN_TAG)
+    if (error) {
+      failures.push(`verify ${table}: ${error.message}`)
+      continue
+    }
+    if (data.length > 0) {
+      failures.push(`${data.length} row(s) survived cleanup in ${table}`)
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(
+      `staging cleanup did not complete for ${RUN_TAG}. Later runs would be judged on ` +
+        `these rows:\n  ${failures.join('\n  ')}`,
+    )
   }
 })
 
@@ -46,7 +140,7 @@ describeStaging('Beitraege (contributions)', () => {
     const { data, error } = await q(() =>
       supabase
         .from('beitraege')
-        .insert({ fahrer: 'roger', betrag: 400, monat: d('2026-01-01') })
+        .insert({ fahrer: 'roger', betrag: 400, monat: d('2031-01-01'), notiz: RUN_TAG })
         .select()
         .single(),
     )
@@ -59,20 +153,24 @@ describeStaging('Beitraege (contributions)', () => {
   })
 
   test('unique constraint on fahrer+monat', async () => {
-    const { data } = await q(() =>
+    const { data, error } = await q(() =>
       supabase
         .from('beitraege')
-        .insert({ fahrer: 'dani', betrag: 400, monat: d('2026-02-01') })
+        .insert({ fahrer: 'dani', betrag: 400, monat: d('2031-02-01'), notiz: RUN_TAG })
         .select()
         .single(),
     )
 
+    // The duplicate below is only meaningful if the FIRST insert landed. Assert it,
+    // so a broken setup names itself instead of surfacing two lines down as a
+    // confusing "expected undefined to be 23505".
+    expect(error).toBeNull()
     cleanup.push({ table: 'beitraege', id: data!.id })
 
     const { error: dupError } = await q(() =>
       supabase
         .from('beitraege')
-        .insert({ fahrer: 'dani', betrag: 400, monat: d('2026-02-01') })
+        .insert({ fahrer: 'dani', betrag: 400, monat: d('2031-02-01'), notiz: RUN_TAG })
         .select()
         .single(),
     )
@@ -93,7 +191,7 @@ describeStaging('Ausgaben (expenses)', () => {
           kategorie: 'service',
           datum: '2026-03-15',
           bezahlt_von: 'bootkonto',
-          notiz: 'Integration test',
+          notiz: RUN_TAG,
         })
         .select()
         .single(),
@@ -120,6 +218,7 @@ describeStaging('Ausgaben (expenses)', () => {
           bezahlt_von: 'bootkonto',
           dokument_pfad: 'test-file.pdf',
           verarbeitungs_status: 'verarbeitung',
+          notiz: RUN_TAG,
         })
         .select()
         .single(),
@@ -137,7 +236,7 @@ describeStaging('Kontostand (balance snapshots)', () => {
     const { data, error } = await q(() =>
       supabase
         .from('kontostand_snapshots')
-        .insert({ betrag: 5432.10, datum: '2026-06-01', notiz: 'Test' })
+        .insert({ betrag: 5432.10, datum: '2026-06-01', notiz: RUN_TAG })
         .select()
         .single(),
     )
@@ -155,10 +254,10 @@ describeStaging('Reservierungen (calendar)', () => {
         .from('reservierungen')
         .insert({
           fahrer: 'roger',
-          datum: d('2026-07-15'),
+          datum: d('2031-07-15'),
           von_zeit: '10:00',
           bis_zeit: '14:00',
-          notiz: 'Wakesurfen',
+          notiz: RUN_TAG,
         })
         .select()
         .single(),
@@ -166,7 +265,7 @@ describeStaging('Reservierungen (calendar)', () => {
 
     expect(error).toBeNull()
     expect(data!.fahrer).toBe('roger')
-    expect(data!.datum).toBe(d('2026-07-15'))
+    expect(data!.datum).toBe(d('2031-07-15'))
     cleanup.push({ table: 'reservierungen', id: data!.id })
   })
 })
@@ -181,6 +280,7 @@ describeStaging('Gastsessions', () => {
           bezahlt_an: 'roger',
           datum: '2026-06-01',
           auf_konto_eingezahlt: false,
+          notiz: RUN_TAG,
         })
         .select()
         .single(),
@@ -204,6 +304,7 @@ describeStaging('Nutzungslogs (usage)', () => {
           betriebsstunden: 2.5,
           treibstoff_liter: 45,
           aktivitaeten: [{ typ: 'wakesurfen', dauer_min: 120 }],
+          notiz: RUN_TAG,
         })
         .select()
         .single(),
@@ -216,22 +317,24 @@ describeStaging('Nutzungslogs (usage)', () => {
 })
 
 describeStaging('Boot Stats', () => {
-  test('insert and read boot stats', async () => {
-    const { data, error } = await q(() =>
-      supabase
-        .from('boot_stats')
-        .insert({
-          gesamtstunden: 150,
-          modell: 'Mastercraft X2',
-          kaufdatum: '2023-04-01',
-        })
-        .select()
-        .single(),
-    )
+  // READ-ONLY on purpose. boot_stats is a SINGLETON: the app reads it with
+  // `.limit(1).maybeSingle()` and no ORDER BY (src/hooks/useBootStats.ts:12-15,
+  // src/hooks/useKontoberechnung.ts:21). A second row therefore makes which row
+  // the app sees arbitrary, and a test row has no `startsaldo`, which silently
+  // moves the account balance on /finanzen for anyone reading staging at that
+  // moment, including the E2E gate, which loads exactly that page. Inserting a
+  // second row exercised a path the product never takes, at the cost of
+  // corrupting every concurrent reader.
+  //
+  // The length assertion IS the isolation check: if it ever fails, some run left
+  // a second row behind.
+  test('singleton row is present and readable', async () => {
+    const { data, error } = await q(() => supabase.from('boot_stats').select('*'))
 
     expect(error).toBeNull()
-    expect(data!.modell).toBe('Mastercraft X2')
-    cleanup.push({ table: 'boot_stats', id: data!.id })
+    expect(data).toHaveLength(1)
+    expect(data![0].modell).toBeTruthy()
+    expect(Number(data![0].gesamtstunden)).toBeGreaterThanOrEqual(0)
   })
 })
 
@@ -242,9 +345,9 @@ describeStaging('Ferien (vacations)', () => {
         .from('ferien')
         .insert({
           fahrer: 'roger',
-          von_datum: '2026-07-01',
-          bis_datum: '2026-07-14',
-          notiz: 'Sommerferien',
+          von_datum: d('2031-07-01'),
+          bis_datum: d('2031-07-14'),
+          notiz: RUN_TAG,
         })
         .select()
         .single(),
@@ -252,8 +355,8 @@ describeStaging('Ferien (vacations)', () => {
 
     expect(error).toBeNull()
     expect(data!.fahrer).toBe('roger')
-    expect(data!.von_datum).toBe('2026-07-01')
-    expect(data!.bis_datum).toBe('2026-07-14')
+    expect(data!.von_datum).toBe(d('2031-07-01'))
+    expect(data!.bis_datum).toBe(d('2031-07-14'))
     cleanup.push({ table: 'ferien', id: data!.id })
   })
 })
