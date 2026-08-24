@@ -264,8 +264,13 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      # No cache-hit guard. On GitHub's throwaway machines, skipping the install on a cache hit
+      # is a safe optimisation. On a persistent self-hosted runner it is a correctness bug: the
+      # cache reports a hit while ~/.cache/ms-playwright holds a DIFFERENT browser build, the
+      # install is skipped, and every test dies with "Executable doesn't exist". Observed
+      # 2026-08-24 on run 32745305595: host had chromium-1208, this repo needs 1223.
+      # `playwright install` is idempotent and returns in seconds when the build is present.
       - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Verify staging is alive (catches .htaccess errors)
