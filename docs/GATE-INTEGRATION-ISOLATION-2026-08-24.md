@@ -112,7 +112,75 @@ Run against the live staging project `svpewgbwousyheohlrtt`, not a mock.
 The last two lines are the ones that matter: the guard catches contamination rather than
 tolerating it, and the sweep does not eat a concurrent run's work.
 
-## 5. Left alone deliberately
+Then in real CI, not only locally:
+
+| Run | Result |
+|---|---|
+| `32780230765` Critical Path Tests, commit `8d3044a` | `Tests 12 passed (12)`, critical-path `72 passed` |
+| `32780230732` Deploy, staging lane, same commit | success |
+| Marker residue in all seven tables after that CI run | empty on every one; `boot_stats` back to exactly 1 row |
+| `32817771415` Deploy, full gauntlet, `confirm=no` | see below, this is the run that exercises the new `gate-e2e` ordering |
+
+Gauntlet run `32817771415` (`confirm=no`, commit `8d3044a`, 2026-08-25):
+
+```
+gate-integration: success
+gate-e2e:         success   <- started 06:38:10Z, AFTER gate-integration finished
+gate-security:    failure   <- NOT this change, see below
+deploy-staging:   skipped
+deploy:           skipped   <- correct, the job requires confirm == 'deploy'
+```
+
+`gate-e2e` starting only after `gate-integration` completed is the serialization working. Before
+this change the two started together and shared the staging database at the same moment.
+
+`gate-security` failed for a reason that has nothing to do with this work, which is worth naming
+precisely because it is the same class of problem this whole item is about. Its log:
+
+```
+python3 -m pip install --quiet semgrep
+error: externally-managed-environment
+x This environment is externally managed
+```
+
+That is PEP 668. The step never installed semgrep and never scanned anything. It appeared with
+the move to self-hosted runners (`a3447d4`, 2026-08-24 15:30Z); the last green `gate-security`
+was run `32698878410` on `24f61d5`, which still ran on a GitHub-hosted box. Ubuntu 24.04's
+system python refuses a system-wide `pip install`. This is recorded here and handed over as its
+own piece of work, NOT fixed inside this item. It matters: the `deploy` job needs
+`gate-security`, so while it is red no BoatBuddy production promotion can pass, and the runner
+migration covered the whole fleet, so other repos are likely in the same state.
+
+## 5. There is nothing here to promote to production
+
+Asked on 2026-08-25 whether this still needs a production promotion. It does not, and here is
+why, with the checks that prove it rather than an assurance.
+
+Commit `8d3044a` touched three files: `.github/workflows/deploy.yml`,
+`tests/integration/critical-paths.test.ts`, `docs/GATE-INTEGRATION-ISOLATION-2026-08-24.md`.
+**No application source file.**
+
+Widening to everything on `main` since the last production promotion (`24f61d5`, run
+`32698878410`, 2026-08-24 06:49Z), ten commits landed and
+`git diff --name-only 24f61d5..8d3044a -- src public index.html package.json vite.config.ts supabase/`
+returns exactly one file: `package.json`. That diff is a single line,
+`@predivo-gmbh/gate-kit ^0.2.5` to `^0.2.11`, and gate-kit is:
+
+- in `devDependencies`, not `dependencies` (`node -e` over package.json returns
+  `dependencies gate-kit: []`), and
+- imported nowhere under `src/` (`grep -rn "gate-kit" src/` returns nothing).
+
+So the built bundle is unchanged from what production already serves. A promotion would ship
+the identical site. **The correct closeout for this item is no promotion at all**, not a
+no-op deploy that muddies the production history.
+
+What the change does need is a run of the FULL gauntlet, because the `gate-e2e` ordering only
+takes effect on a `workflow_dispatch` or the nightly schedule, never on a push. That was run
+deliberately with `confirm=no` (run `32817771415`), which exercises every gate in the new
+serialized order and cannot reach the `deploy` job, since that job requires
+`confirm == 'deploy'`. Result recorded in section 4.
+
+## 6. Left alone deliberately
 
 `useBootStats.ts:12-15` and `useKontoberechnung.ts:21` read a singleton table with `.limit(1)`
 and no `ORDER BY`. With one row that is harmless, and production has one row. It is noted here
