@@ -366,9 +366,24 @@ jobs:
       # code for injection / XSS / hardcoded secrets. `.semgrepignore` excludes test/dev files
       # (example tokens + fixtures = false positives). --severity=ERROR = highest confidence;
       # --error fails the gate on a real finding.
+      # Installed into the runner user's OWN home (~/.local), never system-wide. Since these
+      # jobs moved onto our own machine the system Python is externally managed, so a bare
+      # `pip install` dies with PEP 668 "externally-managed-environment" and the whole security
+      # gate cannot start, which blocks every production promotion. It installed NOTHING and
+      # scanned NOTHING before failing, so this repo had a security gate that never ran, from
+      # the runner move on 2026-08-24 until this fix. A virtualenv is the textbook alternative
+      # but that runner has no python3-venv and installing it needs root we do not hold.
+      # `--user` writes only to the invoking user's site-packages, so --break-system-packages
+      # here cannot touch the system Python. Verified on the runner host: installs clean as
+      # user `roger`, semgrep 1.174.0. Same shape as signalscore, which has been green on our
+      # own runner since 2026-08-25 (run 32810003771).
       - name: SAST scan (semgrep)
         run: |
-          python3 -m pip install --quiet semgrep
+          python3 -m pip install --quiet --user --break-system-packages semgrep
+          # ~/.local/bin must be ON PATH, not just addressed directly: the `semgrep`
+          # launcher execs a sibling `pysemgrep` and dies with
+          # "Unix_error: No such file or directory execvp pysemgrep" if it cannot find it.
+          export PATH="$HOME/.local/bin:$PATH"
           semgrep scan --config=p/security-audit --config=p/secrets --severity=ERROR --error --metrics=off .
 
   deploy:
