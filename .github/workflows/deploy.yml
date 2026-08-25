@@ -352,7 +352,7 @@ jobs:
           curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | tar -xz -C /tmp gitleaks
           chmod +x /tmp/gitleaks
       - name: 'Secret scan: working tree (BLOCKING - new committed-file leaks)'
-        run: /tmp/gitleaks dir . --no-banner --redact --exit-code 1
+        run: /tmp/gitleaks dir . --no-banner --redact -v --exit-code 1
       - name: 'Secret scan: full history (AUDIT only, non-blocking - historical secrets rotated-dead 2026-07-07, deliberate no-scrub)'
         run: /tmp/gitleaks git . --no-banner --redact --log-opts=--all --exit-code 0 || true
       - uses: actions/setup-node@v5
