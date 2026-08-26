@@ -25,6 +25,17 @@ jobs:
   critical-path:
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 10
+    env:
+      # Ubuntu 26.04 (what our self-hosted runners came up on, 2026-08-25) has no Playwright
+      # browser build: `npx playwright install chromium` dies with "Playwright does not
+      # support chromium on ubuntu26.04-x64". No newer Playwright fixes this - it is already
+      # current - so this is Playwright's own documented escape hatch, and it selects exactly
+      # the fallback Playwright itself applies to any distro it does not recognise.
+      # Must be JOB-level, not on the install step: the browser cache path is keyed by host
+      # platform, so install and the test run have to resolve the same key or the run will
+      # not find what install downloaded. The "-x64" suffix is required; a bare "ubuntu24.04"
+      # is rejected the same way. Harmless on GitHub-hosted runners, which resolve to it anyway.
+      PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
     steps:
       - uses: actions/checkout@v5
 
