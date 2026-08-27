@@ -28,7 +28,12 @@ on:
   push:
     branches: [main]
     paths-ignore:
+      # '*.md' matches ROOT-LEVEL markdown only in GitHub Actions, so a docs-only change
+      # in any subfolder still triggered a full deploy. No markdown in this repo is a
+      # build input (checked for `import ... .md`, `?raw` and import.meta.glob), so it
+      # is safe to ignore markdown at any depth.
       - '*.md'
+      - '**/*.md'
       - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
