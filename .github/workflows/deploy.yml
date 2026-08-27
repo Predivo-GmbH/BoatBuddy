@@ -456,23 +456,66 @@ jobs:
           echo "FTP auth OK - $(printf '%s\n' "$OUT" | grep -c '') entries at the account root."
 
       - name: Verify staging gate (this commit passed staging + E2E on push)
+        # curl + grep only. No `gh`, no `jq`. This repo's jobs run on our own machines, where
+        # `gh` is not on the runner service's PATH: it was installed after the runner was
+        # configured, so the service's cached PATH predates it, and passwordless sudo is
+        # deliberately absent so the service cannot be restarted to pick it up. The gate died
+        # with "gh: command not found" (exit 127), which meant NO production promotion could
+        # pass at all - a gate cannot say yes if it cannot run. Same fix as BackOffice and
+        # Cockpit (2026-08-25): a deploy gate must not depend on a tool that happens to be on
+        # the host. curl is everywhere, and the REST API needs nothing but the token in scope.
+        # The gate's MEANING is unchanged: a green staging run for this exact commit, or else
+        # the docs/chore-only fallback against the last staged commit.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
           SHA="${{ github.sha }}"
+          API="https://api.github.com/repos/$GH_REPO"
+          # A failed request returns empty, never a false "yes": every check below is
+          # fail-closed, so a network problem blocks the promotion instead of waving it through.
+          # -f makes curl fail (empty output, non-zero) on any non-2xx, so a 406/403/429 error
+          # BODY can never reach a grep/awk parser as if it were content. Combined with `|| true`
+          # this keeps the "failed request returns empty" contract above literally true.
+          api() { curl -fsS -m 30 -H "Authorization: Bearer $GH_TOKEN" -H "Accept: $2" "$1" || true; }
+          json() { api "$1" 'application/vnd.github+json'; }
+
           echo "Checking for a green staging run of commit $SHA ..."
-          OK=$(gh run list --workflow deploy.yml --branch main --event push --limit 50 \
-                 --json headSha,conclusion \
-                 --jq "[.[] | select(.headSha==\"$SHA\" and .conclusion==\"success\")] | length")
+          # head_sha= filters server-side, so a "success" anywhere in this payload can only
+          # belong to THIS commit's own run. That is what makes reading it without jq safe -
+          # nothing has to be paired up by position.
+          OK=$(json "$API/actions/workflows/deploy.yml/runs?branch=main&event=push&head_sha=$SHA&per_page=50" \
+                 | grep -c '"conclusion": *"success"' || true)
           if [ "${OK:-0}" -lt 1 ]; then
             echo "HEAD $SHA has no direct staging run; checking if only docs/chore changed since the last staged commit ..."
             SAFE='^(docs/|.*\.md$|README|LICENSE|\.gitignore$|\.gitleaks\.toml$|\.gitleaksignore$)'
             PROMOTABLE=0
-            for BASE in $(gh run list --workflow deploy.yml --branch main --event push --limit 100 --json headSha,conclusion --jq '.[] | select(.conclusion=="success") | .headSha'); do
-              STATUS=$(gh api "repos/$GH_REPO/compare/$BASE...$SHA" --jq '.status' 2>/dev/null) || continue
-              case "$STATUS" in ahead|identical) ;; *) continue ;; esac
-              NONDOC=$(gh api "repos/$GH_REPO/compare/$BASE...$SHA" --jq '(.files // [])[].filename' 2>/dev/null | grep -vE "$SAFE" || true)
+            # status=success returns ONLY green runs, so every head_sha here is by definition a
+            # commit that passed staging - again no field pairing.
+            BASES=$(json "$API/actions/workflows/deploy.yml/runs?branch=main&event=push&status=success&per_page=100" \
+                      | grep -o '"head_sha": *"[0-9a-f]\{40\}"' | awk -F'"' '{print $4}')
+            for BASE in $BASES; do
+              # The first "status" in a compare payload is the top-level one; the per-file
+              # "status" values live later, inside .files.
+              STATUS=$(json "$API/compare/$BASE...$SHA" | grep -o '"status": *"[a-z]*"' | head -1 | awk -F'"' '{print $4}')
+              case "${STATUS:-}" in ahead|identical) ;; *) continue ;; esac
+              # Capture the diff ONCE, then PROVE it is a real diff before trusting its emptiness.
+              # A failed compare request (a 406 on an oversized diff, a 403/429 rate-limit body, a
+              # timeout, a dropped connection) yields a body with no "diff --git" header; reading
+              # that empty result as "only docs changed" is fail-OPEN and would promote untested
+              # code off a transient API blip. So an 'ahead' compare must SHOW a diff header or we
+              # skip this base. 'identical' is the one legitimately empty diff, so it is exempt.
+              DIFF=$(api "$API/compare/$BASE...$SHA" 'application/vnd.github.diff')
+              case "$STATUS" in
+                identical) ;;
+                *) printf '%s' "$DIFF" | grep -q '^diff --git ' || continue ;;
+              esac
+              # The diff media type gives the changed paths as plain text, so there is no JSON
+              # to walk at all. Both sides of the header are checked, so a rename cannot slip an
+              # app file past this on its new name. NONDOC is derived from the SAME proven $DIFF.
+              NONDOC=$(printf '%s' "$DIFF" \
+                         | awk '/^diff --git /{print substr($3,3); print substr($4,3)}' \
+                         | sort -u | grep -vE "$SAFE" || true)
               if [ -z "$NONDOC" ]; then echo "Only docs/chore changed since staged commit $BASE (status=$STATUS); app tree matches a staged state. Promoting."; PROMOTABLE=1; break; fi
             done
             if [ "$PROMOTABLE" -ne 1 ]; then
@@ -480,7 +523,7 @@ jobs:
               exit 1
             fi
           fi
-          echo "Staging gate passed — commit $SHA has a green staging run. Promoting to production."
+          echo "Staging gate passed - commit $SHA has a green staging run. Promoting to production."
 
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
