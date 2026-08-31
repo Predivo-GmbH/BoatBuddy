@@ -250,6 +250,10 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASS }}
           ASSETS_DIR: staging.boatbuddy.predivo.ch/assets
         run: |
+          # GitHub wraps every run block in bash -e: a failing command substitution in an
+          # assignment (e.g. LIST=$(lftp ...)) would abort the whole step BEFORE the script's
+          # own rc guards run. Cleanup must never abort mid-run — disable -e first.
+          set +e
           set -u
           export TZ=UTC
           DAYS=14
@@ -735,6 +739,10 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASS }}
           ASSETS_DIR: boatbuddy.predivo.ch/assets
         run: |
+          # GitHub wraps every run block in bash -e: a failing command substitution in an
+          # assignment (e.g. LIST=$(lftp ...)) would abort the whole step BEFORE the script's
+          # own rc guards run. Cleanup must never abort mid-run — disable -e first.
+          set +e
           set -u
           export TZ=UTC
           DAYS=14
