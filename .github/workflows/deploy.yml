@@ -282,6 +282,7 @@ jobs:
           # vanishes (550) between listing and probing.
           PROBE_SCRIPT=$(mktemp)
           {
+            echo "open -u $FTP_USER,$FTP_PASS ftp://$FTP_HOST"
             echo "$SETTINGS"
             # find prints full remote paths ("$ASSETS_DIR/<nested>/file", recursively);
             # normalize to a path relative to ASSETS_DIR so either output format is safe.
@@ -298,7 +299,7 @@ jobs:
             echo "quit"
           } > "$PROBE_SCRIPT"
 
-          OUT=$(timeout 420 lftp -u "$FTP_USER,$FTP_PASS" "ftp://$FTP_HOST" -f "$PROBE_SCRIPT" 2>&1)
+          OUT=$(timeout 420 lftp -f "$PROBE_SCRIPT" 2>&1)
           rm -f "$PROBE_SCRIPT"
 
           # Pair each PROBE: line with the following 213/550 reply; 14-digit UTC
@@ -320,13 +321,14 @@ jobs:
 
           DEL_SCRIPT=$(mktemp)
           {
+            echo "open -u $FTP_USER,$FTP_PASS ftp://$FTP_HOST"
             echo "$SETTINGS"
             # lftp rm does NOT glob-expand - hashed names are passed verbatim.
             # $OLD already holds full remote paths (the PROBE: values).
             echo "$OLD" | while IFS= read -r f; do echo "rm $f"; done
             echo "quit"
           } > "$DEL_SCRIPT"
-          DEL_OUT=$(timeout 300 lftp -u "$FTP_USER,$FTP_PASS" "ftp://$FTP_HOST" -f "$DEL_SCRIPT" 2>&1)
+          DEL_OUT=$(timeout 300 lftp -f "$DEL_SCRIPT" 2>&1)
           rm -f "$DEL_SCRIPT"
           echo "$DEL_OUT"
           echo "Asset prune: deleted $COUNT file(s) older than $DAYS days from $ASSETS_DIR."
@@ -771,6 +773,7 @@ jobs:
           # vanishes (550) between listing and probing.
           PROBE_SCRIPT=$(mktemp)
           {
+            echo "open -u $FTP_USER,$FTP_PASS ftp://$FTP_HOST"
             echo "$SETTINGS"
             # find prints full remote paths ("$ASSETS_DIR/<nested>/file", recursively);
             # normalize to a path relative to ASSETS_DIR so either output format is safe.
@@ -787,7 +790,7 @@ jobs:
             echo "quit"
           } > "$PROBE_SCRIPT"
 
-          OUT=$(timeout 420 lftp -u "$FTP_USER,$FTP_PASS" "ftp://$FTP_HOST" -f "$PROBE_SCRIPT" 2>&1)
+          OUT=$(timeout 420 lftp -f "$PROBE_SCRIPT" 2>&1)
           rm -f "$PROBE_SCRIPT"
 
           # Pair each PROBE: line with the following 213/550 reply; 14-digit UTC
@@ -809,13 +812,14 @@ jobs:
 
           DEL_SCRIPT=$(mktemp)
           {
+            echo "open -u $FTP_USER,$FTP_PASS ftp://$FTP_HOST"
             echo "$SETTINGS"
             # lftp rm does NOT glob-expand - hashed names are passed verbatim.
             # $OLD already holds full remote paths (the PROBE: values).
             echo "$OLD" | while IFS= read -r f; do echo "rm $f"; done
             echo "quit"
           } > "$DEL_SCRIPT"
-          DEL_OUT=$(timeout 300 lftp -u "$FTP_USER,$FTP_PASS" "ftp://$FTP_HOST" -f "$DEL_SCRIPT" 2>&1)
+          DEL_OUT=$(timeout 300 lftp -f "$DEL_SCRIPT" 2>&1)
           rm -f "$DEL_SCRIPT"
           echo "$DEL_OUT"
           echo "Asset prune: deleted $COUNT file(s) older than $DAYS days from $ASSETS_DIR."
