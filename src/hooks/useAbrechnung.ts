@@ -8,9 +8,14 @@ export function useAbrechnung() {
   const { data: config, isLoading } = useQuery({
     queryKey: ['abrechnung_config'],
     queryFn: async () => {
+      // abrechnung_config is a singleton (migration 031 enforces it in the database). Ordered for
+      // the same reason as useBootStats: this row's id is what updateConfig writes back to, so an
+      // undefined read would mean editing a row the user never saw.
       const { data, error } = await supabase
         .from('abrechnung_config')
         .select('*')
+        .order('aktualisiert_am', { ascending: true })
+        .order('id', { ascending: true })
         .limit(1)
         .maybeSingle()
       if (error) throw new Error(error.message)

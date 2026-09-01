@@ -18,7 +18,16 @@ export function useKontoberechnung() {
         supabase.from('beitraege').select('betrag'),
         supabase.from('gastsessions').select('betrag, auf_konto_eingezahlt'),
         supabase.from('ausgaben').select('betrag, bezahlt_von, erstattet'),
-        supabase.from('boot_stats').select('startsaldo').limit(1).maybeSingle(),
+        // Same singleton, same ordering as useBootStats — and here it matters twice over: this
+        // hook and useBootStats read boot_stats INDEPENDENTLY in the same page load, so two
+        // unordered reads could disagree and the balance shown would not be the balance edited.
+        supabase
+          .from('boot_stats')
+          .select('startsaldo')
+          .order('aktualisiert_am', { ascending: true })
+          .order('id', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
       ])
 
       if (beitraegeRes.error) throw new Error(beitraegeRes.error.message)

@@ -317,17 +317,18 @@ describeStaging('Nutzungslogs (usage)', () => {
 })
 
 describeStaging('Boot Stats', () => {
-  // READ-ONLY on purpose. boot_stats is a SINGLETON: the app reads it with
-  // `.limit(1).maybeSingle()` and no ORDER BY (src/hooks/useBootStats.ts:12-15,
-  // src/hooks/useKontoberechnung.ts:21). A second row therefore makes which row
-  // the app sees arbitrary, and a test row has no `startsaldo`, which silently
-  // moves the account balance on /finanzen for anyone reading staging at that
-  // moment, including the E2E gate, which loads exactly that page. Inserting a
-  // second row exercised a path the product never takes, at the cost of
-  // corrupting every concurrent reader.
+  // boot_stats is a SINGLETON. Until 2026-09-01 that was a convention and nothing
+  // else: the app read it with `.limit(1).maybeSingle()` and no ORDER BY
+  // (src/hooks/useBootStats.ts, src/hooks/useKontoberechnung.ts), then UPDATEd by
+  // the id it had read back — so a second row would make the settings screen edit
+  // a row the user was never shown. This block used to be READ-ONLY for exactly
+  // that reason: inserting a probe row would have moved the account balance on
+  // /finanzen for every concurrent reader, including the E2E gate.
   //
-  // The length assertion IS the isolation check: if it ever fails, some run left
-  // a second row behind.
+  // Migration 031 adds `unique ((true))` to both singleton tables, so a second row
+  // is now refused BY THE DATABASE. That makes the insert safe to attempt — and
+  // attempting it is the only way to know the constraint is really there. A guard
+  // nobody has watched reject something is not a guard.
   test('singleton row is present and readable', async () => {
     const { data, error } = await q(() => supabase.from('boot_stats').select('*'))
 
@@ -335,6 +336,35 @@ describeStaging('Boot Stats', () => {
     expect(data).toHaveLength(1)
     expect(data![0].modell).toBeTruthy()
     expect(Number(data![0].gesamtstunden)).toBeGreaterThanOrEqual(0)
+  })
+
+  test('the database REFUSES a second boot_stats row', async () => {
+    const { data, error } = await q(() =>
+      supabase.from('boot_stats').insert({ gesamtstunden: 0, modell: RUN_TAG }).select(),
+    )
+
+    // Must fail on the unique index, not merely "not appear".
+    expect(error).not.toBeNull()
+    expect(error!.code).toBe('23505')
+    expect(data).toBeNull()
+
+    // And the table is still the one row it was — proving the refusal happened
+    // before the write, not after it.
+    const { data: after } = await q(() => supabase.from('boot_stats').select('id'))
+    expect(after).toHaveLength(1)
+  })
+
+  test('the database REFUSES a second abrechnung_config row', async () => {
+    const { data, error } = await q(() =>
+      supabase.from('abrechnung_config').insert({ notiz: RUN_TAG }).select(),
+    )
+
+    expect(error).not.toBeNull()
+    expect(error!.code).toBe('23505')
+    expect(data).toBeNull()
+
+    const { data: after } = await q(() => supabase.from('abrechnung_config').select('id'))
+    expect(after).toHaveLength(1)
   })
 })
 

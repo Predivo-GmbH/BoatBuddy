@@ -8,9 +8,16 @@ export function useBootStats() {
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ['boot_stats'],
     queryFn: async () => {
+      // boot_stats is a singleton (migration 031 enforces it in the database). The ORDER BY is
+      // the belt to that braces: without one, limit(1) returns whatever row Postgres reaches
+      // first, which is only stable while there is exactly one row - and a developer's local
+      // database has not necessarily had 031 applied. Oldest-first because the seeded row is the
+      // authoritative one; id breaks any tie so the choice is total, never arbitrary.
       const { data, error } = await supabase
         .from('boot_stats')
         .select('*')
+        .order('aktualisiert_am', { ascending: true })
+        .order('id', { ascending: true })
         .limit(1)
         .maybeSingle()
       if (error) throw new Error(error.message)
