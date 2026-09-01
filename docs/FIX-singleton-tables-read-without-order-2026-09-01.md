@@ -59,11 +59,31 @@ Oldest-first because the seeded row is the authoritative one, with `id` as a tie
 is *total* and never arbitrary. This is the belt to the constraint's braces: it protects a
 developer's local database, which no migration has necessarily reached.
 
-**3. The read-only test became a real proof.** Inserting a second row is now safe *because the
-database must refuse it*, so the suite attempts exactly that against staging and asserts error code
-`23505` — plus a re-count afterwards, proving the refusal happened before the write rather than
-after it. Same pattern and same error code as the existing duplicate-`beitraege` test. A guard
-nobody has watched reject something is not a guard.
+**3. The tests assert the invariant, and I got this wrong once — recorded because the mistake is
+structural, not careless.**
+
+My first attempt added a test that inserted a second row and expected `23505`. It failed in CI, and
+worse than failing: **the insert succeeded**, leaving a marked row in each table on staging — exactly
+the corruption the read-only comment had been protecting against since it was written.
+
+The cause is an ordering fact about the workflow, not a slip: `deploy-staging` runs `npm test` at
+step 4 and **`Apply DB migrations to staging` at step 11**. The unit-test step therefore runs against
+the schema *as it was before this commit's migrations*. On the very push that introduces a
+constraint, a test asserting that constraint runs before the constraint exists. A test that must
+write in order to prove a negative is a bad trade in a shared database.
+
+What is in place instead:
+
+- **The migration proves itself.** `031`'s receipts block raises if either unique index is missing
+  after apply, so the constraint cannot be silently absent.
+- **The suite proves the invariant continuously**, without writing: `boot_stats` and now also
+  `abrechnung_config` are asserted to hold exactly one row. With the constraint in place, those can
+  only fail if something removed it.
+- **The residue is swept.** `beforeAll` now deletes any marked row from both singleton tables. They
+  are not in `WRITTEN_TABLES` because that loop filters on `erstellt_am`, a column neither table has.
+  No date grace window: a genuine singleton row never carries the test marker, so anything marked is
+  residue and goes immediately. That sweep runs *before* the migration step, so the next run clears
+  the two stray rows and then `031` applies cleanly against one row per table.
 
 ## Proven
 
@@ -71,11 +91,16 @@ nobody has watched reject something is not a guard.
 |---|---|
 | `npm run lint` | exit 0 |
 | `npm run build` (includes `tsc`) | exit 0 |
-| `npm test -- --run --passWithNoTests` | exit 0 — 179 passed, 14 skipped |
+| `npm test -- --run --passWithNoTests` | exit 0 |
 
-The 14 skipped are the staging integration tests, including the two new refusal tests: they are
-gated on staging credentials and run in CI's `gate-integration` job against the staging Supabase
-project, which is where the constraint is actually exercised.
+**And CI itself, which is the part that matters** — the first push (`8d4589f`) went **red**, which is
+how the ordering fault above was found rather than assumed. Run `33556798001`: `deploy-staging`
+**failure**, `2 failed | 191 passed`, and every downstream job (`gate-security`, `gate-integration`,
+`gate-e2e`, `deploy`) correctly **skipped**, so nothing shipped on a red gate. The follow-up commit
+removes the premature test, adds the residue sweep, and is what should be judged.
+
+The staging integration tests are gated on staging credentials, so they are skipped locally and run
+in CI against the staging Supabase project.
 
 ## Not done, deliberately
 

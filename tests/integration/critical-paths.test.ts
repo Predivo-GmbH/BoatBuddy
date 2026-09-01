@@ -100,6 +100,30 @@ beforeAll(async () => {
       throw new Error(`orphan sweep failed on ${table}: ${error.message}`)
     }
   }
+
+  // The SINGLETON tables need their own sweep, and they are not in WRITTEN_TABLES
+  // because the loop above filters on `erstellt_am`, a column neither of them has.
+  //
+  // This exists because of a real incident, not as a precaution: on 2026-09-01 a
+  // test in this file tried to prove the new single-row constraint by inserting a
+  // second row. It ran in deploy-staging, which executes `npm test` BEFORE it
+  // applies migrations, so the constraint was not there yet and the insert
+  // SUCCEEDED — leaving a marked row in each table. A second row in boot_stats
+  // silently moves the account balance on /finanzen for every reader, so these
+  // must be cleared even though nothing here is supposed to write them.
+  //
+  // No date filter: a genuine singleton row never carries the test marker, so
+  // anything marked is by definition residue and should go immediately.
+  for (const [table, column] of [
+    ['boot_stats', 'modell'],
+    ['boot_stats', 'notiz'],
+    ['abrechnung_config', 'notiz'],
+  ] as const) {
+    const { error } = await supabase.from(table).delete().like(column, `${MARKER}%`)
+    if (error) {
+      throw new Error(`singleton residue sweep failed on ${table}.${column}: ${error.message}`)
+    }
+  }
 })
 
 // Cleanup IDs
@@ -338,35 +362,34 @@ describeStaging('Boot Stats', () => {
     expect(Number(data![0].gesamtstunden)).toBeGreaterThanOrEqual(0)
   })
 
-  test('the database REFUSES a second boot_stats row', async () => {
-    const { data, error } = await q(() =>
-      supabase.from('boot_stats').insert({ gesamtstunden: 0, modell: RUN_TAG }).select(),
-    )
+  // abrechnung_config is the same shape and the same hazard, and had no assertion
+  // at all until now.
+  test('abrechnung_config is a singleton too', async () => {
+    const { data, error } = await q(() => supabase.from('abrechnung_config').select('*'))
 
-    // Must fail on the unique index, not merely "not appear".
-    expect(error).not.toBeNull()
-    expect(error!.code).toBe('23505')
-    expect(data).toBeNull()
-
-    // And the table is still the one row it was — proving the refusal happened
-    // before the write, not after it.
-    const { data: after } = await q(() => supabase.from('boot_stats').select('id'))
-    expect(after).toHaveLength(1)
-  })
-
-  test('the database REFUSES a second abrechnung_config row', async () => {
-    const { data, error } = await q(() =>
-      supabase.from('abrechnung_config').insert({ notiz: RUN_TAG }).select(),
-    )
-
-    expect(error).not.toBeNull()
-    expect(error!.code).toBe('23505')
-    expect(data).toBeNull()
-
-    const { data: after } = await q(() => supabase.from('abrechnung_config').select('id'))
-    expect(after).toHaveLength(1)
+    expect(error).toBeNull()
+    expect(data).toHaveLength(1)
   })
 })
+
+// WHY THERE IS NO "the database refuses a second row" TEST HERE, and where that
+// proof lives instead. I wrote one on 2026-09-01 and it was WRONG in a way worth
+// recording, because the mistake is structural rather than careless:
+//
+//   deploy-staging runs `npm test` at step 4 and `Apply DB migrations to staging`
+//   at step 11. The unit-test step therefore runs against the schema as it was
+//   BEFORE this commit's migrations. On the very push that introduces a
+//   constraint, a test asserting that constraint runs before it exists.
+//
+// So the test did not merely fail — the INSERT SUCCEEDED, which is exactly the
+// staging corruption the read-only comment above had been protecting against
+// since the block was written. A test that has to write in order to prove a
+// negative is a bad trade in a shared database.
+//
+// The proof lives where it cannot be premature: migration 031 asserts its own
+// end state after applying (it raises if either unique index is missing), and the
+// two `toHaveLength(1)` assertions above are the continuous check — with the
+// constraint in place they can only fail if something removed it.
 
 describeStaging('Ferien (vacations)', () => {
   test('insert vacation', async () => {
