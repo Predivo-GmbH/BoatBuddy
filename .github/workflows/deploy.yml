@@ -143,6 +143,13 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
           VITE_GATE_PASSWORD_HASH: ${{ secrets.VITE_GATE_PASSWORD_HASH }}
 
+      # The FTP mirror below uploads ./dist/ wholesale. vite's publicDir is `public/`, so
+      # docs/ (which holds the gitignored credentials file and its rotation backups) does
+      # not reach dist today - but "does not today" is an observation, not a control. This
+      # makes the upload REFUSE rather than merely happen to be safe.
+      - name: Guard - nothing credential-shaped may reach the FTP upload
+        run: node scripts/guard-credential-files.mjs --dir dist
+
       - name: Prepare staging .htaccess (real prod config + Basic auth + noindex)
         run: |
           # Start from the REAL production .htaccess (from the build) so staging catches
@@ -647,6 +654,11 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_GATE_PASSWORD_HASH: ${{ secrets.VITE_GATE_PASSWORD_HASH }}
+
+      # Same control as staging: the mirror below uploads ./dist/ wholesale to the live
+      # site, so the upload refuses instead of merely happening to be safe.
+      - name: Guard - nothing credential-shaped may reach the FTP upload
+        run: node scripts/guard-credential-files.mjs --dir dist
 
       - name: Deploy via FTP (zero-downtime)
         env:
