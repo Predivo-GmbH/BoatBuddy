@@ -77,10 +77,100 @@ const WRITTEN_TABLES = [
 // belongs to a run that is long gone.
 const SWEEP_GRACE_MINUTES = 30
 
-// vitest's default hook timeout is 10s, which is fine for an assertion and far too
-// short for a housekeeping hook that makes one round trip per table to a hosted
-// database. See the note on the cleanup hook below for what that cost on 2026-09-02.
-const SETUP_TIMEOUT_MS = 120_000
+
+// ---------------------------------------------------------------------------
+// WHAT THE HOUSEKEEPING HOOKS COST, AND WHY THEY ARE MEASURED
+//
+// On 2026-09-02 the production promotion (run 33635288942) failed with
+// "Hook timed out in 10000ms" pointing at afterAll, while all 13 tests passed.
+// Nothing about the product was broken. The hook was simply doing its work in a
+// QUEUE: 9 row-by-row deletes followed by 7 verification selects, each one
+// awaited before the next was issued, against a hosted database whose per-round-
+// trip cost in that run measured ~630ms (from the per-test timings in the log).
+// 16 x 630ms = ~10.1s against vitest's DEFAULT 10s hook budget. The cost was
+// latency x round trips with no headroom, so the hook did not fail because
+// staging was down - it failed the first time staging was slightly slow.
+//
+// It also LATCHES: a teardown cut off halfway leaves exactly the residue that
+// rules 2 and 3 above exist to prevent, so the next run is judged on this run's
+// rows.
+//
+// The fix is to stop queueing, not to buy a bigger budget. There is exactly ONE
+// foreign key among the seven written tables - nutzungslogs.reservierung_id ->
+// reservierungen(id), migration 029 - and it is ON DELETE SET NULL, so no delete
+// here can be blocked or ordered by another. Every stage below is therefore one
+// PARALLEL WAVE: ~2 round trips per hook instead of ~16.
+//
+// Two budgets, and the inner one is the one that matters:
+//
+//   STAGE_BUDGET_MS   What a stage is ALLOWED to cost. A stage is a single
+//                     network wave, ~1.5s at observed staging latency and ~3s
+//                     at the slowest single call ever recorded here (1522ms).
+//                     8s is generous for that and still TIGHTER than the old
+//                     10s default in the only sense that matters: it is per
+//                     stage, and blowing it names the stage instead of printing
+//                     a line number. If someone reintroduces per-row chatter,
+//                     that costs ~10s and this budget REFUSES it. A ceiling
+//                     high enough to hide a regression is not a gate.
+//
+//   HOOK_CEILING_MS   The outer net, and deliberately unreachable: two stages
+//                     against their own budgets cannot reach it. It exists only
+//                     so the stage's own message is what you read, never
+//                     vitest's anonymous "Hook timed out".
+//
+// Do NOT "fix" a future failure here by raising either number. Both are sized
+// against measured round-trip cost; if a stage no longer fits, it has started
+// doing its round trips in a queue again, and that is the thing to fix.
+// ---------------------------------------------------------------------------
+const STAGE_BUDGET_MS = 8_000
+const HOOK_CEILING_MS = 30_000
+
+// Runs one housekeeping stage against its own budget so a slow stage NAMES
+// itself. Promise.race attaches its handlers to `work` immediately, so a late
+// rejection from the abandoned work is still handled and cannot resurface as an
+// unhandled rejection.
+async function stage<T>(label: string, work: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      work(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `staging housekeeping stage "${label}" did not finish within ${STAGE_BUDGET_MS}ms. ` +
+                  'This stage is meant to be a single parallel wave of round trips. Exceeding ' +
+                  'the budget means it is issuing them one at a time again - fix the round ' +
+                  'trips, do not raise the budget.',
+              ),
+            ),
+          STAGE_BUDGET_MS,
+        )
+      }),
+    ])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+// One task per table, each reporting its own outcome instead of throwing, so a
+// single failure cannot hide the other six. A thrown transport error is folded
+// into the same shape: swallowing it is how a shared database starts carrying
+// state between runs.
+type TableOutcome = { table: string; error: string | null }
+
+const settle = async (
+  table: string,
+  run: () => PromiseLike<{ error: { message: string } | null }>,
+): Promise<TableOutcome> => {
+  try {
+    const { error } = await run()
+    return { table, error: error ? error.message : null }
+  } catch (e) {
+    return { table, error: e instanceof Error ? e.message : String(e) }
+  }
+}
 
 let supabase: SupabaseClient
 
@@ -93,67 +183,67 @@ beforeAll(async () => {
   if (!STAGING_ANON) return
   supabase = createClient(STAGING_URL, STAGING_ANON)
 
-  // Clear what earlier runs could not clear themselves.
+  // Clear what earlier runs could not clear themselves. All seven at once: see the
+  // foreign-key note above, nothing here can be blocked or ordered by anything else.
   const cutoff = new Date(Date.now() - SWEEP_GRACE_MINUTES * 60_000).toISOString()
-  for (const table of WRITTEN_TABLES) {
-    const { error } = await supabase
-      .from(table)
-      .delete()
-      .like('notiz', `${MARKER}%`)
-      .lt('erstellt_am', cutoff)
-    if (error) {
-      throw new Error(`orphan sweep failed on ${table}: ${error.message}`)
-    }
+  const swept = await stage('orphan sweep', () =>
+    Promise.all(
+      WRITTEN_TABLES.map(table =>
+        settle(table, () =>
+          supabase.from(table).delete().like('notiz', `${MARKER}%`).lt('erstellt_am', cutoff),
+        ),
+      ),
+    ),
+  )
+  const sweepFailures = swept.filter(r => r.error).map(r => `${r.table}: ${r.error}`)
+  if (sweepFailures.length > 0) {
+    throw new Error(`orphan sweep failed:\n  ${sweepFailures.join('\n  ')}`)
   }
 
   // The SINGLETON tables need their own sweep, and they are not in WRITTEN_TABLES
-  // because the loop above filters on `erstellt_am`, a column neither of them has.
+  // because the sweep above filters on `erstellt_am`, a column neither of them has.
   //
   // This exists because of a real incident, not as a precaution: on 2026-09-01 a
   // test in this file tried to prove the new single-row constraint by inserting a
   // second row. It ran in deploy-staging, which executes `npm test` BEFORE it
   // applies migrations, so the constraint was not there yet and the insert
-  // SUCCEEDED — leaving a marked row in each table. A second row in boot_stats
+  // SUCCEEDED - leaving a marked row in each table. A second row in boot_stats
   // silently moves the account balance on /finanzen for every reader, so these
   // must be cleared even though nothing here is supposed to write them.
   //
   // No date filter: a genuine singleton row never carries the test marker, so
   // anything marked is by definition residue and should go immediately.
-  for (const [table, column] of [
-    ['boot_stats', 'modell'],
-    ['boot_stats', 'notiz'],
-    ['abrechnung_config', 'notiz'],
-  ] as const) {
-    const { error } = await supabase.from(table).delete().like(column, `${MARKER}%`)
-    if (error) {
-      throw new Error(`singleton residue sweep failed on ${table}.${column}: ${error.message}`)
-    }
+  //
+  // The two boot_stats COLUMNS stay sequential with each other. Different tables
+  // cannot contend, but two concurrent deletes whose predicates can match the same
+  // row are the one case here that could take conflicting row locks, so they are
+  // one task; the tables around them still go at once.
+  const singletonSweeps: ReadonlyArray<readonly [string, readonly string[]]> = [
+    ['boot_stats', ['modell', 'notiz']],
+    ['abrechnung_config', ['notiz']],
+  ]
+  const singles = await stage('singleton residue sweep', () =>
+    Promise.all(
+      singletonSweeps.map(async ([table, columns]) => {
+        const failures: string[] = []
+        for (const column of columns) {
+          const outcome = await settle(`${table}.${column}`, () =>
+            supabase.from(table).delete().like(column, `${MARKER}%`),
+          )
+          if (outcome.error) failures.push(`${outcome.table}: ${outcome.error}`)
+        }
+        return failures
+      }),
+    ),
+  )
+  const singleFailures = singles.flat()
+  if (singleFailures.length > 0) {
+    throw new Error(`singleton residue sweep failed:\n  ${singleFailures.join('\n  ')}`)
   }
-  // Same reason as the cleanup hook below: this sweep is one round trip per table
-  // against a hosted database, and it must not be cut off by a timeout chosen for
-  // ordinary assertions. A sweep that half-ran leaves the residue it came to remove.
-}, SETUP_TIMEOUT_MS)
+}, HOOK_CEILING_MS)
 
 // Cleanup IDs
 const cleanup: { table: string; id: string }[] = []
-
-// The cleanup does one round trip per row and one per table, against a hosted
-// database ~600ms away. At 13 rows that is over 20 round trips, and vitest's
-// DEFAULT hook timeout is 10 seconds — so on 2026-09-02 the suite reported
-// "13 passed / 1 failed" with the failure being the cleanup being cut off, not
-// a broken critical path. Worse, a cleanup killed halfway leaves exactly the
-// residue rules 2 and 3 above exist to prevent, so the next run inherits it.
-//
-// Two changes, and the second is the one that matters:
-//   * the deletes are BATCHED per table (one `.in('id', ...)` instead of one
-//     call per row) and the verification queries run in PARALLEL, which takes
-//     the cleanup from ~20 sequential round trips to roughly one per table;
-//   * the hook is given an explicit, generous timeout. A cleanup that must not
-//     be interrupted should never be racing a default that was chosen for
-//     ordinary assertions.
-// Tables are still emptied in reverse order of first write, so a foreign key
-// cannot be orphaned; only the per-row chatter inside a table is collapsed.
-const CLEANUP_TIMEOUT_MS = 120_000
 
 afterAll(async () => {
   if (!STAGING_ANON) return
@@ -161,32 +251,48 @@ afterAll(async () => {
   const failures: string[] = []
 
   const byTable = new Map<string, string[]>()
-  for (const { table, id } of [...cleanup].reverse()) {
+  for (const { table, id } of cleanup) {
     const ids = byTable.get(table)
     if (ids) ids.push(id)
     else byTable.set(table, [id])
   }
 
-  for (const [table, ids] of byTable) {
-    const { error } = await supabase.from(table).delete().in('id', ids)
-    if (error) failures.push(`delete ${ids.length} row(s) from ${table}: ${error.message}`)
+  // One batched delete per table, and all tables at once. The per-row chatter that
+  // blew the 10s budget is gone entirely: ~9 round trips became one wave.
+  const deleted = await stage('delete the rows this run wrote', () =>
+    Promise.all(
+      [...byTable].map(([table, ids]) =>
+        settle(`${table} (${ids.length} row(s))`, () =>
+          supabase.from(table).delete().in('id', ids),
+        ),
+      ),
+    ),
+  )
+  for (const { table, error } of deleted) {
+    if (error) failures.push(`delete from ${table}: ${error}`)
   }
 
   // Deleting by id and hoping is how the leftovers appear in the first place.
-  // These are reads, so they have no ordering constraint and can go at once.
-  const verified = await Promise.all(
-    WRITTEN_TABLES.map(async table => {
-      const { data, error } = await supabase.from(table).select('id').eq('notiz', RUN_TAG)
-      return { table, data, error }
-    }),
+  // These are reads with no ordering constraint at all, so they go as one wave.
+  const verified = await stage('verify the rows are gone', () =>
+    Promise.all(
+      WRITTEN_TABLES.map(async table => {
+        try {
+          const { data, error } = await supabase.from(table).select('id').eq('notiz', RUN_TAG)
+          return { table, count: data ? data.length : 0, error: error ? error.message : null }
+        } catch (e) {
+          return { table, count: 0, error: e instanceof Error ? e.message : String(e) }
+        }
+      }),
+    ),
   )
-  for (const { table, data, error } of verified) {
+  for (const { table, count, error } of verified) {
     if (error) {
-      failures.push(`verify ${table}: ${error.message}`)
+      failures.push(`verify ${table}: ${error}`)
       continue
     }
-    if (data && data.length > 0) {
-      failures.push(`${data.length} row(s) survived cleanup in ${table}`)
+    if (count > 0) {
+      failures.push(`${count} row(s) survived cleanup in ${table}`)
     }
   }
 
@@ -196,7 +302,8 @@ afterAll(async () => {
         `these rows:\n  ${failures.join('\n  ')}`,
     )
   }
-}, CLEANUP_TIMEOUT_MS)
+}, HOOK_CEILING_MS)
+
 
 describeStaging('Beitraege (contributions)', () => {
   test('insert and read beitrag', async () => {
