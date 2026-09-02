@@ -36,7 +36,7 @@ Triggered by the "shouldn't this go staging→prod?" discussion. BoatBuddy was t
 auto-deploying prod on push. It now matches the house standard (ReplyFlow/Valrano).
 
 **Staging environment** (all provisioned + verified):
-- `https://staging.boatbuddy.predivo.ch` — Basic-auth (`staging`/`predivo2026`), noindex, wildcard SSL
+- `https://staging.boatbuddy.predivo.ch` — Basic-auth (`staging`/`<see docs/Credentials.txt>`), noindex, wildcard SSL
 - Staging Supabase `svpewgbwousyheohlrtt`, synced to prod schema (migrations 019–027)
 - Same FTP creds as prod (same predivo.ch subscription) — see Credentials.txt
 

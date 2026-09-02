@@ -5,7 +5,7 @@ import { defineConfig } from '@playwright/test'
 // needs BB_MGMT_TOKEN (Management API) + BB_SVC_KEY (staging service key). Run by
 // staging-gates.yml (post-deploy + weekly), NOT part of the prod-promotion gauntlet.
 // Run locally with:
-//   STAGING_HTPASSWD_USER=staging STAGING_HTPASSWD_PASS=predivo2026 \
+//   STAGING_HTPASSWD_USER=staging STAGING_HTPASSWD_PASS=<see docs/Credentials.txt> \
 //   BB_MGMT_TOKEN=sbp_... BB_SVC_KEY=sb_secret_... \
 //   npx playwright test --config playwright.v11-gates.config.ts
 const STAGING_URL = process.env.STAGING_URL ?? 'https://staging.boatbuddy.predivo.ch'

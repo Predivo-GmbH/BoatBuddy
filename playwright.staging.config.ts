@@ -4,7 +4,7 @@ import { defineConfig } from '@playwright/test'
 // which sits behind HTTP Basic auth (.htpasswd). Credentials come from CI env so they are
 // never committed. Run locally with:
 //   STAGING_URL=https://staging.boatbuddy.predivo.ch \
-//   STAGING_HTPASSWD_USER=staging STAGING_HTPASSWD_PASS=predivo2026 \
+//   STAGING_HTPASSWD_USER=staging STAGING_HTPASSWD_PASS=<see docs/Credentials.txt> \
 //   npm run test:e2e:staging
 const STAGING_URL = process.env.STAGING_URL ?? 'https://staging.boatbuddy.predivo.ch'
 

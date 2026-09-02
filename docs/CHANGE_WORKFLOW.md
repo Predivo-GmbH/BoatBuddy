@@ -54,7 +54,7 @@ For any accented text (ä ö ü ß) written through a tool, write UTF-8 and **re
 
 | | Production | Staging |
 |---|---|---|
-| Frontend | https://boatbuddy.predivo.ch | https://staging.boatbuddy.predivo.ch (.htpasswd: `staging` / `predivo2026`, noindex) |
+| Frontend | https://boatbuddy.predivo.ch | https://staging.boatbuddy.predivo.ch (.htpasswd: `staging` / `<see docs/Credentials.txt>`, noindex) |
 | Supabase | `xzythvxmuxmczuiophwp` | `svpewgbwousyheohlrtt` |
 | Deploy trigger | manual `workflow_dispatch confirm=deploy` | push to `main` |
 

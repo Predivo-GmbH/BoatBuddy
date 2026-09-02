@@ -14,7 +14,7 @@ import { defineConfig, devices } from '@playwright/test'
  * 2026-08-20 before its credentials were wired in.
  *
  * Run locally:
- *   STAGING_HTPASSWD_USER=staging STAGING_HTPASSWD_PASS=predivo2026 \
+ *   STAGING_HTPASSWD_USER=staging STAGING_HTPASSWD_PASS=<see docs/Credentials.txt> \
  *   npx playwright test --config playwright.gate-a-crawl.config.ts
  */
 const STAGING_URL = process.env.STAGING_URL ?? 'https://staging.boatbuddy.predivo.ch'
