@@ -26,3 +26,13 @@ docs/Credentials.txt
 *.njsproj
 *.sln
 *.sw?
+
+# A BACKUP OF A CREDENTIALS FILE IS STILL A CREDENTIALS FILE (added 2026-09-02).
+# `docs/Credentials.txt` was already ignored above, but a rotation left
+# `docs/Credentials.txt.bak-2026-08-30-before-mailbox-pw` sitting untracked in the working tree and
+# NOT matched by anything here - one careless `git add .` from being committed. BoatBuddy has no
+# user accounts, so the one shared password in that file is the whole door for all three owners.
+# Patterned rather than named, so the next rotation's backup is covered without anyone remembering.
+docs/Credentials.txt*
+**/Credentials.txt*
+**/credentials.txt*
