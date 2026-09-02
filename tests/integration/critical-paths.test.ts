@@ -77,6 +77,11 @@ const WRITTEN_TABLES = [
 // belongs to a run that is long gone.
 const SWEEP_GRACE_MINUTES = 30
 
+// vitest's default hook timeout is 10s, which is fine for an assertion and far too
+// short for a housekeeping hook that makes one round trip per table to a hosted
+// database. See the note on the cleanup hook below for what that cost on 2026-09-02.
+const SETUP_TIMEOUT_MS = 120_000
+
 let supabase: SupabaseClient
 
 // These tests hit a live staging Supabase project. Without STAGING_SUPABASE_ANON_KEY
@@ -124,29 +129,63 @@ beforeAll(async () => {
       throw new Error(`singleton residue sweep failed on ${table}.${column}: ${error.message}`)
     }
   }
-})
+  // Same reason as the cleanup hook below: this sweep is one round trip per table
+  // against a hosted database, and it must not be cut off by a timeout chosen for
+  // ordinary assertions. A sweep that half-ran leaves the residue it came to remove.
+}, SETUP_TIMEOUT_MS)
 
 // Cleanup IDs
 const cleanup: { table: string; id: string }[] = []
+
+// The cleanup does one round trip per row and one per table, against a hosted
+// database ~600ms away. At 13 rows that is over 20 round trips, and vitest's
+// DEFAULT hook timeout is 10 seconds — so on 2026-09-02 the suite reported
+// "13 passed / 1 failed" with the failure being the cleanup being cut off, not
+// a broken critical path. Worse, a cleanup killed halfway leaves exactly the
+// residue rules 2 and 3 above exist to prevent, so the next run inherits it.
+//
+// Two changes, and the second is the one that matters:
+//   * the deletes are BATCHED per table (one `.in('id', ...)` instead of one
+//     call per row) and the verification queries run in PARALLEL, which takes
+//     the cleanup from ~20 sequential round trips to roughly one per table;
+//   * the hook is given an explicit, generous timeout. A cleanup that must not
+//     be interrupted should never be racing a default that was chosen for
+//     ordinary assertions.
+// Tables are still emptied in reverse order of first write, so a foreign key
+// cannot be orphaned; only the per-row chatter inside a table is collapsed.
+const CLEANUP_TIMEOUT_MS = 120_000
 
 afterAll(async () => {
   if (!STAGING_ANON) return
 
   const failures: string[] = []
 
-  for (const { table, id } of cleanup.reverse()) {
-    const { error } = await supabase.from(table).delete().eq('id', id)
-    if (error) failures.push(`delete ${table}/${id}: ${error.message}`)
+  const byTable = new Map<string, string[]>()
+  for (const { table, id } of [...cleanup].reverse()) {
+    const ids = byTable.get(table)
+    if (ids) ids.push(id)
+    else byTable.set(table, [id])
+  }
+
+  for (const [table, ids] of byTable) {
+    const { error } = await supabase.from(table).delete().in('id', ids)
+    if (error) failures.push(`delete ${ids.length} row(s) from ${table}: ${error.message}`)
   }
 
   // Deleting by id and hoping is how the leftovers appear in the first place.
-  for (const table of WRITTEN_TABLES) {
-    const { data, error } = await supabase.from(table).select('id').eq('notiz', RUN_TAG)
+  // These are reads, so they have no ordering constraint and can go at once.
+  const verified = await Promise.all(
+    WRITTEN_TABLES.map(async table => {
+      const { data, error } = await supabase.from(table).select('id').eq('notiz', RUN_TAG)
+      return { table, data, error }
+    }),
+  )
+  for (const { table, data, error } of verified) {
     if (error) {
       failures.push(`verify ${table}: ${error.message}`)
       continue
     }
-    if (data.length > 0) {
+    if (data && data.length > 0) {
       failures.push(`${data.length} row(s) survived cleanup in ${table}`)
     }
   }
@@ -157,7 +196,7 @@ afterAll(async () => {
         `these rows:\n  ${failures.join('\n  ')}`,
     )
   }
-})
+}, CLEANUP_TIMEOUT_MS)
 
 describeStaging('Beitraege (contributions)', () => {
   test('insert and read beitrag', async () => {
