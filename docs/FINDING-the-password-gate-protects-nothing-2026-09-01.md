@@ -1,3 +1,25 @@
+> # ⛔ DECIDED AND CLOSED BY ROGER — 2026-09-02. DO NOT REOPEN THIS.
+> 
+> **His words, verbatim:** *"I said that before, and this needs to be closed and written into the
+> memory and documented. Nothing has been shared when it comes to a password for the boat app.
+> Nothing needs to be changed. There is nothing to be fixed. Everything is fine. We don't need to do
+> anything. You can safely close this task."*
+> 
+> He was offered three options — individual logins per owner, moving the password check to the
+> server, or leaving it as it is — and he chose to leave it. **That is the owner's decision on his
+> own boat's expense book**, and it is a reasonable one: the address is not published anywhere, the
+> three people the data concerns are the three owners, and the data is what the boat cost.
+> 
+> **If you are a future session that has just rediscovered the open read path below: you have
+> rediscovered a DECISION, not a defect.** The measurement in this document is correct and stays
+> here for the record. It is not a finding to be re-raised, not a row to be reopened, and not
+> something to put in front of Roger again. He has now had to say so more than once, and being asked
+> a third time is the actual failure this banner exists to prevent.
+> 
+> A measurement is not a decision. This one was measured, presented, and answered.
+
+---
+
 # BoatBuddy: the shared password protects nothing
 
 **Date:** 2026-09-01
