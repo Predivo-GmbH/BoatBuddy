@@ -540,7 +540,8 @@ jobs:
               echo "::error::Commit $SHA has no staging run and changes app files since the last staged commit. Push to main, let staging go green, then promote."
               exit 1
             fi
-          fi          echo "Staging gate passed - commit $SHA has a green staging run. Promoting to production."
+          fi
+          echo "Staging gate passed - commit $SHA has a green staging run. Promoting to production."
 
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
