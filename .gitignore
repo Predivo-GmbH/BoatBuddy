@@ -36,3 +36,23 @@ docs/Credentials.txt
 docs/Credentials.txt*
 **/Credentials.txt*
 **/credentials.txt*
+
+# A BACKUP OF ANYTHING IS NEVER SOMETHING `git add .` SHOULD SWEEP UP (added 2026-09-02).
+# The fleet's rotation convention is `<name>.bak-YYYY-MM-DD-before-<what>`, so the next
+# rotation of ANY file - not only the credentials one - is covered without anyone remembering.
+*.bak
+*.bak-*
+*.orig
+*~
+
+# Playwright OUTPUT. A failing run writes an accessibility snapshot that can contain form
+# field VALUES, and CI already uploads playwright-report/ as an artifact; it must never
+# ALSO be committable. All four of these are generated, never authored.
+playwright-report/
+playwright/.gate-a/
+test-results/
+blob-report/
+
+# The name-based guard that enforces the block above, in CI where nothing can bypass it:
+#   node scripts/guard-credential-files.mjs            (audit this repo)
+#   node scripts/guard-credential-files.mjs --dir DIR  (audit any directory)

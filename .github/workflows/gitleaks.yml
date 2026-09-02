@@ -27,3 +27,22 @@ jobs:
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # gitleaks scans CONTENT for secret-shaped VALUES. It cannot see a credentials file
+  # that is correctly ignored today and one `git add -f` (or one deleted .gitignore
+  # line) away from being committed tomorrow - which is exactly what happened here on
+  # 2026-08-30, when a rotation left docs/Credentials.txt.bak-2026-08-30-before-mailbox-pw
+  # untracked and matched by nothing in .gitignore. This job scans NAMES instead, and
+  # asserts the ignore rules still bite on a case-sensitive runner.
+  credential-files:
+    name: No credential-shaped file is committable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Guard - no credential-shaped file is committable
+        run: node scripts/guard-credential-files.mjs
+      - name: Prove the guard refuses a decoy of the same shape
+        run: node --test scripts/guard-credential-files.test.mjs

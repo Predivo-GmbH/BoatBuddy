@@ -12,7 +12,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npx playwright test e2e/critical-path.spec.ts",
-    "test:e2e:staging": "playwright test --config playwright.staging.config.ts"
+    "test:e2e:staging": "playwright test --config playwright.staging.config.ts",
+    "guard:credentials": "node scripts/guard-credential-files.mjs",
+    "guard:credentials:test": "node --test scripts/guard-credential-files.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
