@@ -55,6 +55,35 @@ concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && 'deploy-production' || format('staging-{0}', github.ref) }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
+# ===========================================================================
+# NPM CACHE — deliberately absent. Do not add `cache: npm` back to setup-node.
+#
+# These jobs run on a persistent self-hosted runner, where ~/.npm is not a cache
+# that a job populates and throws away: it is a directory holding every package
+# this machine has ever installed, for every repo on it. On 2026-09-03 it stood at
+# 1,811,836,788 bytes. setup-node's cache-save post-step uploads that whole tree
+# whenever the key misses — which is precisely what a dependency-changing commit
+# does — at ~1.5 MB/s, so it needs roughly twenty minutes and no job here is given
+# that long. The job is killed at its timeout while every real step has already
+# passed, and GitHub reports the job as `cancelled`. `deploy` needs those jobs, so
+# it is skipped: a green pipeline that shipped nothing.
+#
+# Measured, not inferred — run 33718969126, job gate-integration (timeout-minutes: 10):
+#   4. Run npm ci                  -> success   (18s)
+#   5. Integration tests           -> success   (3s)
+#   9. Post Run actions/setup-node -> cancelled (9m34s, "Sent 1006632960 of
+#      1811836788 (55.6%), 1.7 MBs/sec", then "The operation was canceled.")
+# The same post-step killed gate-e2e in run 33642219997 and both 10-minute gates in
+# run 33640629837 — the three promotion attempts previously misread as sessions
+# cancelling each other. They cannot: `cancel-in-progress` is false for
+# workflow_dispatch (see above), so dispatched promotions queue, they never cancel.
+#
+# The cache also buys nothing here: npm ci already reads the host's ~/.npm directly.
+# On GitHub-hosted runners (what clearing RUNNER_LABEL falls back to) it would be a
+# small win, but npm ci for this project takes ~15s uncached, which is not worth a
+# post-step that can silently skip the production deploy.
+# ===========================================================================
+
 env:
   # Needed by npm ci: .npmrc points @predivo-gmbh at GitHub Packages.
   NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
@@ -120,7 +149,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
+        # No `cache: npm` on this runner — see the "NPM CACHE" note in deploy.yml.
       - run: npm ci
 
       - name: Lint
@@ -357,7 +386,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
+        # No `cache: npm` on this runner — see the "NPM CACHE" note in deploy.yml.
       - run: npm ci
       - name: Integration tests (staging Supabase)
         run: npx vitest run tests/integration/critical-paths.test.ts
@@ -398,9 +427,13 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
+        # No `cache: npm` on this runner — see the "NPM CACHE" note in deploy.yml.
       - run: npm ci
       - name: Cache Playwright browsers
+        # Skipped on the persistent self-hosted runner: ~/.cache/ms-playwright already
+        # survives there, so the save post-step is a multi-minute upload that buys nothing
+        # and can blow the job timeout. See the "NPM CACHE" note in deploy.yml.
+        if: runner.environment != 'self-hosted'
         id: playwright-cache
         uses: actions/cache@v5
         with:
@@ -644,7 +677,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
+        # No `cache: npm` on this runner — see the "NPM CACHE" note in deploy.yml.
       - run: npm ci
 
       - name: Build for production
