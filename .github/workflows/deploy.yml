@@ -490,7 +490,6 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
       - name: Dependency audit (blocking at high)
         run: npm audit --audit-level=high
       # SAST — code-level security (fleet-hardening Wave 2, proven route from project-starter).
