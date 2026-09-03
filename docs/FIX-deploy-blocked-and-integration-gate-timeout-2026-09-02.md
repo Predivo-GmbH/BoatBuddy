@@ -109,3 +109,13 @@ stays Roger's.
 were dispatching this workflow at once and the runs contend for the same concurrency group. So the
 E2E gate is unproven today. It is unrelated to either fault above (both of those are now green) but
 it is not evidence, and it is recorded here as missing rather than glossed.
+
+> **CORRECTION, 2026-09-03 — the explanation in the paragraph above is wrong.**
+> The cancellations were not sessions contending for a concurrency group. They cannot be:
+> `deploy.yml` sets `cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}`, so
+> dispatched promotions **queue** in the `deploy-production` group and never cancel one another.
+> Each of those runs was killed by its **own `timeout-minutes`**, during setup-node's cache-save
+> post-step, after every real step in the job had already passed. The saved `~/.npm` tree on the
+> persistent self-hosted runner had grown to 1.81 GB and uploads at ~1.5 MB/s.
+> Fixed in `ea74c45` by removing `cache: npm` fleet-wide in this repo's workflows.
+> Full account: [FIX-cache-upload-cancels-the-deploy-2026-09-03.md](FIX-cache-upload-cancels-the-deploy-2026-09-03.md).
