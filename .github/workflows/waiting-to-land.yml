@@ -1,0 +1,65 @@
+name: Nothing may sit ready to land
+
+# BLOCKING BY BEING RED, WHICH IS THE WHOLE POINT.
+#
+# 2026-09-06: SignalScore and ChannelMover could not be promoted to production all day. The
+# correct fix — one line of YAML — existed the entire time, in three open pull requests, green
+# and mergeable. The deploy watcher that wrote them is forbidden to merge (correct: an
+# unattended agent must not write to main) and NOTHING TOLD ANYBODY, so it re-diagnosed and
+# re-opened the same fix on its next run. Two further repairs had been green and mergeable in
+# those repositories since 2026-08-29 — eight days — and nobody had noticed those either.
+#
+# This repository is here because the FIRST fleet sweep with the new check, run the same day,
+# found two more waiting elsewhere. The pattern is not one product's; it is ours.
+#
+# A boundary that hands work to a human who is never told is a boundary that drops the work.
+# This job is the telling. It grants nobody merge rights and loosens no boundary; it turns a
+# silent wait into a red scheduled run, in the machinery the deploy page and the production
+# monitor already read.
+#
+# The check itself is gate-kit's, shared by all six products (conformance/waiting-to-land.js,
+# 13 tests). It has no branch filter and no author filter on purpose: two of the four pull
+# requests behind it were on `fix/...` branches, and every pull request here is authored by the
+# shared Predivo-GmbH identity, so neither field can tell an agent's fix from anyone else's.
+#
+# To stop it complaining about a pull request that is waiting DELIBERATELY: mark it draft, or
+# label it `parked`. That is a positive act — silence is never read as consent.
+
+on:
+  schedule:
+    # Staggered across the fleet so the products do not all call the API in the same minute.
+    - cron: '50 6,12,18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  # `checks: read` is required to read a pull request's check-runs, and its absence is why the
+  # first live run of this job exited 2 with "HTTP 403". SignalScore and ChannelMover had passed
+  # the same code minutes earlier only because neither had an open pull request to look at — a
+  # green run that proved nothing, which is the failure this whole day is about. The check itself
+  # behaved correctly: it refused loudly rather than reporting nothing found.
+  checks: read
+
+env:
+  # Needed by npm ci: .npmrc points @predivo-gmbh at GitHub Packages.
+  NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
+
+jobs:
+  waiting-to-land:
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Is anything ready to land and not landing?
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GRACE_HOURS: '3'
+        run: node node_modules/@predivo-gmbh/gate-kit/scripts/verify-nothing-waits-to-land.mjs
