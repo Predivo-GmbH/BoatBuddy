@@ -716,35 +716,53 @@ jobs:
           OK=$(json "$API/actions/workflows/deploy.yml/runs?branch=main&event=push&head_sha=$SHA&per_page=50" \
                  | grep -c '"conclusion": *"success"' || true)
           if [ "${OK:-0}" -lt 1 ]; then
-            echo "HEAD $SHA has no direct staging run; checking if only docs/chore changed since the last staged commit ..."
+            echo "HEAD $SHA has no direct staging run; checking if only docs/chore changed since a recently staged commit ..."
             SAFE='^(docs/|.*\.md$|README|LICENSE|\.gitignore$|\.gitleaks\.toml$|\.gitleaksignore$)'
+            # The refuse path USED TO download a full compare diff per base (application/vnd.github.diff,
+            # each capped at the 30s curl timeout) for ~100 bases, so a genuine refusal could exceed the
+            # 20-min job timeout and surface to the operator as "timed out" instead of its real reason.
+            # Two changes make refusal cheap WITHOUT weakening the gate (verdict is unchanged):
+            #   1. ONE JSON compare per base yields BOTH the top-level ahead/identical status AND the
+            #      changed files (files[].filename / .previous_filename) - no separate full-diff download.
+            #   2. A hard cap on bases walked: bases come newest-first, so the legitimate docs-only case
+            #      (a docs commit pushed right after a staged app commit) resolves in the first iteration.
+            #      If none of the most recent MAX_BASES staged commits match, we REFUSE explicitly
+            #      (fail-closed) with a message that says so - never silently, never past the timeout.
+            MAX_BASES=30
             PROMOTABLE=0
-            # status=success returns ONLY green runs, so every head_sha here is by definition a
-            # commit that passed staging - again no field pairing.
+            # status=success returns ONLY green runs, so every head_sha here is by definition a commit
+            # that passed staging - and newest-first, so the common case resolves immediately.
             BASES=$(json "$API/actions/workflows/deploy.yml/runs?branch=main&event=push&status=success&per_page=100" \
                       | grep -o '"head_sha": *"[0-9a-f]\{40\}"' | awk -F'"' '{print $4}')
+            i=0
             for BASE in $BASES; do
-              # The first "status" in a compare payload is the top-level one; the per-file
-              # "status" values live later, inside .files.
-              STATUS=$(json "$API/compare/$BASE...$SHA" | grep -o '"status": *"[a-z]*"' | head -1 | awk -F'"' '{print $4}')
+              i=$((i+1))
+              if [ "$i" -gt "$MAX_BASES" ]; then
+                echo "::error::Commit $SHA has no staging run and still differs in app files from each of the $MAX_BASES most recently staged commits. Push to main, let staging go green, then promote."
+                exit 1
+              fi
+              # ONE JSON compare gives the top-level status AND the file list. The first "status" in a
+              # compare payload is the top-level one; the per-file "status" values live later inside
+              # .files, so head -1 is the compare status. A failed request yields empty (curl -f), so a
+              # 406/403/429 body can never be parsed as content.
+              CMP=$(json "$API/compare/$BASE...$SHA")
+              STATUS=$(printf '%s' "$CMP" | grep -o '"status": *"[a-z]*"' | head -1 | awk -F'"' '{print $4}')
               case "${STATUS:-}" in ahead|identical) ;; *) continue ;; esac
-              # Capture the diff ONCE, then PROVE it is a real diff before trusting its emptiness.
-              # A failed compare request (a 406 on an oversized diff, a 403/429 rate-limit body, a
-              # timeout, a dropped connection) yields a body with no "diff --git" header; reading
-              # that empty result as "only docs changed" is fail-OPEN and would promote untested
-              # code off a transient API blip. So an 'ahead' compare must SHOW a diff header or we
-              # skip this base. 'identical' is the one legitimately empty diff, so it is exempt.
-              DIFF=$(api "$API/compare/$BASE...$SHA" 'application/vnd.github.diff')
+              # Real JSON keys are "filename":/"previous_filename": (clean quotes); the same strings
+              # appearing INSIDE a patch body are backslash-escaped (\"filename\":) and do NOT match, so
+              # diff content cannot spoof a path. Both sides of a rename are read, so a rename cannot
+              # slip an app file past this on either name.
+              FILES=$(printf '%s' "$CMP" \
+                        | grep -oE '"(filename|previous_filename)": *"[^"]*"' | awk -F'"' '{print $4}' | sort -u)
+              # Fail-CLOSED on a truncated/empty payload: an 'ahead' compare ALWAYS lists at least one
+              # changed file, so no filenames means the request failed (an oversized-compare 406, a
+              # rate-limit body, a timeout). Reading that as "nothing changed" would promote untested
+              # code off a transient API blip, so skip this base. 'identical' is the one legitimately
+              # empty compare, so it is exempt.
               case "$STATUS" in
-                identical) ;;
-                *) printf '%s' "$DIFF" | grep -q '^diff --git ' || continue ;;
+                ahead) [ -z "$FILES" ] && continue ;;
               esac
-              # The diff media type gives the changed paths as plain text, so there is no JSON
-              # to walk at all. Both sides of the header are checked, so a rename cannot slip an
-              # app file past this on its new name. NONDOC is derived from the SAME proven $DIFF.
-              NONDOC=$(printf '%s' "$DIFF" \
-                         | awk '/^diff --git /{print substr($3,3); print substr($4,3)}' \
-                         | sort -u | grep -vE "$SAFE" || true)
+              NONDOC=$(printf '%s' "$FILES" | grep -vE "$SAFE" || true)
               if [ -z "$NONDOC" ]; then echo "Only docs/chore changed since staged commit $BASE (status=$STATUS); app tree matches a staged state. Promoting."; PROMOTABLE=1; break; fi
             done
             if [ "$PROMOTABLE" -ne 1 ]; then
