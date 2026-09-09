@@ -97,6 +97,33 @@ jobs:
   #    suites run on the nightly + prod-promotion gauntlet below, NOT here.
   # ===========================================================================
   deploy-staging:
+    # ---------------------------------------------------------------------------
+    # SINGLE WRITER FOR THE ONE STAGING SITE (added 2026-09-09, board row
+    # a-production-release-test-can-be-failed-by-an-unrelated).
+    #
+    # The workflow-level `concurrency:` above deliberately puts pushes and promotions in
+    # DIFFERENT groups, and each half of that is right on its own: a mid-flight FTP mirror to
+    # PRODUCTION must never be cancelled, and a burst of pushes only needs the newest staged.
+    # Together they mean a promotion and a push can run AT THE SAME TIME on the same ref - and
+    # then `deploy-staging` is FTP-mirroring new files over the staging site while the release
+    # gates are driving a browser against exactly that site. A release test then fails on a
+    # half-uploaded site with nothing wrong with the release at all. Measured on ReplyFlow
+    # 2026-09-02: dispatch 33627614494 (12:00:54Z) overlapped push 33627544651 (12:00:13Z) on
+    # the same commit; the health check passed against the OLD staging still up, then a page
+    # navigation timed out on all three attempts inside the FTP replacement window. The same
+    # gate had passed twice that day with no deploy in flight.
+    #
+    # This is a JOB-level group, not a change to the workflow-level one, and that is the point:
+    # it serialises only the jobs that touch the staging site, so pushes still cancel each other
+    # and promotions still refuse to be cancelled. cancel-in-progress MUST stay false -
+    # cancelling either half is the failure this exists to prevent, not the remedy.
+    #
+    # Proven on ReplyFlow first; this is the same change on the rest of the fleet, which the
+    # 2026-09-02 finding named explicitly as sharing the shape.
+    # ---------------------------------------------------------------------------
+    concurrency:
+      group: staging-site-${{ github.ref }}
+      cancel-in-progress: false
     if: github.event_name == 'push'
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 20
@@ -378,6 +405,33 @@ jobs:
   # ===========================================================================
   # 2. Integration tests against the staging Supabase DB.
   gate-integration:
+    # ---------------------------------------------------------------------------
+    # SINGLE WRITER FOR THE ONE STAGING SITE (added 2026-09-09, board row
+    # a-production-release-test-can-be-failed-by-an-unrelated).
+    #
+    # The workflow-level `concurrency:` above deliberately puts pushes and promotions in
+    # DIFFERENT groups, and each half of that is right on its own: a mid-flight FTP mirror to
+    # PRODUCTION must never be cancelled, and a burst of pushes only needs the newest staged.
+    # Together they mean a promotion and a push can run AT THE SAME TIME on the same ref - and
+    # then `deploy-staging` is FTP-mirroring new files over the staging site while the release
+    # gates are driving a browser against exactly that site. A release test then fails on a
+    # half-uploaded site with nothing wrong with the release at all. Measured on ReplyFlow
+    # 2026-09-02: dispatch 33627614494 (12:00:54Z) overlapped push 33627544651 (12:00:13Z) on
+    # the same commit; the health check passed against the OLD staging still up, then a page
+    # navigation timed out on all three attempts inside the FTP replacement window. The same
+    # gate had passed twice that day with no deploy in flight.
+    #
+    # This is a JOB-level group, not a change to the workflow-level one, and that is the point:
+    # it serialises only the jobs that touch the staging site, so pushes still cancel each other
+    # and promotions still refuse to be cancelled. cancel-in-progress MUST stay false -
+    # cancelling either half is the failure this exists to prevent, not the remedy.
+    #
+    # Proven on ReplyFlow first; this is the same change on the rest of the fleet, which the
+    # 2026-09-02 finding named explicitly as sharing the shape.
+    # ---------------------------------------------------------------------------
+    concurrency:
+      group: staging-site-${{ github.ref }}
+      cancel-in-progress: false
     if: github.event_name != 'push'
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 10
@@ -398,6 +452,33 @@ jobs:
 
   # 3. Run Playwright E2E against the deployed staging site — the gate that protects prod
   gate-e2e:
+    # ---------------------------------------------------------------------------
+    # SINGLE WRITER FOR THE ONE STAGING SITE (added 2026-09-09, board row
+    # a-production-release-test-can-be-failed-by-an-unrelated).
+    #
+    # The workflow-level `concurrency:` above deliberately puts pushes and promotions in
+    # DIFFERENT groups, and each half of that is right on its own: a mid-flight FTP mirror to
+    # PRODUCTION must never be cancelled, and a burst of pushes only needs the newest staged.
+    # Together they mean a promotion and a push can run AT THE SAME TIME on the same ref - and
+    # then `deploy-staging` is FTP-mirroring new files over the staging site while the release
+    # gates are driving a browser against exactly that site. A release test then fails on a
+    # half-uploaded site with nothing wrong with the release at all. Measured on ReplyFlow
+    # 2026-09-02: dispatch 33627614494 (12:00:54Z) overlapped push 33627544651 (12:00:13Z) on
+    # the same commit; the health check passed against the OLD staging still up, then a page
+    # navigation timed out on all three attempts inside the FTP replacement window. The same
+    # gate had passed twice that day with no deploy in flight.
+    #
+    # This is a JOB-level group, not a change to the workflow-level one, and that is the point:
+    # it serialises only the jobs that touch the staging site, so pushes still cancel each other
+    # and promotions still refuse to be cancelled. cancel-in-progress MUST stay false -
+    # cancelling either half is the failure this exists to prevent, not the remedy.
+    #
+    # Proven on ReplyFlow first; this is the same change on the rest of the fleet, which the
+    # 2026-09-02 finding named explicitly as sharing the shape.
+    # ---------------------------------------------------------------------------
+    concurrency:
+      group: staging-site-${{ github.ref }}
+      cancel-in-progress: false
     # SERIALIZED behind gate-integration on purpose: both jobs use the ONE staging
     # database. gate-integration writes rows that move the number the app computes
     # (a 400 CHF Beitrag, a 1250.50 bootkonto Ausgabe, both summed by
