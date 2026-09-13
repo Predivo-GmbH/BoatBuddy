@@ -37,14 +37,12 @@ on:
       - 'docs/**'
       - 'LICENSE'
       - '.gitignore'
-  # NO NIGHTLY CLOCK (removed 2026-09-12, Roger's decision).
-  # This workflow already fires on every code change, and nothing in this file is conditional on
-  # the schedule - so the nightly run re-ran the identical commit and could only ever report what
-  # the change-triggered run had already reported. Measured that day: 50 scheduled workflows across
-  # the fleet firing ~301 times a day, of which these repeats bought nothing.
-  # NOT removed from ReplyFlow's deploy.yml or test.yml: those two carry nightly-ONLY work (a
-  # feature E2E suite against staging, and a job that fires the real cron edge functions against
-  # production to catch a dead CRON_SECRET within a day). Read the file before adding a clock back.
+  # NIGHTLY, AND IT IS NOT A REPEAT OF THE PUSH RUN. Removed 2026-09-12 on the stated ground
+  # that push already covers it; measured 2026-09-13, push SKIPS gate-integration, gate-security
+  # and gate-e2e (ChannelMover run 34719595752), so this cron is the only daily run of them. The
+  # 2026-09-09 security advisory that blocked five products was caught by exactly this run.
+  schedule:
+    - cron: '35 4 * * *'
   workflow_dispatch:
     inputs:
       confirm:
