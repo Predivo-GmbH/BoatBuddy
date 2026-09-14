@@ -104,10 +104,17 @@ data?
    GraphQL is not 200, or when both pings are unreachable.
 
 `https://boatbuddy.predivo.ch` itself could **not** be loaded from our own machines during this
-work (connection refused / timed out from the work PC, from Chrome, and from an off-network
-fetch). That is the known Metanet edge condition already tracked in
-`metanet-blocked-our-ip-again-2026-09-09`, not something this change caused — the change touches
-only the Supabase project's auth settings, and the site is served from Metanet.
+work — connection timed out from the work PC and from Chrome, and a deploy died the same way at
+22:35Z on `curl exit 28` against the FTP host. That is the condition tracked in
+**`build-machine-cannot-reach-our-own-sites-2026-09-15`**: our own networks cannot reach
+80.74.145.155, while an external service fetching the same hosts gets HTTP 200 — so the sites
+are up for real people and it is our egress that is blocked. It is not something this change
+caused: the change touches only the Supabase project's auth settings, and the site is served
+from Metanet.
+
+(An off-premises fetch from a third network was *refused* rather than timed out, which suggests
+the block is broader than one address. That detail is on the row above; it does not change
+anything here.)
 
 ## The guard
 
