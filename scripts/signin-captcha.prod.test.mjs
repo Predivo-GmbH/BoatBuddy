@@ -47,8 +47,18 @@
  * on email/password/OTP/recovery Auth working. Captcha (matching ReplyFlow's fix) is the
  * fallback ONLY if some future code path turns out to need email auth after all.
  *
- * Both are Supabase Auth-settings changes — a production switch, Roger's call, applied via
- * the Management API, never by this script. This script only PROBES the live state.
+ * APPLIED 2026-09-15T00:1xZ, BOTH PROJECTS. `external_email_enabled` was set to false on
+ * production (xzythvxmuxmczuiophwp) AND staging (svpewgbwousyheohlrtt) over the Management
+ * API. It was not a preference between two valid options: with zero Supabase Auth call sites
+ * and zero rows in auth.users on either project, captcha would have gated a door no code
+ * opens, while turning the provider off removes the door. Measured red-then-green in the same
+ * session: this guard exited 1 ("state=open, tokenless /recover accepted (HTTP 200)") before
+ * the two PATCHes and 0 ("CLOSED via email-provider-off") after them.
+ * ROLLBACK, if some future code path ever needs email auth here, is the same call inverted:
+ *   PATCH https://api.supabase.com/v1/projects/<ref>/config/auth  {"external_email_enabled":true}
+ * and then captcha (ReplyFlow's fix) becomes the right shape instead — see
+ * docs/FIX-the-unauthenticated-recover-hole-2026-09-14.md.
+ * This script still only PROBES the live state; it never changes a setting.
  *
  * WHY THIS GUARD CHECKS FOR *EITHER* CLOSED STATE, NOT JUST CAPTCHA:
  * unlike ReplyFlow (which still needs email auth to work, so captcha is the only viable fix),
@@ -75,17 +85,17 @@
  * `.local` TLD is non-routable, so even a wide-open /recover here cannot reach a real person.
  * NEVER point this file at a real address.
  *
- * STAGING IS DELIBERATELY LEFT OPEN TODAY, AND THAT IS REPORTED, NOT SILENTLY ASSUMED — but
- * unlike ReplyFlow, nothing in this repo depends on staging continuing to accept a tokenless
- * auth request (no e2e spec here performs a real Supabase Auth sign-in; see above), so this
- * guard does NOT fail the run if staging's state ever changes — closing staging early would be
- * a strict improvement, never a regression, for this project. It is reported informationally so
- * the "why not enforced" note stays honest instead of stale.
+ * STAGING IS NOW ENFORCED TOO (2026-09-15). It was left unenforced only while it was still
+ * open, so the guard would not fail on a state nobody had fixed yet. Both projects are closed
+ * now, and staging has exactly the same shape as production — no Auth call sites, no rows in
+ * auth.users — so an unexplained reopening there is a regression, not a difference of opinion.
+ * A project that is legitimately reopened must also lose its `enforced: true` here, in the same
+ * change and with the reason written down, rather than being allowed to fail the guard quietly.
  *
  * Run: node scripts/signin-captcha.prod.test.mjs
- * Exit 0 = production (the only ENFORCED project) is CLOSED by one of the two valid mechanisms.
- * Exit 1 = production still accepts a tokenless /recover request (the hole is NOT closed), or
- *          no ENFORCED project could be probed at all.
+ * Exit 0 = every ENFORCED project is CLOSED by one of the two valid mechanisms.
+ * Exit 1 = an enforced project still accepts a tokenless /recover request (the hole is NOT
+ *          closed), or no ENFORCED project could be probed at all.
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -110,12 +120,9 @@ const PROJECTS = [
     // anonymously, so this project relies on $STAGING_ANON_KEY or the Management API fallback.
     site: null,
     anonEnv: 'STAGING_ANON_KEY',
-    enforced: false,
-    whyNotEnforced:
-      'no code in this repo performs a real Supabase Auth sign-in (see the header above — ' +
-      'BoatBuddy has no client-side Auth call sites at all), so leaving staging open blocks ' +
-      'nothing here and closing it is not sequenced by any technical dependency — only by ' +
-      'which project Roger applies the fix to first.',
+    // Enforced since 2026-09-15, when its email auth provider was turned off alongside
+    // production's. Same shape as production: no Supabase Auth call sites, auth.users empty.
+    enforced: true,
   },
 ]
 
