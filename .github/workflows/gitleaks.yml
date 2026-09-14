@@ -42,13 +42,27 @@ jobs:
       # --config is passed ONLY when the repo actually has a .gitleaks.toml: gitleaks
       # exits non-zero on a config path that does not exist, which would fail the step
       # for the wrong reason and look exactly like a leak.
+      # THE INVOCATION IS UNQUALIFIED ON PURPOSE (2026-09-14). The binary goes on PATH and is
+      # called as `gitleaks dir .`. That exact text is the fleet's one detectable shape for "this
+      # repo scans its working tree" — production-monitor scripts/lib/gitleaks-gate-scope.mjs,
+      # hasWorkingTreeScan(), /gitleaks\s+dir\s+\./. When this step moved off /tmp onto $RUNNER_TEMP
+      # the call became `"$RUNNER_TEMP/gitleaks" dir .`; the closing quote broke that match, and the
+      # live fleet gate reported FOUR repos as having no working-tree scan while all four were
+      # running one — a false red on every production-monitor PR (run 34814766454). The scan never
+      # stopped; only the proof that it existed did. Receipt that it was running all along:
+      # BoatBuddy run 34810626846, step "gitleaks (working tree)" scanned 2.79 MB, no leaks found.
+      #
+      # chmod targets $RUNNER_TEMP too. It used to chmod /tmp/gitleaks — a file this step no longer
+      # creates. It only kept passing because a stale /tmp/gitleaks is left lying around on the
+      # shared WSL runners; on a clean runner chmod would fail and redden the step for no reason.
       - name: gitleaks (working tree)
         run: |
           curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | tar -xz -C "$RUNNER_TEMP" gitleaks
-          chmod +x /tmp/gitleaks
+          chmod +x "$RUNNER_TEMP/gitleaks"
+          export PATH="$RUNNER_TEMP:$PATH"
           CFG=""
           if [ -f .gitleaks.toml ]; then CFG="--config .gitleaks.toml"; fi
-          "$RUNNER_TEMP/gitleaks" dir . --no-banner --redact --exit-code 1 $CFG
+          gitleaks dir . --no-banner --redact --exit-code 1 $CFG
 
   # gitleaks scans CONTENT for secret-shaped VALUES. It cannot see a credentials file
   # that is correctly ignored today and one `git add -f` (or one deleted .gitignore
