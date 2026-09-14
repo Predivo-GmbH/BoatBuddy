@@ -50,13 +50,45 @@ on:
         required: true
         default: ''
 
+# ===========================================================================
+# A PUSH MUST NOT CANCEL THE RECEIPT A RELEASE NEEDS (2026-09-14).
+#
+# `deploy` refuses to promote a commit unless a green PUSH staging run exists for THAT EXACT SHA
+# (the "Verify staging gate" step below). Until today this block cancelled the in-flight push run
+# the moment the next commit landed on main. A staging run takes 10-37 minutes on our one
+# self-hosted laptop; commits land faster than that, so the window closes before any run can finish,
+# no commit ever earns the receipt, and THE REPOSITORY BECOMES UNPROMOTABLE - with no test failing
+# and nothing red to point at.
+#
+# MEASURED ON CHANNELMOVER, which is simply the busiest repo and hit it first (deploy.yml on main):
+#   8de7ee9  13:00:34Z  push      SUCCESS    <- the last green staging run
+#   2a0ceff  13:31:34Z  push      cancelled
+#   2a0ceff  13:41:05Z  dispatch  cancelled  <- a promotion attempt
+#   b15fd51  14:08:11Z  push      cancelled
+#   4d962e5  14:18:38Z  push      cancelled
+# Four commits in 49 minutes. It does not self-heal and it gets WORSE the more work we do.
+# THIS REPOSITORY CARRIES THE IDENTICAL SHAPE - the same gate step and the same expression - so it
+# deadlocks the same way as soon as commits land faster than a staging run finishes.
+#
+# WHY `false` DOES NOT PILE UP RUNS. GitHub keeps at most ONE run PENDING per concurrency group: a
+# third push supersedes the waiting one, it does not join a line. The running one always finishes
+# and the newest always gets the next slot.
+#
+# AND IT IS WHAT THE FLEET ALREADY LEARNED. Cockpit's deploy.yml carries the same note after a
+# cancelled mid-flight mirror "leaves staging half-uploaded and loses its E2E verdict".
+# deploy-staging FTP-mirrors the staging site with the same lftp step and the same shared host as
+# production; "staging" is not a synonym for "goes somewhere else" (2026-09-09).
+#
+# INVARIANT, from ClaudeShared/hooks/fleet-deploy-queue: NO PATH THAT USED TO DENY MAY NOW ALLOW.
+# This changes only whether a run is allowed to FINISH. Not one line of the promotion gate moves.
+# ===========================================================================
 concurrency:
   # Production promotions (workflow_dispatch) keep their own serialized, NEVER-cancelled
   # group: cancelling a mid-flight FTP mirror can leave prod half-uploaded.
   # Pushes (the staging pipeline) get a per-ref group that DOES cancel — when several
   # commits land in a row only the newest needs a staging deploy + E2E.
   group: ${{ github.event_name == 'workflow_dispatch' && 'deploy-production' || format('staging-{0}', github.ref) }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  cancel-in-progress: false
 
 # ===========================================================================
 # NPM CACHE — deliberately absent. Do not add `cache: npm` back to setup-node.
@@ -432,9 +464,35 @@ jobs:
     # Proven on ReplyFlow first; this is the same change on the rest of the fleet, which the
     # 2026-09-02 finding named explicitly as sharing the shape.
     # ---------------------------------------------------------------------------
-    concurrency:
-      group: staging-site-${{ github.ref }}
-      cancel-in-progress: false
+    # ---------------------------------------------------------------------------
+    # NO staging-site LOCK ON THIS JOB, and that is a correction, not an omission (2026-09-14).
+    #
+    # It used to carry `concurrency: group: staging-site-${{ github.ref }}` alongside
+    # `deploy-staging` and `gate-e2e`. That lock exists for ONE measured reason, from 2026-09-02:
+    # while `deploy-staging` is FTP-mirroring new files over the staging WEBSITE, a gate DRIVING A
+    # BROWSER against that website fails on a half-uploaded page with nothing wrong with the release
+    # (ReplyFlow dispatch 33627614494 overlapping push 33627544651). `gate-e2e` still carries it.
+    #
+    # THIS JOB NEVER TOUCHES THE WEBSITE. It runs the integration suite against the staging SUPABASE
+    # project - no browser, no page, no website URL anywhere in it. So it was serialised against a
+    # writer it does not contend with.
+    #
+    # WHAT THAT COST. GitHub allows exactly ONE job PENDING per concurrency group;
+    # `cancel-in-progress: false` protects a RUNNING job, never the queue. With `deploy-staging`
+    # holding the group and BOTH gates queued behind it, the older pending one was CANCELLED
+    # OUTRIGHT. Measured on ChannelMover, run 34850759426: gate-integration `cancelled` at
+    # 13:41:07Z with ZERO steps, two seconds after the run started, while gate-e2e stayed pending.
+    # A cancelled gate is not a failing gate - `deploy` is SKIPPED rather than blocked, so the run
+    # looks green and ships nothing.
+    #
+    # NO PATH THAT USED TO DENY MAY NOW ALLOW: dropping a lock cannot turn a refusal into an
+    # approval. The only change is that this suite now runs instead of being erased, which can only
+    # ever ADD a red. `deploy` still needs it green.
+    #
+    # If this job is ever given a step that loads a page from the staging WEBSITE, put the lock back
+    # in the same commit - and then gate-e2e and this one must be merged into ONE job, or they will
+    # start erasing each other again.
+    # ---------------------------------------------------------------------------
     if: github.event_name != 'push'
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 10
