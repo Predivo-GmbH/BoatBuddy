@@ -2,7 +2,10 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    - cron: '0 8 * * *'
+  # Staggered 2026-09-15. Five repos fired their staging gates at 30 6 and all six fired
+  # keep-alive at 0 8, onto ONE shared self-hosted host - measured peak 41 simultaneous runs
+  # against 87% idle the rest of the week. Nothing here depends on the exact minute.
+    - cron: '35 8 * * *'
   workflow_dispatch:
 
 jobs:

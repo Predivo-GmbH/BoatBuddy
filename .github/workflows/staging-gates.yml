@@ -13,12 +13,15 @@ on:
     workflows: ['Deploy'] # re-verify staging right after every deploy
     types: [completed]
   schedule:
+  # Staggered 2026-09-15. Five repos fired their staging gates at 30 6 and all six fired
+  # keep-alive at 0 8, onto ONE shared self-hosted host - measured peak 41 simultaneous runs
+  # against 87% idle the rest of the week. Nothing here depends on the exact minute.
     # DAILY 06:30 UTC (was weekly Mon). 2026-08-24: the Gate A runtime crawl moved off the
     # per-deploy path to this schedule. Measured over 320 gate runs fleet-wide, the crawl was
     # 71.4 percent of gate wall time (2202 of 3084 min) and here 7.8 min of a 9.8 min run, while
     # the file comment below still claimed ~1.2 min. Discovery of NEW dialog surfaces is a daily
     # concern; the assertions stay on every deploy.
-    - cron: '30 6 * * *'
+    - cron: '15 7 * * *'
   workflow_dispatch: {}
 
 concurrency:
