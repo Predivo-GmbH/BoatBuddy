@@ -22,7 +22,14 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: v11-staging-gates
+  # Separate group per run kind, ported from ChannelMover c6fd04c1 / Valrano c4f9e9b2
+  # (2026-08-25) on 2026-09-15. The per-deploy `gates` run and the daily/manual `full` run
+  # must NOT share a group. `cancel-in-progress: false` below means GitHub keeps at most ONE
+  # run PENDING per group - so with a single constant group a post-deploy gate EVICTS a
+  # waiting daily Gate A crawl outright, and it shows grey `cancelled` rather than red, so
+  # nothing reports the loss. BoatBuddy's crawl had survived so far only because its deploys
+  # are infrequent (06:42/06:47/06:59 on 09-12/13/14, all green) - latent, not absent.
+  group: v11-staging-gates-${{ github.event_name == 'workflow_run' && 'deploy' || 'full' }}
   # NOT cancel-in-progress. This gate takes ~35 minutes and the group is a constant, so any
   # newer run killed the one in flight, often at minute 34. Measured 2026-08-24 across the
   # seven repos that run it: 40 of 133 recent runs ended `cancelled`, 30 percent, and
