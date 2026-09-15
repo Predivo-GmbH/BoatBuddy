@@ -82,3 +82,12 @@ jobs:
         run: node scripts/guard-credential-files.mjs
       - name: Prove the guard refuses a decoy of the same shape
         run: node --test scripts/guard-credential-files.test.mjs
+
+      # SAME JOB, SAME REASON: a credential that must not leave this repo. Playwright writes an
+      # ARIA snapshot of the page - the signed-in app, form-field contents included - for any test
+      # that ends with errors, and no `use:` switch reaches it. This asserts every
+      # playwright*.config.* registers the stripper that removes it, FIRST. It runs here rather
+      # than in test.yml because it needs no dependencies and no browser, and this is already the
+      # job that proves a secret cannot get out.
+      - name: The e2e suite keeps no error context on the runner
+        run: node --test scripts/the-runner-keeps-no-error-context.test.mjs
