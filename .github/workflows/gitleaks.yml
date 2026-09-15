@@ -6,9 +6,26 @@ name: Secret Scan (gitleaks)
 # scan flags one, add it to .gitleaksignore with a comment, don't hide a real secret.
 
 on:
+  # A branch push and its own pull request scanned the SAME commits twice. `pull_request`
+  # already covers every branch on its way to main, so `push` only needs to guard main
+  # itself - a direct push that never opened a PR. MEASURED 2026-09-15 across the six product
+  # repos: 274 gitleaks runs in 7 days, the single largest source of runs on the shared
+  # laptop runner, most of them a branch and its PR scanning one commit twice.
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+
+# THIS WORKFLOW HAD NO CONCURRENCY BLOCK AT ALL, in any of the six product repos.
+# Every push to a branch started a scan and nothing ever stopped a superseded one, so scans
+# queued behind each other on the one self-hosted host. Measured 2026-09-15: a ScoutCopilot
+# scan that did 1m22s of actual scanning sat 56m19s waiting for a free runner (59m18s total),
+# and a ChannelMover one did 1m12s of scanning inside 40m20s.
+# cancel-in-progress is safe here and nowhere near the deploy: this job only READS the tree,
+# writes nothing, and the newest commit is the one whose secrets matter.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
