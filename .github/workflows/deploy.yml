@@ -286,7 +286,7 @@ jobs:
           CMDS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 4; mirror --reverse --no-perms --verbose ./dist/assets/ staging.boatbuddy.predivo.ch/assets/; mirror --reverse --delete --no-perms --verbose --exclude '^assets/' --exclude .htpasswd --exclude cgi-bin/ ./dist/ staging.boatbuddy.predivo.ch/; bye"
           n=0
           until [ $n -ge 4 ]; do
-            if timeout 420 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
+            if flock -w 1800 /tmp/predivo-fleet-ftp.lock timeout 420 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
               echo "Staging FTP deploy succeeded (attempt $((n+1)))"; exit 0
             fi
             n=$((n + 1)); echo "::warning::Staging FTP attempt $n failed (transient FTPS data-channel failure — runner-side; Metanet FTP verified reachable); retrying in 25s..."; sleep 25
@@ -360,7 +360,7 @@ jobs:
           set ssl:verify-certificate no; set ftp:ssl-protect-data no
           set ftp:passive-mode yes; set net:timeout 60"
 
-          LIST=$(timeout 180 lftp -u "$FTP_USER,$FTP_PASS" "ftp://$FTP_HOST" <<SCRIPT 2>&1
+          LIST=$(flock -w 1800 /tmp/predivo-fleet-ftp.lock timeout 180 lftp -u "$FTP_USER,$FTP_PASS" "ftp://$FTP_HOST" <<SCRIPT 2>&1
           $SETTINGS
           find $ASSETS_DIR
           quit
@@ -397,7 +397,7 @@ jobs:
             echo "quit"
           } > "$PROBE_SCRIPT"
 
-          OUT=$(timeout 420 lftp -f "$PROBE_SCRIPT" 2>&1)
+          OUT=$(flock -w 1800 /tmp/predivo-fleet-ftp.lock timeout 420 lftp -f "$PROBE_SCRIPT" 2>&1)
           rm -f "$PROBE_SCRIPT"
 
           # Pair each PROBE: line with the following 213/550 reply; 14-digit UTC
@@ -426,7 +426,7 @@ jobs:
             echo "$OLD" | while IFS= read -r f; do echo "rm $f"; done
             echo "quit"
           } > "$DEL_SCRIPT"
-          DEL_OUT=$(timeout 300 lftp -f "$DEL_SCRIPT" 2>&1)
+          DEL_OUT=$(flock -w 1800 /tmp/predivo-fleet-ftp.lock timeout 300 lftp -f "$DEL_SCRIPT" 2>&1)
           rm -f "$DEL_SCRIPT"
           echo "$DEL_OUT"
           echo "Asset prune: deleted $COUNT file(s) older than $DAYS days from $ASSETS_DIR."
@@ -863,7 +863,7 @@ jobs:
           echo "boatbuddy" > ./dist/.site-id
 
           # Site-id guard — never deploy to the wrong target.
-          REMOTE_ID=$(timeout 90 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$LFTP_SETTINGS cat boatbuddy.predivo.ch/.site-id; bye" 2>/dev/null | tr -d '[:space:]') || REMOTE_ID=""
+          REMOTE_ID=$(flock -w 1800 /tmp/predivo-fleet-ftp.lock timeout 90 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$LFTP_SETTINGS cat boatbuddy.predivo.ch/.site-id; bye" 2>/dev/null | tr -d '[:space:]') || REMOTE_ID=""
           # An EMPTY id is not a match failure, so `-n` below let it through - which is exactly
           # what a 530, a timeout or a dropped connection produces. The guard cannot tell those
           # apart from "file absent", so it must not deploy blind. Every live target has a seeded
@@ -887,7 +887,7 @@ jobs:
           CMDS="$LFTP_SETTINGS mirror --reverse --no-perms --verbose ./dist/assets/ boatbuddy.predivo.ch/assets/; mirror --reverse --delete --no-perms --verbose --exclude '^assets/' ./dist/ boatbuddy.predivo.ch/; bye"
           n=0
           until [ $n -ge 4 ]; do
-            if timeout 420 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
+            if flock -w 1800 /tmp/predivo-fleet-ftp.lock timeout 420 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
               echo "Production FTP deploy succeeded (attempt $((n+1)))"; exit 0
             fi
             n=$((n + 1)); echo "::warning::Production FTP attempt $n failed (transient FTPS data-channel failure — runner-side; Metanet FTP verified reachable); retrying in 25s..."; sleep 25
@@ -957,7 +957,7 @@ jobs:
           set ssl:verify-certificate no; set ftp:ssl-protect-data no
           set ftp:passive-mode yes; set net:timeout 60"
 
-          LIST=$(timeout 180 lftp -u "$FTP_USER,$FTP_PASS" "ftp://$FTP_HOST" <<SCRIPT 2>&1
+          LIST=$(flock -w 1800 /tmp/predivo-fleet-ftp.lock timeout 180 lftp -u "$FTP_USER,$FTP_PASS" "ftp://$FTP_HOST" <<SCRIPT 2>&1
           $SETTINGS
           find $ASSETS_DIR
           quit
@@ -994,7 +994,7 @@ jobs:
             echo "quit"
           } > "$PROBE_SCRIPT"
 
-          OUT=$(timeout 420 lftp -f "$PROBE_SCRIPT" 2>&1)
+          OUT=$(flock -w 1800 /tmp/predivo-fleet-ftp.lock timeout 420 lftp -f "$PROBE_SCRIPT" 2>&1)
           rm -f "$PROBE_SCRIPT"
 
           # Pair each PROBE: line with the following 213/550 reply; 14-digit UTC
@@ -1023,7 +1023,7 @@ jobs:
             echo "$OLD" | while IFS= read -r f; do echo "rm $f"; done
             echo "quit"
           } > "$DEL_SCRIPT"
-          DEL_OUT=$(timeout 300 lftp -f "$DEL_SCRIPT" 2>&1)
+          DEL_OUT=$(flock -w 1800 /tmp/predivo-fleet-ftp.lock timeout 300 lftp -f "$DEL_SCRIPT" 2>&1)
           rm -f "$DEL_SCRIPT"
           echo "$DEL_OUT"
           echo "Asset prune: deleted $COUNT file(s) older than $DAYS days from $ASSETS_DIR."
