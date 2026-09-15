@@ -43,8 +43,22 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     baseURL: STAGING_URL,
     headless: true,
-    screenshot: 'only-on-failure',
-    trace: 'retain-on-failure',
+    // NOTHING IS RECORDED WHEN THIS SUITE FAILS (2026-09-15). A trace records what was typed
+    // and a screenshot photographs the form it was typed into, and both are written to a
+    // SELF-HOSTED runner that 19 repositories share and then uploaded as a CI artifact. The
+    // fleet rule is that a secret is never rendered anywhere, and a debugging convenience is
+    // not an exception to it. Debug by reading the assertion, or locally with a throwaway
+    // account - never by turning these back on in CI.
+    //
+    // THESE THREE SWITCHES DO NOT CLOSE THE FOURTH CHANNEL. Playwright writes
+    // test-results/<test>/error-context.md - an ARIA snapshot of the page, i.e. the signed-in
+    // application including the contents of form fields - for any test that ends with errors,
+    // gated on nothing but `errors.length > 0`. There is no `use:` option for it. It is removed
+    // by the reporter registered above; drop that and this suite starts leaving photographs of
+    // a signed-in page on a runner 19 repositories share.
+    trace: 'off',
+    screenshot: 'off',
+    video: 'off',
     // Playwright's default actionTimeout is 0, so an action inherits the (deliberately
     // huge) test timeout. A locator pointing at a responsive surface that unmounted at a
     // wider viewport then blocks for the whole run and the job looks slow, not stuck.
