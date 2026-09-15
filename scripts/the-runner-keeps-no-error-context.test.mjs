@@ -51,7 +51,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const REPO_ROOT = resolve(HERE, '..')
+const CONFIG_ROOT = resolve(HERE, '..')
 const REPORTER_FILE = resolve(HERE, '..', 'e2e', 'strip-runner-artifacts.reporter.ts')
 const REPORTER = pathToFileURL(REPORTER_FILE).href
 
@@ -169,16 +169,16 @@ test('the reporter never prints a path, because that is the string it exists to 
 })
 
 test('every playwright config in this repo registers the stripper FIRST and keeps outputDir off test-results', () => {
-  const configs = readdirSync(REPO_ROOT)
+  const configs = readdirSync(CONFIG_ROOT)
     .filter((f) => /^playwright.*\.config\.(ts|js|mjs|cjs)$/.test(f))
     .sort()
 
   assert.ok(configs.length > 0,
-    'no playwright*.config.* found at the repo root. Absence is not success: either the configs '
+    'no playwright*.config.* found where this guard looks. Absence is not success: either the configs '
       + 'moved and this guard now watches nothing, or it is looking in the wrong place.')
 
   for (const name of configs) {
-    const text = readFileSync(join(REPO_ROOT, name), 'utf8')
+    const text = readFileSync(join(CONFIG_ROOT, name), 'utf8')
 
     // The reporter value, taken by bracket matching rather than by regex, so a nested option
     // cannot fool it - and skipping strings and comments, so a bracket inside either cannot.
