@@ -35,7 +35,27 @@ permissions:
 
 jobs:
   gitleaks:
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    # GitHub-hosted ON PURPOSE - this job does NOT run on our own machine.
+    #
+    # ci-runner/README.md has said so since the migration: "Secret Scan (gitleaks) |
+    # GitHub-hosted | gitleaks-action is a Docker container action. $5.53/month across the
+    # fleet is a fair price for not making a Docker daemon a hard CI dependency." It ended up
+    # on the self-hosted host anyway, because `${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}`
+    # inherits the repository variable like every other job and nothing pinned it back.
+    #
+    # Measured 2026-09-15, and this is the reason it matters beyond the money: a runner belongs
+    # to ONE repository and can never take another's work, and every product here has fewer
+    # runners than its widest single run needs (ReplyFlow 7 vs 3, backoffice 6 vs 3,
+    # signalscore 6 vs 4, ChannelMover 6 vs 4, BoatBuddy 5 vs 3, ScoutCopilot 2 vs 1), so part
+    # of every run queues however idle the machine is. gitleaks was taking 1,640 wall-minutes a
+    # week of those scarce slots. Moving it off gives every other job its slot back.
+    #
+    # Forward cost measured the same day: 174 runs/wk after the branch filter x 0.62 min median
+    # = 460 billable min/month = $3.68/month, BELOW the $5.53 the design doc already sanctions.
+    #
+    # To put it back on our own machine, change this one line to
+    # `${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}`.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
