@@ -24,7 +24,19 @@ env:
 jobs:
   critical-path:
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
-    timeout-minutes: 10
+    # 25, not 10. MEASURED 2026-09-15 on the shared self-hosted host, one run each:
+    # ChannelMover 13m12s, BackOffice 11m30s, BoatBuddy 8m25s, ScoutCopilot 6m35s - and
+    # ReplyFlow was KILLED at 10m27s by a 10-minute budget on a suite that had passed in
+    # 3m52s, 5m00s, 6m38s and 7m48s earlier the same morning. The budget was not sized for
+    # a machine running several suites at once, which is this host's normal state.
+    # This is not masking a slow test: a timeout only ever fires when something is already
+    # wrong, so a budget above the real worst case costs nothing on a healthy run and stops
+    # turning a busy machine into a red gate. ChannelMover (40) and BackOffice (25) already
+    # carry a realistic budget for exactly this reason; these repos never got the change.
+    # A job that hits timeout-minutes is reported as CANCELLED or failed and has to be run
+    # AGAIN - across the fleet 55 of 179 suite runs in the last window ended cancelled,
+    # producing no answer at all. That re-run is the most expensive kind of red there is.
+    timeout-minutes: 25
     env:
       # Ubuntu 26.04 (what our self-hosted runners came up on, 2026-08-25) has no Playwright
       # browser build: `npx playwright install chromium` dies with "Playwright does not
