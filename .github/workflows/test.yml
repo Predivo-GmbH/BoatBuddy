@@ -58,6 +58,40 @@ jobs:
 
       - run: npm ci
 
+      # DISCOVERED, NOT LISTED. This repo's only other guard is named by hand in gitleaks.yml,
+      # which is the same defect one layer down: a guard added tomorrow sits dark until somebody
+      # remembers to add a line. The glob means nobody has to.
+      #
+      # It lives HERE and not beside that one because this job runs `npm ci` and that job does
+      # not - these suites import @predivo-gmbh/gate-kit, so without node_modules they would die
+      # at import before a single assertion ran.
+      #
+      # Absence is not success: an empty glob FAILS, otherwise a moved directory switches the
+      # whole thing off while still printing green.
+      # *.prod.test.mjs and *.live.test.mjs are CARVED OUT, and this is not a nicety. The first
+      # version of this glob swept scripts/signin-captcha.prod.test.mjs into a pull-request
+      # check, which probes REAL production over the network. It passed, which is worse than
+      # failing: a Supabase blip would then redden an unrelated content change, and a PR would
+      # be reaching production to decide whether it is mergeable. Every other repo in the fleet
+      # carves these out for exactly that reason; the carve-out is NAMED here, never silent.
+      - name: Guard suites (discovered, not listed)
+        run: |
+          set -e
+          shopt -s nullglob
+          suites=()
+          for f in scripts/*.test.mjs; do
+            case "$f" in
+              *.prod.test.mjs|*.live.test.mjs) echo "NOT run here (probes production): $f" ;;
+              *) suites+=("$f") ;;
+            esac
+          done
+          if [ ${#suites[@]} -eq 0 ]; then
+            echo "::error::no offline scripts/*.test.mjs found - the guard suites are not running"
+            exit 1
+          fi
+          echo "running ${#suites[@]} guard suite(s): ${suites[*]}"
+          node --test "${suites[@]}"
+
       - name: Cache Playwright browsers
         # Skipped on the persistent self-hosted runner: ~/.cache/ms-playwright already
         # survives there, so the save post-step is a multi-minute upload that buys nothing
