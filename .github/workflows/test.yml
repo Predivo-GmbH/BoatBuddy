@@ -58,6 +58,28 @@ jobs:
 
       - run: npm ci
 
+      # DISCOVERED, NOT LISTED. This repo's only other guard is named by hand in gitleaks.yml,
+      # which is the same defect one layer down: a guard added tomorrow sits dark until somebody
+      # remembers to add a line. The glob means nobody has to.
+      #
+      # It lives HERE and not beside that one because this job runs `npm ci` and that job does
+      # not - these suites import @predivo-gmbh/gate-kit, so without node_modules they would die
+      # at import before a single assertion ran.
+      #
+      # Absence is not success: an empty glob FAILS, otherwise a moved directory switches the
+      # whole thing off while still printing green.
+      - name: Guard suites (discovered, not listed)
+        run: |
+          set -e
+          shopt -s nullglob
+          suites=(scripts/*.test.mjs)
+          if [ ${#suites[@]} -eq 0 ]; then
+            echo "::error::no scripts/*.test.mjs found - the guard suites are not running"
+            exit 1
+          fi
+          echo "running ${#suites[@]} guard suite(s): ${suites[*]}"
+          node --test "${suites[@]}"
+
       - name: Cache Playwright browsers
         # Skipped on the persistent self-hosted runner: ~/.cache/ms-playwright already
         # survives there, so the save post-step is a multi-minute upload that buys nothing
