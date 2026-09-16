@@ -25,14 +25,23 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: v11-staging-gates
-  # NOT cancel-in-progress. This gate takes ~35 minutes and the group is a constant, so any
-  # newer run killed the one in flight, often at minute 34. Measured 2026-08-24 across the
-  # seven repos that run it: 40 of 133 recent runs ended `cancelled`, 30 percent, and
+  # Separate group per run kind (2026-09-16, the fix Valrano already carries from its own
+  # 2026-08-24 commit 6250b68 fallout): the per-deploy `gates` run (workflow_run) and the
+  # daily/manual `full` run (schedule/dispatch) must NOT share a group. With one shared
+  # constant group and cancel-in-progress false, GitHub keeps at most ONE run PENDING per
+  # group, so a `gates` run queued behind a still-PENDING daily `full` run SUPERSEDES it -
+  # silently cancelling the only Gate A crawl + coverage denominator of that day (grey
+  # `cancelled`, not red, so nothing reports it). Keyed on event_name it matches the jobs'
+  # own `if:` split exactly (gates: workflow_run; full: != workflow_run), so deploy runs
+  # serialise only against deploy runs and full against full.
+  group: v11-staging-gates-${{ github.event_name == 'workflow_run' && 'deploy' || 'full' }}
+  # NOT cancel-in-progress. This gate takes ~35 minutes and each group key is a constant, so a
+  # newer run of the SAME kind killed the one in flight, often at minute 34. Measured 2026-08-24
+  # across the seven repos that run it: 40 of 133 recent runs ended `cancelled`, 30 percent, and
   # BackOffice had 1 success and 0 failures against 12 cancellations. A cancelled gate is
   # not a failing gate, so the dashboard looked clean while the gate was barely reporting.
-  # With false, the running gate finishes; GitHub keeps at most one run pending, so a newer
-  # commit still supersedes an older WAITING one without destroying a verdict in progress.
+  # With false, the running gate finishes; GitHub keeps at most one run pending, so a newer run
+  # of the same kind still supersedes an older WAITING one without destroying a verdict in progress.
   cancel-in-progress: false
 
 env:
