@@ -8,6 +8,14 @@ on:
     - cron: '35 8 * * *'
   workflow_dispatch:
 
+# Serialise this workflow: one run at a time, and NEVER cancel a run that is already going.
+# The fleet's entire capacity is one laptop, so a superseded run that keeps its own slot is
+# what produced a 41-job peak against 87% idle. Queue it instead. cancel-in-progress is
+# deliberately absent: several of these workflows WRITE (support-KB sync, ledger, outreach),
+# and killing one half-way through is the same class of harm as killing an FTP mirror.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   ping:
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
