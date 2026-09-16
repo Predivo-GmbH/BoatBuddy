@@ -68,13 +68,25 @@ jobs:
       #
       # Absence is not success: an empty glob FAILS, otherwise a moved directory switches the
       # whole thing off while still printing green.
+      # *.prod.test.mjs and *.live.test.mjs are CARVED OUT, and this is not a nicety. The first
+      # version of this glob swept scripts/signin-captcha.prod.test.mjs into a pull-request
+      # check, which probes REAL production over the network. It passed, which is worse than
+      # failing: a Supabase blip would then redden an unrelated content change, and a PR would
+      # be reaching production to decide whether it is mergeable. Every other repo in the fleet
+      # carves these out for exactly that reason; the carve-out is NAMED here, never silent.
       - name: Guard suites (discovered, not listed)
         run: |
           set -e
           shopt -s nullglob
-          suites=(scripts/*.test.mjs)
+          suites=()
+          for f in scripts/*.test.mjs; do
+            case "$f" in
+              *.prod.test.mjs|*.live.test.mjs) echo "NOT run here (probes production): $f" ;;
+              *) suites+=("$f") ;;
+            esac
+          done
           if [ ${#suites[@]} -eq 0 ]; then
-            echo "::error::no scripts/*.test.mjs found - the guard suites are not running"
+            echo "::error::no offline scripts/*.test.mjs found - the guard suites are not running"
             exit 1
           fi
           echo "running ${#suites[@]} guard suite(s): ${suites[*]}"
