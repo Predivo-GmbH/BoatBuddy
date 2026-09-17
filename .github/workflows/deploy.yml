@@ -45,6 +45,14 @@ on:
     - cron: '35 4 * * *'
   workflow_dispatch:
     inputs:
+      runner:
+        description: 'Which machine: self-hosted (our laptop, free) or github (fast, costs minutes)'
+        required: false
+        default: 'self-hosted'
+        type: choice
+        options:
+          - self-hosted
+          - github
       confirm:
         description: 'Type "deploy" to confirm production deployment (runs staging + E2E first)'
         required: true
@@ -160,7 +168,7 @@ jobs:
       group: staging-site-${{ github.ref }}
       cancel-in-progress: false
     if: github.event_name == 'push'
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event.inputs.runner == 'github' && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - name: Verify FTP credentials (fail fast on a stale secret)
@@ -494,7 +502,7 @@ jobs:
     # start erasing each other again.
     # ---------------------------------------------------------------------------
     if: github.event_name != 'push'
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event.inputs.runner == 'github' && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
@@ -551,7 +559,7 @@ jobs:
     # blocked either way: the deploy job needs gate-integration as well.
     needs: gate-integration
     if: ${{ !cancelled() && github.event_name != 'push' }}
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event.inputs.runner == 'github' && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 20
     env:
       # Ubuntu 26.04 (what our self-hosted runners came up on, 2026-08-25) has no Playwright
@@ -648,7 +656,7 @@ jobs:
   # ===========================================================================
   gate-security:
     if: github.event_name != 'push'
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event.inputs.runner == 'github' && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
@@ -695,7 +703,7 @@ jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm == 'deploy'
     needs: [gate-integration, gate-e2e, gate-security]
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event.inputs.runner == 'github' && 'ubuntu-latest') || vars.RUNNER_LABEL || 'ubuntu-latest' }}
     timeout-minutes: 20
     permissions:
       actions: read
