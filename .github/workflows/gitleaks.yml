@@ -55,23 +55,47 @@ jobs:
     #
     # To put it back on our own machine, change this one line to
     # `${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}`.
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}   # OUR OWN RUNNER SINCE 2026-09-17: the Docker container action below was the only reason this
+    # job needed a rented one, and it is gone. Roger: CI must not cost anything.
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: gitleaks
-        uses: gitleaks/gitleaks-action@v3
-        # TMPDIR is the runner's OWN temp folder, never the machine's /tmp: the action downloads to
-        # os.tmpdir()/gitleaks.tmp and refuses if that file already exists, and on the laptop runners
-        # (predivo-wsl) several runners share one /tmp. The SARIF upload roots itself at $HOME, which is
-        # not where the checkout lives on those runners, so it threw AFTER "no leaks found". Nothing reads
-        # that artifact. Same change as production-monitor #26 and cockpit #75 (2026-09-12 / 09-14).
+      # NO DOCKER, AND THEREFORE NO RENTED RUNNER. This step was `uses: gitleaks/gitleaks-action@v3`,
+      # a Docker CONTAINER action, and that single fact pinned this whole job to `ubuntu-latest` -
+      # which stopped being free when the repos went private. Secret Scan was the third largest
+      # billed line on the account at $8.73/month across seven repos (cost guard run 35193842671).
+      # ci-runner/README.md had priced the container at "a fair price for not making a Docker daemon
+      # a hard CI dependency"; Roger, 2026-09-17: "I do not want to have any costs."
+      #
+      # The container was never needed: the working-tree step below has ALWAYS used the plain
+      # gitleaks binary. This does the same scan the action did - same tool, same version 8.24.3,
+      # same rules, same --redact, same COMMIT RANGE OF THE EVENT. Proven on signalscore first:
+      # run 35198873793 concluded success with billable minutes EMPTY, on wsl-...-signalscore-2.
+      # Lost: the action's PR annotations and its SARIF artifact. Findings stay in the log, redacted.
+      - name: gitleaks (this event's commits)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TMPDIR: ${{ runner.temp }}
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
-
+          BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | tar -xz -C "$RUNNER_TEMP" gitleaks
+          chmod +x "$RUNNER_TEMP/gitleaks"
+          # FAIL CLOSED ON AN UNUSABLE RANGE. A new branch pushes BEFORE=000...0, and an empty
+          # range would scan nothing and PASS - absence is not success. Scan the last 50 instead.
+          if [ -n "${BASE_SHA:-}" ]; then
+            OPTS="$BASE_SHA..$HEAD_SHA"
+          elif [ -n "${BEFORE:-}" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            OPTS="$BEFORE..$HEAD_SHA"
+          else
+            OPTS="-50"
+          fi
+          echo "scanning commits: $OPTS"
+          # NO --config: this repo has no .gitleaks.toml, and gitleaks exits non-zero on a
+          # config path that does not exist - which would fail this step for the wrong reason
+          # and look exactly like a leak. Default rules apply.
+          "$RUNNER_TEMP/gitleaks" git . --redact --exit-code 1 --log-opts="$OPTS"
       # The action above scans the COMMIT RANGE of the event, and that is not enough.
       # Proven 2026-08-20 on ReplyFlow: a merge commit introduced a service_role JWT and
       # this workflow reported "No leaks detected". A working-tree scan sees the file as
