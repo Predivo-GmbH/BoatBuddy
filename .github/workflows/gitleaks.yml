@@ -132,6 +132,25 @@ jobs:
   # untracked and matched by nothing in .gitignore. This job scans NAMES instead, and
   # asserts the ignore rules still bite on a case-sensitive runner.
   credential-files:
+    # SECOND WAVE ON PURPOSE (2026-09-17, board row
+    # one-laptop-pretends-to-be-18-build-machines-so-every-job).
+    #
+    # A single push to this repo started 4 self-hosted jobs at once against the 3 runners it
+    # owns, so one queued on every push - a self-hosted runner is bound to ONE repository and
+    # can never take another repo's work, so the surplus waits however idle the host is. The
+    # count went UP on 2026-09-17, when the secret scan above was deliberately moved back onto
+    # our own runner to stop paying GitHub for it.
+    #
+    # This guard and the scan above never needed to run in parallel: both are seconds-long
+    # checks over the same checkout. Running this one after the scan removes a slot of peak
+    # demand from the shared build laptop and costs the push nothing that matters.
+    #
+    #  is load-bearing: without it this guard would inherit a gitleaks FAILURE and be
+    # skipped, which would mean a real secret finding also silently disabled the check for
+    # credential-shaped FILENAMES - the two catch different things, and 2026-08-30 is why this
+    # one exists.
+    needs: gitleaks
+    if: ${{ always() }}
     name: No credential-shaped file is committable
     runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
     steps:
