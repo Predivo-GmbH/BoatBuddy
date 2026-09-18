@@ -649,7 +649,7 @@ jobs:
         with:
           name: staging-e2e-results
           path: |
-            test-results/
+            test-results/**/*.json
             playwright-report/
 
   # ===========================================================================
