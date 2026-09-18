@@ -130,7 +130,7 @@ jobs:
         with:
           name: v11-gates-report
           path: |
-            test-results/
+            test-results/**/*.json
             playwright-report/
 
   # ---------------------------------------------------------------------------------------
@@ -243,5 +243,5 @@ jobs:
         with:
           name: v11-gates-report
           path: |
-            test-results/
+            test-results/**/*.json
             playwright-report/
