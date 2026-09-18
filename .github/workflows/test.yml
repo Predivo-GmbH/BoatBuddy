@@ -138,4 +138,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: critical-path-results
-          path: playwright-report/
+          path: |
+            test-results/
+            playwright-report/
