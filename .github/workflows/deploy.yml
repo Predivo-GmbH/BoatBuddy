@@ -648,7 +648,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: staging-e2e-results
-          path: playwright-report/
+          path: |
+            test-results/
+            playwright-report/
 
   # ===========================================================================
   # 4. PRODUCTION — only on a manual run with the typed "deploy" confirmation.
