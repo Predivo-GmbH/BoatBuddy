@@ -129,7 +129,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: v11-gates-report
-          path: playwright-report/
+          path: |
+            test-results/
+            playwright-report/
 
   # ---------------------------------------------------------------------------------------
   # DAILY + MANUAL: seed -> crawl -> the FULL v11 suite including the coverage denominator.
@@ -240,4 +242,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: v11-gates-report
-          path: playwright-report/
+          path: |
+            test-results/
+            playwright-report/
