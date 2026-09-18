@@ -139,5 +139,5 @@ jobs:
         with:
           name: critical-path-results
           path: |
-            test-results/
+            test-results/**/*.json
             playwright-report/
