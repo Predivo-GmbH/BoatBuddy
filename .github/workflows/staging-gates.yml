@@ -132,6 +132,7 @@ jobs:
           path: |
             test-results/**/*.json
             playwright-report/
+            !playwright-report/data/**
 
   # ---------------------------------------------------------------------------------------
   # DAILY + MANUAL: seed -> crawl -> the FULL v11 suite including the coverage denominator.
@@ -245,3 +246,4 @@ jobs:
           path: |
             test-results/**/*.json
             playwright-report/
+            !playwright-report/data/**

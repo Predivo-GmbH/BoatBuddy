@@ -141,3 +141,4 @@ jobs:
           path: |
             test-results/**/*.json
             playwright-report/
+            !playwright-report/data/**
