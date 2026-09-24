@@ -57,6 +57,12 @@ jobs:
         # No `cache: npm` on this runner — see the "NPM CACHE" note in deploy.yml.
 
       - run: npm ci
+      # 2026-10-30: Supabase stops granting Data API access to NEW tables automatically. A new
+      # migration that creates a public table must GRANT it in the same file, or the app gets
+      # "permission denied" on first deploy. The judge is gate-kit's (conformance/migration-grants.js);
+      # migration-grants-baseline.json lists the migrations from before the rule. It needs npm ci.
+      - name: New tables grant their own Data API access
+        run: node node_modules/@predivo-gmbh/gate-kit/scripts/verify-migration-grants.mjs
 
       # DISCOVERED, NOT LISTED. This repo's only other guard is named by hand in gitleaks.yml,
       # which is the same defect one layer down: a guard added tomorrow sits dark until somebody
