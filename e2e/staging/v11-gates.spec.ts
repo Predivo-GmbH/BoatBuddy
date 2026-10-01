@@ -186,6 +186,14 @@ test.describe('BoatBuddy v11 gates', () => {
       if (u.includes('/storage/v1/object/dokumente')) supaHosts.add(new URL(u).host)
     })
 
+    // The AI reading is NOT what this gate checks (upload, abandon, save), and the test receipt is
+    // black bars with no text - each run paid two Claude calls per upload for an answer nobody read
+    // (Roger 2026-10-01: stop paying for it). The extraction is answered here with an empty draft;
+    // whether the real reading works is the separate check below, which runs only when its code changed.
+    await page.route('**/functions/v1/extract-expense', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ extracted: {} }) }),
+    )
+
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/finanzen')
     await page.getByRole('tab', { name: 'Ausgaben' }).click()
@@ -281,6 +289,54 @@ test.describe('BoatBuddy v11 gates', () => {
     console.log(`[GATE B/J] CLEANUP: swept [${delResults.join(', ')}] | final ausgaben=${finalCount} | leftover=${JSON.stringify(leftover)}`)
     expect(finalCount, 'ausgaben restored to baseline').toBe(beforeCount)
     expect(leftover.length, 'all test storage objects removed').toBe(0)
+  })
+
+  // ------------------- REAL RECEIPT READING: only when its code changed -------------------
+  // The one check that pays for a real Claude call, and the one that actually proves the reading
+  // works: a receipt with a known total goes through the real extract-expense function and the
+  // form must show that total. staging-gates.yml sets BB_REAL_EXTRACTION=1 only when the reading's
+  // own code (the function, its shared AI module, the client call) changed in the last day.
+  test('Real receipt reading — the AI reads the total off a receipt', async ({ page, browser }) => {
+    test.skip(process.env.BB_REAL_EXTRACTION !== '1', 'reading code unchanged - no paid AI call')
+    test.setTimeout(220_000)
+    expect(MGMT, 'BB_MGMT_TOKEN required').not.toBe('')
+    const baseline = await listDocs()
+
+    // A receipt with real text, drawn here so no binary fixture has to be kept in sync.
+    const draw = await browser.newPage({ viewport: { width: 420, height: 560 } })
+    await draw.setContent(`<body style="margin:0;background:#fff;font:22px Arial;padding:28px;color:#000">
+      <div style="font-size:28px;font-weight:bold">Tankstelle Seehafen Brunnen</div>
+      <div>Datum: 14.09.2026</div><br>
+      <div>Diesel 52.40 L</div><div>Preis/L CHF 1.667</div><br>
+      <div style="font-size:30px;font-weight:bold">TOTAL CHF 87.35</div></body>`)
+    const receipt = await draw.screenshot({ type: 'png' })
+    await draw.close()
+
+    await page.goto('/finanzen')
+    await page.getByRole('tab', { name: 'Ausgaben' }).click()
+    await page.getByRole('button', { name: 'Neue Ausgabe' }).first().click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+
+    const reading = page.waitForResponse((r) => r.url().includes('/functions/v1/extract-expense'), { timeout: 150_000 })
+    await dialog.locator('input[type=file][aria-label="Beleg hochladen"]')
+      .setInputFiles({ name: 'beleg-test.png', mimeType: 'image/png', buffer: receipt })
+    const res = await reading
+    console.log(`[REAL READING] extract-expense -> ${res.status()}`)
+    expect(res.status(), 'the reading function answered').toBe(200)
+    await expect(dialog.getByRole('button', { name: /^Speichern/ })).toBeEnabled({ timeout: 150_000 })
+
+    const betrag = Number((await dialog.getByLabel(/Betrag/).inputValue()).replace(',', '.'))
+    console.log(`[REAL READING] Betrag in the form: ${betrag}`)
+    expect(betrag, 'the form shows the total printed on the receipt').toBeCloseTo(87.35, 2)
+
+    // Abandon (nothing is saved) and sweep the uploaded file, as Gate B/J does.
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(2000)
+    for (const name of (await listDocs()).filter((d) => !baseline.includes(d))) {
+      if (SVC) await deleteStorageObject(name)
+      await sql(`delete from storage.objects where bucket_id='dokumente' and name='${name}';`).catch(() => {})
+    }
   })
 
   // -------------------------- GATE K: fault-injected data loads --------------------------
