@@ -195,7 +195,10 @@ jobs:
           # 15 simultaneous fleet deploys made this step time out at 30s (curl 28).
           n=0
           while :; do
-            OUT=$(curl -sS --ssl-reqd --insecure --connect-timeout 20 --max-time 90 --user "$FTP_USER:$FTP_PASS" "ftp://$FTP_HOST/" 2>&1)
+            # The password reaches curl on STDIN as a config line (-K -), never as an argument: a command line is
+            # readable by every process on the shared runner (Cockpit audit 2026-09-30, prod-infra #1).
+            FTP_CURL_AUTH="user = \"$FTP_USER:$(printf '%s' "$FTP_PASS" | sed 's/[\\"]/\\&/g')\""
+            OUT=$(printf '%s\n' "$FTP_CURL_AUTH" | curl -sS --ssl-reqd --insecure --connect-timeout 20 --max-time 90 -K - "ftp://$FTP_HOST/" 2>&1)
             RC=$?
             if [ "$RC" -eq 0 ] || [ "$RC" -eq 67 ]; then break; fi
             n=$((n+1))
@@ -296,6 +299,7 @@ jobs:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASS }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASS }}
         run: |
           sudo apt-get install -y lftp
           echo "boatbuddy-staging" > ./dist/.site-id
@@ -305,7 +309,7 @@ jobs:
           CMDS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 4; mirror --reverse --no-perms --verbose ./dist/assets/ staging.boatbuddy.predivo.ch/assets/; mirror --reverse --delete --no-perms --verbose --exclude '^assets/' --exclude .htpasswd --exclude cgi-bin/ ./dist/ staging.boatbuddy.predivo.ch/; bye"
           n=0
           until [ $n -ge 4 ]; do
-            if flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 420 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
+            if flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 420 lftp --env-password -u "$FTP_USER" "$FTP_HOST" -e "$CMDS"; then
               echo "Staging FTP deploy succeeded (attempt $((n+1)))"; exit 0
             fi
             n=$((n + 1)); echo "::warning::Staging FTP attempt $n failed (transient FTPS data-channel failure — runner-side; Metanet FTP verified reachable); retrying in 25s..."; sleep 25
@@ -365,6 +369,7 @@ jobs:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASS }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASS }}
           ASSETS_DIR: staging.boatbuddy.predivo.ch/assets
         run: |
           # GitHub wraps every run block in bash -e: a failing command substitution in an
@@ -379,7 +384,7 @@ jobs:
           set ssl:verify-certificate no; set ftp:ssl-protect-data no
           set ftp:passive-mode yes; set net:timeout 60"
 
-          LIST=$(flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 180 lftp -u "$FTP_USER,$FTP_PASS" "ftp://$FTP_HOST" <<SCRIPT 2>&1
+          LIST=$(flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 180 lftp --env-password -u "$FTP_USER" "ftp://$FTP_HOST" <<SCRIPT 2>&1
           $SETTINGS
           find $ASSETS_DIR
           quit
@@ -399,7 +404,7 @@ jobs:
           # vanishes (550) between listing and probing.
           PROBE_SCRIPT=$(mktemp)
           {
-            echo "open -u $FTP_USER,$FTP_PASS ftp://$FTP_HOST"
+            echo "open --env-password -u $FTP_USER ftp://$FTP_HOST"
             echo "$SETTINGS"
             # find prints full remote paths ("$ASSETS_DIR/<nested>/file", recursively);
             # normalize to a path relative to ASSETS_DIR so either output format is safe.
@@ -438,7 +443,7 @@ jobs:
 
           DEL_SCRIPT=$(mktemp)
           {
-            echo "open -u $FTP_USER,$FTP_PASS ftp://$FTP_HOST"
+            echo "open --env-password -u $FTP_USER ftp://$FTP_HOST"
             echo "$SETTINGS"
             # lftp rm does NOT glob-expand - hashed names are passed verbatim.
             # $OLD already holds full remote paths (the PROBE: values).
@@ -746,7 +751,10 @@ jobs:
           # 15 simultaneous fleet deploys made this step time out at 30s (curl 28).
           n=0
           while :; do
-            OUT=$(curl -sS --ssl-reqd --insecure --connect-timeout 20 --max-time 90 --user "$FTP_USER:$FTP_PASS" "ftp://$FTP_HOST/" 2>&1)
+            # The password reaches curl on STDIN as a config line (-K -), never as an argument: a command line is
+            # readable by every process on the shared runner (Cockpit audit 2026-09-30, prod-infra #1).
+            FTP_CURL_AUTH="user = \"$FTP_USER:$(printf '%s' "$FTP_PASS" | sed 's/[\\"]/\\&/g')\""
+            OUT=$(printf '%s\n' "$FTP_CURL_AUTH" | curl -sS --ssl-reqd --insecure --connect-timeout 20 --max-time 90 -K - "ftp://$FTP_HOST/" 2>&1)
             RC=$?
             if [ "$RC" -eq 0 ] || [ "$RC" -eq 67 ]; then break; fi
             n=$((n+1))
@@ -878,13 +886,14 @@ jobs:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASS }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASS }}
         run: |
           sudo apt-get install -y lftp
           LFTP_SETTINGS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 4;"
           echo "boatbuddy" > ./dist/.site-id
 
           # Site-id guard — never deploy to the wrong target.
-          REMOTE_ID=$(flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 90 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$LFTP_SETTINGS cat boatbuddy.predivo.ch/.site-id; bye" 2>/dev/null | tr -d '[:space:]') || REMOTE_ID=""
+          REMOTE_ID=$(flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 90 lftp --env-password -u "$FTP_USER" "$FTP_HOST" -e "$LFTP_SETTINGS cat boatbuddy.predivo.ch/.site-id; bye" 2>/dev/null | tr -d '[:space:]') || REMOTE_ID=""
           # An EMPTY id is not a match failure, so `-n` below let it through - which is exactly
           # what a 530, a timeout or a dropped connection produces. The guard cannot tell those
           # apart from "file absent", so it must not deploy blind. Every live target has a seeded
@@ -908,7 +917,7 @@ jobs:
           CMDS="$LFTP_SETTINGS mirror --reverse --no-perms --verbose ./dist/assets/ boatbuddy.predivo.ch/assets/; mirror --reverse --delete --no-perms --verbose --exclude '^assets/' ./dist/ boatbuddy.predivo.ch/; bye"
           n=0
           until [ $n -ge 4 ]; do
-            if flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 420 lftp -u "$FTP_USER","$FTP_PASS" "$FTP_HOST" -e "$CMDS"; then
+            if flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 420 lftp --env-password -u "$FTP_USER" "$FTP_HOST" -e "$CMDS"; then
               echo "Production FTP deploy succeeded (attempt $((n+1)))"; exit 0
             fi
             n=$((n + 1)); echo "::warning::Production FTP attempt $n failed (transient FTPS data-channel failure — runner-side; Metanet FTP verified reachable); retrying in 25s..."; sleep 25
@@ -964,6 +973,7 @@ jobs:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USER: ${{ secrets.FTP_USER }}
           FTP_PASS: ${{ secrets.FTP_PASS }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASS }}
           ASSETS_DIR: boatbuddy.predivo.ch/assets
         run: |
           # GitHub wraps every run block in bash -e: a failing command substitution in an
@@ -978,7 +988,7 @@ jobs:
           set ssl:verify-certificate no; set ftp:ssl-protect-data no
           set ftp:passive-mode yes; set net:timeout 60"
 
-          LIST=$(flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 180 lftp -u "$FTP_USER,$FTP_PASS" "ftp://$FTP_HOST" <<SCRIPT 2>&1
+          LIST=$(flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 180 lftp --env-password -u "$FTP_USER" "ftp://$FTP_HOST" <<SCRIPT 2>&1
           $SETTINGS
           find $ASSETS_DIR
           quit
@@ -998,7 +1008,7 @@ jobs:
           # vanishes (550) between listing and probing.
           PROBE_SCRIPT=$(mktemp)
           {
-            echo "open -u $FTP_USER,$FTP_PASS ftp://$FTP_HOST"
+            echo "open --env-password -u $FTP_USER ftp://$FTP_HOST"
             echo "$SETTINGS"
             # find prints full remote paths ("$ASSETS_DIR/<nested>/file", recursively);
             # normalize to a path relative to ASSETS_DIR so either output format is safe.
@@ -1037,7 +1047,7 @@ jobs:
 
           DEL_SCRIPT=$(mktemp)
           {
-            echo "open -u $FTP_USER,$FTP_PASS ftp://$FTP_HOST"
+            echo "open --env-password -u $FTP_USER ftp://$FTP_HOST"
             echo "$SETTINGS"
             # lftp rm does NOT glob-expand - hashed names are passed verbatim.
             # $OLD already holds full remote paths (the PROBE: values).
