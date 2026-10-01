@@ -155,6 +155,8 @@ jobs:
       PLAYWRIGHT_HOST_PLATFORM_OVERRIDE: ubuntu24.04-x64
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 50   # the real-reading decision below looks at the last day's commits
 
       - uses: actions/setup-node@v5
         with:
@@ -229,6 +231,20 @@ jobs:
           STAGING_URL: https://staging.boatbuddy.predivo.ch
           STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
           STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
+
+      # The real receipt reading (a paid Claude call) is checked only when the reading's own code
+      # changed in the last 26 h - i.e. once, on the first daily run after such a change reached
+      # staging. Every other run answers the reading with a stand-in (Roger 2026-10-01).
+      - name: Decide whether the real receipt reading is checked
+        run: |
+          changed=$(git log --since="26 hours ago" --name-only --format= -- \
+            supabase/functions/extract-expense supabase/functions/_shared src/lib/extractInvoice.ts | sort -u)
+          if [ -n "$changed" ]; then
+            echo "Reading code changed in the last day:"; echo "$changed"
+            echo "BB_REAL_EXTRACTION=1" >> "$GITHUB_ENV"
+          else
+            echo "Reading code unchanged in the last day - the real reading is not checked (no paid AI call)."
+          fi
 
       - name: Run v11 hardened gates against staging
         run: npx playwright test --config playwright.v11-gates.config.ts
