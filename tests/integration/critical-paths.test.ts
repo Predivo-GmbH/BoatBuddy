@@ -464,25 +464,39 @@ describeStaging('Gastsessions', () => {
 })
 
 describeStaging('Nutzungslogs (usage)', () => {
+  // Created through create_nutzungslog_atomic, the app's own path
+  // (src/hooks/useNutzungslogs.ts), NOT a direct table insert. Deleting a
+  // nutzungslog fires on_nutzungslog_delete (migration 022), which subtracts its
+  // betriebsstunden from the boot_stats singleton, and only the RPC adds them. A
+  // direct insert followed by our own cleanup (or the orphan sweep) therefore took
+  // 2.5h off the shared staging total on EVERY run, from 2026-08-24 until it went
+  // negative and failed the Boot Stats assertion below on 2026-10-01. Through the
+  // RPC the add and the subtract pair up, including for a row a killed run leaves
+  // to the sweep.
   test('insert usage log', async () => {
+    const { data: id, error: rpcError } = await q(() =>
+      supabase.rpc('create_nutzungslog_atomic', {
+        p_datum: '2026-06-01',
+        p_fahrer: 'dani',
+        p_betriebsstunden: 2.5,
+        p_treibstoff_liter: 45,
+        p_aktivitaeten: [{ typ: 'wakesurfen', dauer_min: 120 }],
+        p_notiz: RUN_TAG,
+        p_teilnehmer: [],
+        p_neue_gesamtstunden: null,
+        p_reservierung_id: null,
+      }),
+    )
+
+    expect(rpcError).toBeNull()
+    cleanup.push({ table: 'nutzungslogs', id })
+
     const { data, error } = await q(() =>
-      supabase
-        .from('nutzungslogs')
-        .insert({
-          datum: '2026-06-01',
-          fahrer: 'dani',
-          betriebsstunden: 2.5,
-          treibstoff_liter: 45,
-          aktivitaeten: [{ typ: 'wakesurfen', dauer_min: 120 }],
-          notiz: RUN_TAG,
-        })
-        .select()
-        .single(),
+      supabase.from('nutzungslogs').select('*').eq('id', id).single(),
     )
 
     expect(error).toBeNull()
     expect(Number(data!.betriebsstunden)).toBe(2.5)
-    cleanup.push({ table: 'nutzungslogs', id: data!.id })
   })
 })
 
