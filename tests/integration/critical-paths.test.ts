@@ -205,8 +205,8 @@ beforeAll(async () => {
   //
   // This exists because of a real incident, not as a precaution: on 2026-09-01 a
   // test in this file tried to prove the new single-row constraint by inserting a
-  // second row. It ran in deploy-staging, which executes `npm test` BEFORE it
-  // applies migrations, so the constraint was not there yet and the insert
+  // second row. It ran in deploy-staging, which then executed `npm test` BEFORE it
+  // applied migrations (reordered 2026-10-02), so the constraint was not there yet and the insert
   // SUCCEEDED - leaving a marked row in each table. A second row in boot_stats
   // silently moves the account balance on /finanzen for every reader, so these
   // must be cleared even though nothing here is supposed to write them.
@@ -464,25 +464,39 @@ describeStaging('Gastsessions', () => {
 })
 
 describeStaging('Nutzungslogs (usage)', () => {
+  // Created through create_nutzungslog_atomic, the app's own path
+  // (src/hooks/useNutzungslogs.ts), NOT a direct table insert. Deleting a
+  // nutzungslog fires on_nutzungslog_delete (migration 022), which subtracts its
+  // betriebsstunden from the boot_stats singleton, and only the RPC adds them. A
+  // direct insert followed by our own cleanup (or the orphan sweep) therefore took
+  // 2.5h off the shared staging total on EVERY run, from 2026-08-24 until it went
+  // negative and failed the Boot Stats assertion below on 2026-10-01. Through the
+  // RPC the add and the subtract pair up, including for a row a killed run leaves
+  // to the sweep.
   test('insert usage log', async () => {
+    const { data: id, error: rpcError } = await q(() =>
+      supabase.rpc('create_nutzungslog_atomic', {
+        p_datum: '2026-06-01',
+        p_fahrer: 'dani',
+        p_betriebsstunden: 2.5,
+        p_treibstoff_liter: 45,
+        p_aktivitaeten: [{ typ: 'wakesurfen', dauer_min: 120 }],
+        p_notiz: RUN_TAG,
+        p_teilnehmer: [],
+        p_neue_gesamtstunden: null,
+        p_reservierung_id: null,
+      }),
+    )
+
+    expect(rpcError).toBeNull()
+    cleanup.push({ table: 'nutzungslogs', id })
+
     const { data, error } = await q(() =>
-      supabase
-        .from('nutzungslogs')
-        .insert({
-          datum: '2026-06-01',
-          fahrer: 'dani',
-          betriebsstunden: 2.5,
-          treibstoff_liter: 45,
-          aktivitaeten: [{ typ: 'wakesurfen', dauer_min: 120 }],
-          notiz: RUN_TAG,
-        })
-        .select()
-        .single(),
+      supabase.from('nutzungslogs').select('*').eq('id', id).single(),
     )
 
     expect(error).toBeNull()
     expect(Number(data!.betriebsstunden)).toBe(2.5)
-    cleanup.push({ table: 'nutzungslogs', id: data!.id })
   })
 })
 
@@ -522,10 +536,17 @@ describeStaging('Boot Stats', () => {
 // proof lives instead. I wrote one on 2026-09-01 and it was WRONG in a way worth
 // recording, because the mistake is structural rather than careless:
 //
-//   deploy-staging runs `npm test` at step 4 and `Apply DB migrations to staging`
-//   at step 11. The unit-test step therefore runs against the schema as it was
-//   BEFORE this commit's migrations. On the very push that introduces a
-//   constraint, a test asserting that constraint runs before it exists.
+//   deploy-staging then ran `npm test` at step 4 and `Apply DB migrations to
+//   staging` at step 11. The unit-test step therefore ran against the schema as it
+//   was BEFORE this commit's migrations. On the very push that introduces a
+//   constraint, a test asserting that constraint ran before it existed.
+//
+//   Since 2026-10-02 deploy-staging applies migrations BEFORE `npm test` (that
+//   order is what let migration 032 repair the gesamtstunden this suite had
+//   drained). But this file also runs in test.yml on pull requests, which never
+//   apply migrations, and in the same second as deploy-staging on every push to
+//   main. So the reasoning below still stands: a test here must not depend on a
+//   migration from its own commit having reached staging.
 //
 // So the test did not merely fail — the INSERT SUCCEEDED, which is exactly the
 // staging corruption the read-only comment above had been protecting against

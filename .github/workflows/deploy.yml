@@ -8,7 +8,7 @@ name: Deploy
 # standard (DORA): deploy often, keep the per-push pipeline fast, and run the
 # heavy acceptance suite as a RELEASE gate + nightly — not on every push.
 #
-#   push -> main        FAST staging deploy: lint + unit + build + FTP + edge
+#   push -> main        FAST staging deploy: lint + migrations + unit + build + FTP + edge
 #                       fns + alive-smoke. ~5-6 min.  (job: deploy-staging)
 #   schedule (nightly)  FULL gauntlet against live staging — daily regression
 #                       signal even with no promotion.  (jobs: gate-*)
@@ -239,6 +239,18 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # MIGRATIONS BEFORE UNIT TESTS, deliberately (2026-10-02). "Unit tests" also runs the
+      # integration suite against live staging. While this step sat after the FTP upload, a
+      # migration that repairs staging DATA could never apply: the very test it repairs failed
+      # the job first. That is how staging stayed red from run 36948119189 on - the suite had
+      # drained boot_stats.gesamtstunden to -5.5, and 032 (the repair) was stuck behind it.
+      # Applying first also means the suite checks the schema as it will ship.
+      # Staging only. The production job keeps its own order, behind the full gauntlet.
+      - name: Apply DB migrations to staging
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/apply-migrations.mjs --project-ref svpewgbwousyheohlrtt
+
       - name: Unit tests
         run: npm test -- --run --passWithNoTests
         env:
@@ -316,10 +328,8 @@ jobs:
           done
           echo "::error::Staging FTP deploy failed after 4 attempts"; exit 1
 
-      - name: Apply DB migrations to staging
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: node scripts/apply-migrations.mjs --project-ref svpewgbwousyheohlrtt
+      # "Apply DB migrations to staging" used to sit here. It now runs before "Unit tests";
+      # see the note on that step for why.
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
