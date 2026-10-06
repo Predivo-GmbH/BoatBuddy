@@ -442,6 +442,14 @@ jobs:
             done
             echo "quit"
           } > "$PROBE_SCRIPT"
+          # The keep-line above skips every file the build just uploaded. When nothing else is left
+          # there is nothing to probe - say so, instead of letting the empty probe below raise the
+          # misleading "no MDTM replies (server may not support MDTM)" alarm.
+          if ! grep -q '^quote MDTM ' "$PROBE_SCRIPT"; then
+            rm -f "$PROBE_SCRIPT"
+            echo "Asset prune: every file in $ASSETS_DIR belongs to the build just uploaded - nothing to delete."
+            exit 0
+          fi
 
           OUT=$(flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 420 lftp -f "$PROBE_SCRIPT" 2>&1)
           rm -f "$PROBE_SCRIPT"
@@ -1068,6 +1076,14 @@ jobs:
             done
             echo "quit"
           } > "$PROBE_SCRIPT"
+          # The keep-line above skips every file the build just uploaded. When nothing else is left
+          # there is nothing to probe - say so, instead of letting the empty probe below raise the
+          # misleading "no MDTM replies (server may not support MDTM)" alarm.
+          if ! grep -q '^quote MDTM ' "$PROBE_SCRIPT"; then
+            rm -f "$PROBE_SCRIPT"
+            echo "Asset prune: every file in $ASSETS_DIR belongs to the build just uploaded - nothing to delete."
+            exit 0
+          fi
 
           OUT=$(flock -w 240 /tmp/predivo-fleet-ftp.lock timeout 420 lftp -f "$PROBE_SCRIPT" 2>&1)
           rm -f "$PROBE_SCRIPT"

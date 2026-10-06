@@ -140,6 +140,8 @@ test('every prune step protects the files of the build just uploaded', () => {
   for (const p of prunes) {
     assert.match(p.body, /\[ -e "\.\/dist\/assets\/\$rel" \] && continue/, `"${p.name}" can delete a file the current build contains`)
     assert.match(p.body, /if \[ ! -d \.\/dist\/assets \]/, `"${p.name}" would prune blind when ./dist/assets is missing`)
+    // With nothing left to probe, an empty MDTM run must not read as "the server does not support MDTM".
+    assert.match(p.body, /if ! grep -q '\^quote MDTM ' "\$PROBE_SCRIPT"; then/, `"${p.name}" raises a false MDTM alarm when every file belongs to the build just uploaded`)
   }
 })
 
