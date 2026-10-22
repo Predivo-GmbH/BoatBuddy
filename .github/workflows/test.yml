@@ -63,6 +63,25 @@ jobs:
       # migration-grants-baseline.json lists the migrations from before the rule. It needs npm ci.
       - name: New tables grant their own Data API access
         run: node node_modules/@predivo-gmbh/gate-kit/scripts/verify-migration-grants.mjs
+      # A package a change ADDS must exist on npm, be 30+ days old and be used (100+ downloads last week):
+      # AI tools invent package names and attackers register them, and npm audit only knows packages
+      # already reported. The judge is gate-kit's (conformance/new-dependencies.js); it compares with the
+      # PR's base or the commit before the push (HEAD~1 on a first push), so fetch that first (shallow checkout).
+      - name: New packages are real and established
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          gk=node_modules/@predivo-gmbh/gate-kit/scripts/verify-new-dependencies.mjs
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "$GITHUB_BASE_REF"
+            node "$gk"
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            git fetch --no-tags --depth=2 origin "$GITHUB_SHA"
+            node "$gk" --base HEAD~1
+          else
+            git fetch --no-tags --depth=1 origin "$BEFORE"
+            node "$gk" --base "$BEFORE"
+          fi
 
       # DISCOVERED, NOT LISTED. This repo's only other guard is named by hand in gitleaks.yml,
       # which is the same defect one layer down: a guard added tomorrow sits dark until somebody
