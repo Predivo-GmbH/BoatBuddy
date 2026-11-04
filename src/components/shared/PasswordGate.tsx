@@ -32,7 +32,7 @@ export function PasswordGate({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<GateError | null>(null)
+  const [error, setError] = useState<GateError | false>(false)
 
   useEffect(() => {
     let active = true
@@ -104,7 +104,7 @@ export function PasswordGate({ children }: { children: ReactNode }) {
         <input
           type="password"
           value={password}
-          onChange={(e) => { setPassword(e.target.value); setError(null) }}
+          onChange={(e) => { setPassword(e.target.value); setError(false) }}
           placeholder="Passwort"
           aria-label="Passwort"
           className="min-h-[44px] w-full rounded-md border border-input bg-card px-3 text-base md:text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
