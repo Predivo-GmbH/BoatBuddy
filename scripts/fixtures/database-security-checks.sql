@@ -22,15 +22,33 @@ select pg_temp.check_security(not exists (
 select pg_temp.check_security(not exists (
   select 1 from pg_proc p where pronamespace in
     (select oid from pg_namespace where nspname in ('public','graphql_public'))
+    and pg_has_role(current_user, p.proowner, 'USAGE')
     and not exists (select 1 from unnest(p.proconfig) c where c like 'search_path=%')
 ), 'all exposed function paths fixed');
 select pg_temp.check_security(not exists (
+  select 1 from pg_proc p where pronamespace in
+    (select oid from pg_namespace where nspname in ('public','graphql_public'))
+    and prosecdef and (has_function_privilege('anon',p.oid,'EXECUTE') or has_function_privilege('authenticated',p.oid,'EXECUTE'))
+), 'no browser-callable SECURITY DEFINER function in any exposed schema, whoever owns it');
+select pg_temp.check_security(not exists (
   select 1 from pg_extension where extname = 'pg_graphql' or extnamespace = 'public'::regnamespace
 ), 'no GraphQL or extensions in public');
+-- Hosted Supabase keeps supabase_admin's defaults out of the migrator's reach. This
+-- database must too, or the checks below prove nothing about staging/production.
+select pg_temp.check_security(exists (
+  select 1 from pg_default_acl d, lateral aclexplode(d.defaclacl) a
+  where a.grantee in ('anon'::regrole, 'authenticated'::regrole)
+    and not pg_has_role(current_user, d.defaclrole, 'SET')
+), 'platform-owned browser default ACLs present, as on hosted Supabase');
+-- SB-07's reach: global defaults and the browser-exposed schemas. Supabase's own
+-- postgres defaults in `storage` stay, as on hosted (PostgREST serves only public).
 select pg_temp.check_security(not exists (
   select 1 from pg_default_acl d, lateral aclexplode(d.defaclacl) a
   where a.grantee in ('anon'::regrole, 'authenticated'::regrole)
-), 'no browser default ACLs');
+    and pg_has_role(current_user, d.defaclrole, 'SET')
+    and (d.defaclnamespace = 0 or d.defaclnamespace in
+      (select oid from pg_namespace where nspname in ('public','graphql_public')))
+), 'no global or exposed-schema browser default ACLs the migrator can change');
 select pg_temp.check_security(not exists (
   select 1 from pg_proc p where pronamespace = 'public'::regnamespace and prosecdef
   and (has_function_privilege('anon',p.oid,'EXECUTE') or has_function_privilege('authenticated',p.oid,'EXECUTE'))

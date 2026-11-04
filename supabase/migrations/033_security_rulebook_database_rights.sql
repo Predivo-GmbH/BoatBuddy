@@ -23,11 +23,24 @@ end $$;
 
 -- Prevent implicit grants from every current object/default-ACL owner in the
 -- exposed schemas, including global defaults. Existing service_role ACLs stay.
+-- Postgres 16+ lets a role change default privileges only for roles it may SET
+-- ROLE to. On hosted Supabase the migrator (postgres) cannot act as the
+-- platform's supabase_admin, so its defaults are out of reach: skip them by
+-- name instead of aborting the release (staging run 41901180121, 2026-11-04).
 do $$
 declare owner_name text; schema_name text; object_kind text;
 begin
   for owner_name in
-    select distinct r.rolname from pg_roles r where r.oid in (
+    select r.rolname from pg_roles r
+    where not pg_has_role(current_user, r.oid, 'SET') and r.oid in (
+      select defaclrole from pg_default_acl where defaclnamespace = 0 or defaclnamespace in
+        (select oid from pg_namespace where nspname in ('public', 'graphql_public')))
+    order by 1
+  loop
+    raise notice '033: default privileges of % are platform-owned; % cannot change them', owner_name, current_user;
+  end loop;
+  for owner_name in
+    select distinct r.rolname from pg_roles r where pg_has_role(current_user, r.oid, 'SET') and r.oid in (
       select nspowner from pg_namespace where nspname in ('public', 'graphql_public')
       union select relowner from pg_class where relnamespace in
         (select oid from pg_namespace where nspname in ('public', 'graphql_public'))
@@ -69,8 +82,17 @@ begin
         execute format('alter view %I.%I set (security_invoker = true)', s, t.relname);
       end if;
     end loop;
-    for f in select p.oid::regprocedure as signature from pg_proc p
+    for f in select p.oid::regprocedure as signature, pg_has_role(current_user, p.proowner, 'USAGE') as owned
+             from pg_proc p
              where pronamespace = s::regnamespace and prokind in ('f','p') loop
+      -- Only the owner may alter a routine. Hosted Supabase ships platform-owned
+      -- graphql_public.graphql (a plain SECURITY INVOKER stand-in for pg_graphql);
+      -- skip such routines by name. The final assertion still refuses ANY
+      -- browser-callable SECURITY DEFINER routine, whoever owns it.
+      if not f.owned then
+        raise notice '033: % is platform-owned; search_path left as shipped', f.signature;
+        continue;
+      end if;
       -- Explicit pg_temp LAST prevents temp-table shadowing. Existing bodies
       -- reference public tables/helpers without qualification; empty would break them.
       execute format('alter routine %s set search_path = pg_catalog, public, pg_temp', f.signature);
@@ -187,13 +209,15 @@ begin
   if exists (
     select 1 from pg_proc p where p.pronamespace in
       (select oid from pg_namespace where nspname in ('public','graphql_public'))
-      and (not exists (select 1 from unnest(p.proconfig) c where c like 'search_path=%')
+      and ((pg_has_role(current_user, p.proowner, 'USAGE')
+          and not exists (select 1 from unnest(p.proconfig) c where c like 'search_path=%'))
         or (p.prosecdef and (has_function_privilege('anon',p.oid,'EXECUTE')
           or has_function_privilege('authenticated',p.oid,'EXECUTE'))))
   ) then raise exception '033: exposed function hardening incomplete'; end if;
   if exists (
     select 1 from pg_default_acl d, lateral aclexplode(d.defaclacl) a
     where a.grantee in ('anon'::regrole,'authenticated'::regrole)
+      and pg_has_role(current_user, d.defaclrole, 'SET')
       and (d.defaclnamespace = 0 or d.defaclnamespace in
         (select oid from pg_namespace where nspname in ('public','graphql_public')))
   ) then raise exception '033: browser default ACLs remain'; end if;

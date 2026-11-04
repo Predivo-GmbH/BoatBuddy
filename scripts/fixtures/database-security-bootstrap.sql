@@ -1,5 +1,7 @@
 -- LOCAL TEST ONLY: platform schemas/ACLs needed by BoatBuddy's historic SQL.
 -- The isolated Postgres container has Supabase's roles but no Storage API server.
+-- Runs as supabase_admin, the platform, so ownership matches hosted Supabase:
+-- Storage tables belong to supabase_storage_admin, extensions to supabase_admin.
 create schema if not exists storage;
 create schema if not exists extensions;
 create table storage.buckets (
@@ -14,8 +16,12 @@ alter table storage.objects enable row level security;
 create function storage.foldername(name text) returns text[] language sql immutable
   as $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1)-1] $$;
 insert into storage.buckets (id, public) values ('dokumente', true);
-grant usage on schema public, storage to anon, authenticated, service_role;
-grant all on all tables in schema storage to anon, authenticated, service_role;
+alter table storage.buckets owner to supabase_storage_admin;
+alter table storage.objects owner to supabase_storage_admin;
+grant usage on schema public, storage to postgres, anon, authenticated, service_role;
+-- The grants hosted staging shows on these two tables (read 2026-11-04).
+grant select, insert, update, delete on all tables in schema storage to anon, authenticated;
+grant all on all tables in schema storage to postgres, service_role;
 alter default privileges for role postgres grant all on tables to anon, authenticated, service_role;
 alter default privileges for role postgres in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges for role postgres grant all on sequences to anon, authenticated, service_role;
