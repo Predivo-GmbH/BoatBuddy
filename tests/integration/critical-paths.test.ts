@@ -205,45 +205,64 @@ beforeAll(async () => {
     throw new Error(`orphan sweep failed:\n  ${sweepFailures.join('\n  ')}`)
   }
 
-  // The SINGLETON tables need their own sweep, and they are not in WRITTEN_TABLES
-  // because the sweep above filters on `erstellt_am`, a column neither of them has.
+  // The SINGLETON tables get a residue CHECK, not a sweep, and they are not in
+  // WRITTEN_TABLES because the sweep above filters on `erstellt_am`, a column
+  // neither of them has.
   //
-  // This exists because of a real incident, not as a precaution: on 2026-09-01 a
-  // test in this file tried to prove the new single-row constraint by inserting a
-  // second row. It ran in deploy-staging, which then executed `npm test` BEFORE it
-  // applied migrations (reordered 2026-10-02), so the constraint was not there yet and the insert
+  // This exists because of a real incident: on 2026-09-01 a test in this file
+  // tried to prove the new single-row constraint by inserting a second row. It ran
+  // in deploy-staging, which then executed `npm test` BEFORE it applied migrations
+  // (reordered 2026-10-02), so the constraint was not there yet and the insert
   // SUCCEEDED - leaving a marked row in each table. A second row in boot_stats
-  // silently moves the account balance on /finanzen for every reader, so these
-  // must be cleared even though nothing here is supposed to write them.
+  // silently moves the account balance on /finanzen for every reader.
   //
-  // No date filter: a genuine singleton row never carries the test marker, so
-  // anything marked is by definition residue and should go immediately.
+  // Until 2026-11-04 this block DELETED marked rows with the browser key. Migration
+  // 033 (security rulebook, least-privilege rights) deliberately gives the browser
+  // key no DELETE on either singleton - no screen ever deletes the boat's settings
+  // row - so that delete now fails with "permission denied for table boot_stats"
+  // and took the whole staging deploy down with it (run 41911264201). The right
+  // answer is not to hand the browser key DELETE back for the sake of a test:
   //
-  // The two boot_stats COLUMNS stay sequential with each other. Different tables
-  // cannot contend, but two concurrent deletes whose predicates can match the same
-  // row are the one case here that could take conflicting row locks, so they are
-  // one task; the tables around them still go at once.
-  const singletonSweeps: ReadonlyArray<readonly [string, readonly string[]]> = [
-    ['boot_stats', ['modell', 'notiz']],
-    ['abrechnung_config', ['notiz']],
+  //   - a SECOND row can no longer exist: migration 031 put `unique ((true))` on
+  //     both tables, and 033 gives the browser key no INSERT on either; and
+  //   - the only row that is left is the REAL one, so deleting it because a column
+  //     happens to carry the marker would destroy the boat's opening balance and
+  //     settings, which is far worse than the residue it was meant to clear.
+  //
+  // So the check is read-only: if a marked row is ever found, the suite stops and
+  // NAMES it, instead of a test quietly destroying or tolerating it. Clearing it
+  // is then a deliberate act with the service credentials, not a side effect.
+  //
+  // Reads take no row locks, so all three column checks go in one parallel wave.
+  const singletonChecks: ReadonlyArray<readonly [string, string]> = [
+    ['boot_stats', 'modell'],
+    ['boot_stats', 'notiz'],
+    ['abrechnung_config', 'notiz'],
   ]
-  const singles = await stage('singleton residue sweep', () =>
+  const singles = await stage('singleton residue check', () =>
     Promise.all(
-      singletonSweeps.map(async ([table, columns]) => {
-        const failures: string[] = []
-        for (const column of columns) {
-          const outcome = await settle(`${table}.${column}`, () =>
-            supabase.from(table).delete().like(column, `${MARKER}%`),
-          )
-          if (outcome.error) failures.push(`${outcome.table}: ${outcome.error}`)
+      singletonChecks.map(async ([table, column]): Promise<string | null> => {
+        try {
+          const { data, error } = await supabase.from(table).select('id').like(column, `${MARKER}%`)
+          if (error) return `${table}.${column}: could not be read: ${error.message}`
+          if (data && data.length > 0) {
+            return (
+              `${table}.${column}: ${data.length} row(s) carry the test marker ` +
+              `(${data.map(r => r.id).join(', ')}). The browser key cannot and must not ` +
+              'delete from a singleton table (migration 033); remove the row with the ' +
+              'service credentials after checking it is not the real one.'
+            )
+          }
+          return null
+        } catch (e) {
+          return `${table}.${column}: ${e instanceof Error ? e.message : String(e)}`
         }
-        return failures
       }),
     ),
   )
-  const singleFailures = singles.flat()
+  const singleFailures = singles.filter((f): f is string => f !== null)
   if (singleFailures.length > 0) {
-    throw new Error(`singleton residue sweep failed:\n  ${singleFailures.join('\n  ')}`)
+    throw new Error(`singleton residue check failed:\n  ${singleFailures.join('\n  ')}`)
   }
 }, HOOK_CEILING_MS)
 
