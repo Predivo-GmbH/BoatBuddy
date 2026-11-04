@@ -1,0 +1,46 @@
+name: Offline security checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+      - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
+      - name: Security regression tests (offline)
+        run: node --test --test-concurrency=2 scripts/lib/*.test.mjs
+      - name: SAST scan (blocking, deploy-standard section 4d)
+        run: |
+          python3 -m venv "$RUNNER_TEMP/semgrep"
+          "$RUNNER_TEMP/semgrep/bin/pip" install semgrep
+          "$RUNNER_TEMP/semgrep/bin/semgrep" scan --config=p/security-audit --config=p/secrets --severity=ERROR --error --metrics=off .
+      - name: Workflow security report (advisory)
+        if: always()
+        continue-on-error: true
+        uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          version: '1.32.0'
+          inputs: .github/workflows
+          advanced-security: false
+          online-audits: false

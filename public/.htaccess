@@ -1,6 +1,17 @@
+# SR-HOST-02/03: copied from project-starter ee73ba6. Deny before routing.
+Options -Indexes
+
+<IfModule mod_authz_core.c>
+  <FilesMatch "(?i)(^\.|^Credentials.*|^package.*\.json$|\.(?:map|sql|bak|orig)$|\.bak-|~$)">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  RewriteRule (^|/)(\.(?!well-known(?:/|$))[^/]*|docs|node_modules|backup|tmp)(/|$) - [F,L,NC]
 
   # HTTPS redirect
   RewriteCond %{HTTPS} off
@@ -29,15 +40,26 @@ ErrorDocument 404 /index.html
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Frame-Options "DENY"
-  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Referrer-Policy "same-origin"
+  # QR upload links contain a token. THE_REQUEST survives the SPA internal rewrite.
+  Header always set Referrer-Policy "no-referrer" "expr=%{THE_REQUEST} =~ m#\s/+phone-upload(?:[/?\s])#"
   Header always set Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-  Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=()"
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'"
+  Header always set Permissions-Policy "camera=(self), microphone=(), payment=(), geolocation=(), usb=()"
+  # Camera, blob previews and realtime are used by phone upload. Staging rewrites the project ref.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://xzythvxmuxmczuiophwp.supabase.co wss://xzythvxmuxmczuiophwp.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header unset X-Powered-By
+  Header always unset X-Powered-By
 
   <FilesMatch "\.(js|css|woff2|png|jpg|webp|avif|svg|ico)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
   </FilesMatch>
   <FilesMatch "\.html$">
-    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header always set Cache-Control "no-cache, no-store, must-revalidate"
+    Header always set Cross-Origin-Resource-Policy "same-origin"
+  </FilesMatch>
+  <FilesMatch "^security\.txt$">
+    Header always set Content-Type "text/plain; charset=utf-8"
+    Header always set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
 </IfModule>

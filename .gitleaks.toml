@@ -1,0 +1,40 @@
+# gitleaks config for project-starter (deploy-standard §4d). Extends the default rule set; the allowlist
+# carries only values that are public BY DESIGN, each with its reason. A real secret never goes here.
+title = "BoatBuddy gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Public-by-design values and secret REFERENCES, never secret values"
+regexes = [
+  # Supabase publishable keys ship in every visitor's browser (RLS protects the data).
+  '''sb_publishable_[A-Za-z0-9_-]{20,}''',
+  # GitHub Actions secret references are names, not values.
+  '''\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}''',
+]
+paths = [
+  # Lock file: integrity hashes look like keys to the entropy rules.
+  '''package-lock\.json''',
+]
+
+# PR #34: locally reproduced staging and production release-bundle findings.
+# These Supabase JWTs have issuer supabase and role anon; they are public browser keys.
+# Match only the exact header/payload and these two generated chunk families.
+# Different roles/projects and other rules in the same file remain blocking.
+[[rules]]
+id = "jwt"
+
+[[rules.allowlists]]
+description = "Public production Supabase anon JWT in browser chunks"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^(?:dist/)?assets/(?:supabase|useKontoberechnung)-[A-Za-z0-9_-]+\.js$''']
+regexes = ['''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6eXRodnhtdXhtY3p1aW9waHdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDA2MDQsImV4cCI6MjA5NTM3NjYwNH0\.[A-Za-z0-9_-]{43}$''']
+
+[[rules.allowlists]]
+description = "Public staging Supabase anon JWT in browser chunks"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^(?:dist/)?assets/(?:supabase|useKontoberechnung)-[A-Za-z0-9_-]+\.js$''']
+regexes = ['''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cGV3Z2J3b3VzeWhlb2hscnR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzOTgzNzIsImV4cCI6MjA5NTk3NDM3Mn0\.[A-Za-z0-9_-]{43}$''']

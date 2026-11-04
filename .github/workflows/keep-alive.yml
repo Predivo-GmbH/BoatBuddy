@@ -16,9 +16,13 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
+permissions:
+  contents: read
+
 jobs:
   ping:
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Ping Supabase Production (real DB query via GraphQL)

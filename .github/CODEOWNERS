@@ -1,0 +1,4 @@
+# SR-SUP-12: review CI and release-policy changes through a pull request.
+/.github/workflows/ @Predivo-GmbH
+/.github/CODEOWNERS @Predivo-GmbH
+/scripts/verify-main-pr.mjs @Predivo-GmbH
