@@ -280,9 +280,18 @@ describe('runs without Node globals, like the Edge Runtime (run 41929196303)', (
   })
   it('never logs a message, password, hash, token or an unsafe code', () => {
     const line = describeFailure('compare', Object.assign(new Error(`${password} ${hash} fixture-access`), { code: 'has spaces; DROP' }))
-    expect(line).toBe('member-session 503 at stage=compare kind=Error')
+    expect(line).toBe('member-session 503 at stage=compare kind=Error code=other')
     expect(describeFailure('compare', new ReferenceError('Buffer is not defined'))).toBe('member-session 503 at stage=compare kind=ReferenceError')
     expect(describeFailure('compare', 'thrown string')).toBe('member-session 503 at stage=compare kind=string')
+  })
+  it('only allow-listed names and codes are logged; a secret shaped like a code becomes «other»', () => {
+    const secretish = Object.assign(new Error('x'), { name: 'my_shared_pass_2026', code: 'my_shared_pass_2026' })
+    const line = describeFailure('compare', secretish)
+    expect(line).toBe('member-session 503 at stage=compare kind=other code=other')
+    expect(line).not.toContain('my_shared_pass_2026')
+    expect(describeFailure('rate-address', new GateFault('rate unavailable', '42501'))).toBe('member-session 503 at stage=rate-address kind=GateFault code=42501')
+    expect(describeFailure('rate-address', new GateFault('rate unavailable', 'PGRST202'))).toBe('member-session 503 at stage=rate-address kind=GateFault code=PGRST202')
+    expect(describeFailure('issue-session', new GateFault('member unavailable', 'identity-missing'))).toBe('member-session 503 at stage=issue-session kind=GateFault code=identity-missing')
   })
   it('a failing logger never changes the answer', async () => {
     const { deps } = harness(); deps.passwordHash = ''; deps.log.mockImplementation(() => { throw new Error('log down') })

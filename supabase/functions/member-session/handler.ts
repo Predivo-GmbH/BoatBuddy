@@ -51,12 +51,21 @@ export class GateFault extends Error {
   constructor(message: string, readonly code?: string) { super(message); this.name = 'GateFault' }
 }
 
-const SAFE_CODE = /^[A-Za-z0-9_.-]{1,40}$/
+// Explicit allowlists, never a pattern: a value outside them is logged as «other», so no message, body, header,
+// password, hash or token can reach the log even if it happens to look like a code.
+const KNOWN_ERROR_NAMES = new Set(['Error', 'TypeError', 'ReferenceError', 'RangeError', 'SyntaxError', 'GateFault',
+  'AuthApiError', 'AuthRetryableFetchError', 'AuthUnknownError', 'AuthSessionMissingError', 'AbortError', 'TimeoutError'])
+const KNOWN_CODES = new Set(['identity-mismatch', 'identity-missing', 'verify-otp', 'user_not_found', 'email_provider_disabled',
+  'otp_expired', 'otp_disabled', 'over_request_rate_limit', 'validation_failed', 'unexpected_failure', 'session_not_found',
+  'bad_jwt', 'not_admin', 'signup_disabled', 'user_banned'])
+const SQLSTATE = /^[0-9A-Z]{5}$/ // Postgres error class codes (e.g. 42501): five characters, never a secret
+const POSTGREST = /^PGRST\d{3}$/
 /** Stage + error kind only: never a message, body, header, password, hash or token. */
 export function describeFailure(stage: string, error: unknown): string {
-  const name = error instanceof Error && SAFE_CODE.test(error.name) ? error.name : typeof error
-  const code = (error as { code?: unknown })?.code
-  return `member-session 503 at stage=${stage} kind=${name}${typeof code === 'string' && SAFE_CODE.test(code) ? ` code=${code}` : ''}`
+  const name = error instanceof Error ? (KNOWN_ERROR_NAMES.has(error.name) ? error.name : 'other') : typeof error
+  const raw = (error as { code?: unknown })?.code
+  const code = typeof raw !== 'string' ? '' : (KNOWN_CODES.has(raw) || SQLSTATE.test(raw) || POSTGREST.test(raw)) ? raw : 'other'
+  return `member-session 503 at stage=${stage} kind=${name}${code ? ` code=${code}` : ''}`
 }
 
 export function passwordMatches(password: string, hash: string): boolean {
