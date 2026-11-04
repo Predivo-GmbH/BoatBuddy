@@ -127,6 +127,7 @@ function assertReleaseGates(text, label) {
     const secrets = job.indexOf('gitleaks" dir dist --redact --exit-code 1')
     const upload = job.indexOf('mirror --reverse')
     assert.ok(build >= 0 && guard > build && secrets > guard && upload > secrets, `${label}: build, private-file guard, secret guard, upload must run in order`)
+    assert.match(job, /gitleaks" dir dist --redact --exit-code 1 --config \.gitleaks\.toml/, `${label}: bundle scan must explicitly load the reviewed allowlist`)
     const step = job.slice(job.lastIndexOf('      - name:', guard), job.indexOf('      - name:', secrets))
     assert.doesNotMatch(step, /continue-on-error:|\|\|\s*true|if:/, `${label}: built-output gate must block`)
     const assets = job.indexOf('run: node scripts/verify-live-assets.mjs')
@@ -140,6 +141,7 @@ test('every deploy variant blocks private bundles and follows asset checks with 
   for (const file of filesUnder(directory).filter(file => /^deploy.*\.yml(?:\.template)?$/.test(path.basename(file)))) {
     const source = fs.readFileSync(file, 'utf8')
     assertReleaseGates(source, file)
+    assert.throws(() => assertReleaseGates(source.replace(' --config .gitleaks.toml', ''), 'mutated'), /must explicitly load/)
     for (const command of ['node scripts/check-dist-private-files.mjs dist', 'gitleaks" dir dist --redact --exit-code 1', 'run: node scripts/check-live-headers.mjs']) {
       assert.throws(() => assertReleaseGates(source.replace(command, 'removed gate'), 'mutated'), /must run in order|must follow/)
     }

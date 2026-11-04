@@ -32,5 +32,5 @@ jobs:
           node-version: 22
       - name: Require the exact merged PR and green checks before the merge
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/verify-main-pr.mjs

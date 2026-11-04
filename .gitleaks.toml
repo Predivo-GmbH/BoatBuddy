@@ -17,3 +17,24 @@ paths = [
   # Lock file: integrity hashes look like keys to the entropy rules.
   '''package-lock\.json''',
 ]
+
+# PR #34: locally reproduced staging and production release-bundle findings.
+# These Supabase JWTs have issuer supabase and role anon; they are public browser keys.
+# Match only the exact header/payload and these two generated chunk families.
+# Different roles/projects and other rules in the same file remain blocking.
+[[rules]]
+id = "jwt"
+
+[[rules.allowlists]]
+description = "Public production Supabase anon JWT in browser chunks"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^(?:dist/)?assets/(?:supabase|useKontoberechnung)-[A-Za-z0-9_-]+\.js$''']
+regexes = ['''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6eXRodnhtdXhtY3p1aW9waHdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MDA2MDQsImV4cCI6MjA5NTM3NjYwNH0\.[A-Za-z0-9_-]{43}$''']
+
+[[rules.allowlists]]
+description = "Public staging Supabase anon JWT in browser chunks"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^(?:dist/)?assets/(?:supabase|useKontoberechnung)-[A-Za-z0-9_-]+\.js$''']
+regexes = ['''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cGV3Z2J3b3VzeWhlb2hscnR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzOTgzNzIsImV4cCI6MjA5NTk3NDM3Mn0\.[A-Za-z0-9_-]{43}$''']

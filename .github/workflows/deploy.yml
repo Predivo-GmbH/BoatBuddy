@@ -305,7 +305,7 @@ jobs:
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
           chmod +x "$RUNNER_TEMP/gitleaks"
       - name: Refuse secrets in the public bundle
-        run: '"$RUNNER_TEMP/gitleaks" dir dist --redact --exit-code 1'
+        run: '"$RUNNER_TEMP/gitleaks" dir dist --redact --exit-code 1 --config .gitleaks.toml'
 
       - name: Deploy staging via FTP
         # Zero-downtime, matching this repo's own production job. A single
@@ -960,7 +960,7 @@ jobs:
           tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
           chmod +x "$RUNNER_TEMP/gitleaks"
       - name: Refuse secrets in the public bundle
-        run: '"$RUNNER_TEMP/gitleaks" dir dist --redact --exit-code 1'
+        run: '"$RUNNER_TEMP/gitleaks" dir dist --redact --exit-code 1 --config .gitleaks.toml'
 
       - name: Deploy via FTP (zero-downtime)
         env:
