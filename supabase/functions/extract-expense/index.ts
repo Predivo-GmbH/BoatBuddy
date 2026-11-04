@@ -4,7 +4,7 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { anthropicMessages } from '../_shared/anthropic-model.ts'
 import { logAnthropicUsage } from '../_shared/log-usage.ts'
 import { requireMember } from '../_shared/require-member.ts'
-import { clientIp } from '../_shared/client-ip.ts'
+import { clientIp, isStagingProject, logHeaderShapeOnce } from '../_shared/client-ip.ts'
 
 /**
  * extract-expense: AI-powered invoice extraction for BoatBuddy
@@ -43,12 +43,14 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const IP_HOURLY_LIMIT = 30
 const GLOBAL_DAILY_LIMIT = 300
 
-// The caller's address comes from the ONE shared definition (gateway-appended, rightmost
-// X-Forwarded-For entry), the same as member-session: _shared/client-ip.ts says why.
+// The caller's address comes from the ONE shared definition (cf-connecting-ip, else the
+// rightmost X-Forwarded-For entry), the same as member-session: _shared/client-ip.ts says why.
+// `null` (no trustworthy address) skips the per-address cap: one shared 'unknown' bucket
+// would let 30 receipts an hour stop every member. The global daily cap still applies.
 
 async function enforceRateLimit(
   supabase: SupabaseClient,
-  ip: string,
+  ip: string | null,
 ): Promise<{ ok: boolean; message?: string }> {
   // Fail-OPEN: if the rate-limit machinery itself errors (RPC missing, DB hiccup),
   // never block a legit upload — log and allow.
@@ -62,15 +64,17 @@ async function enforceRateLimit(
       now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
     )).toISOString()
 
-    const { data: ipCount, error: ipErr } = await supabase.rpc('bump_extract_rate', {
-      p_key: `ip:${ip}`, p_window: hourWindow,
-    })
-    if (ipErr) {
-      console.error('extract-expense rate-limit ip bump failed (fail-open):', ipErr.message)
-      return { ok: true }
-    }
-    if ((ipCount ?? 0) > IP_HOURLY_LIMIT) {
-      return { ok: false, message: `Rate limit: max ${IP_HOURLY_LIMIT} extractions per hour from your network. Please try again later.` }
+    if (ip !== null) {
+      const { data: ipCount, error: ipErr } = await supabase.rpc('bump_extract_rate', {
+        p_key: `ip:${ip}`, p_window: hourWindow,
+      })
+      if (ipErr) {
+        console.error('extract-expense rate-limit ip bump failed (fail-open):', ipErr.message)
+        return { ok: true }
+      }
+      if ((ipCount ?? 0) > IP_HOURLY_LIMIT) {
+        return { ok: false, message: `Rate limit: max ${IP_HOURLY_LIMIT} extractions per hour from your network. Please try again later.` }
+      }
     }
 
     const { data: globalCount, error: gErr } = await supabase.rpc('bump_extract_rate', {
@@ -140,6 +144,8 @@ serve(async (req) => {
   }
 
   if (req.method !== 'POST') return new Response(null, { status: 405, headers: CORS_HEADERS })
+  // Staging only (off in production by the project URL): the header SHAPE, never an address.
+  logHeaderShapeOnce(req, 'extract-expense', isStagingProject(Deno.env.get('SUPABASE_URL')))
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!,
     (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!,
     { auth: { persistSession: false, autoRefreshToken: false } })

@@ -1,10 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.106.2'
 import { createMemberHandler, MEMBER_EMAIL, SHARED_MEMBER_ID, type MemberSession } from './handler.ts'
+import { isStagingProject, logHeaderShapeOnce } from '../_shared/client-ip.ts'
 
 // Request-local clients: verifyOtp must never mutate a shared service-role client.
 Deno.serve(async req => {
   const options = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
   const url = Deno.env.get('SUPABASE_URL')!
+  // Staging only (off in production by the project URL): the header SHAPE, never an address.
+  logHeaderShapeOnce(req, 'member-session', isStagingProject(url))
   const serverKey = (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!
   const admin = createClient(url, serverKey, options)
   return createMemberHandler({

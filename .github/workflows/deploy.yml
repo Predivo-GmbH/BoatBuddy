@@ -277,7 +277,9 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           # Retry-with-backoff for transient Supabase API 502s.
-          FNS=$(find supabase/functions -mindepth 1 -maxdepth 1 -type d -not -name '_*' -printf '%f ')
+          # extract-expense is NOT in this list: it ships after the front end upload (step
+          # "Deploy extract-expense ... after the front end"), docs/RUNBOOK-member-gate.md.
+          FNS=$(find supabase/functions -mindepth 1 -maxdepth 1 -type d -not -name '_*' -not -name extract-expense -printf '%f ')
           n=0
           until [ $n -ge 4 ]; do
             if supabase functions deploy $FNS --project-ref svpewgbwousyheohlrtt --use-api; then
@@ -287,12 +289,14 @@ jobs:
           done
           echo "::error::Edge functions deploy to staging failed after 4 attempts"; exit 1
 
-      # Before anything depends on it: a random WRONG password must get 401. A 503 means the
-      # sign-in is misconfigured (hash secret, member identity, rate counter) and the new
-      # front end would lock every member out, so the job stops here.
-      - name: Member sign-in refuses a wrong password with 401 (staging)
+      # Before anything depends on it: a random WRONG password must get 401 and the REAL one
+      # 200 with a session (signed out again at once). A 503 means the sign-in is
+      # misconfigured (hash secret, member identity, rate counter) and the new front end
+      # would lock every member out, so the job stops here. A missing secret fails, never skips.
+      - name: Member sign-in refuses a wrong password and accepts the real one (staging)
         env:
           SUPABASE_PUBLIC_KEY: ${{ secrets.STAGING_ANON_KEY }}
+          MEMBER_GATE_PASSWORD: ${{ secrets.MEMBER_GATE_PASSWORD }}
         run: node scripts/member-gate-smoke.mjs --environment staging
 
       - name: Unit tests
@@ -384,6 +388,23 @@ jobs:
             n=$((n + 1)); echo "::warning::Staging FTP attempt $n failed (transient FTPS data-channel failure — runner-side; Metanet FTP verified reachable); retrying in 25s..."; sleep 25
           done
           echo "::error::Staging FTP deploy failed after 4 attempts"; exit 1
+
+      # AFTER the front end upload, never before (review of PR #38, F3): this version accepts
+      # only a member session. Shipped earlier, a failed smoke or upload would leave the OLD
+      # front end live without receipt extraction. The old function accepts the new front
+      # end's member call, so until this step lands both front ends keep extracting.
+      - name: Deploy extract-expense (member-only) to staging after the front end
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          n=0
+          until [ $n -ge 4 ]; do
+            if supabase functions deploy extract-expense --project-ref svpewgbwousyheohlrtt --use-api; then
+              echo "extract-expense deployed to staging (attempt $((n+1)))"; exit 0
+            fi
+            n=$((n + 1)); echo "::warning::extract-expense deploy attempt $n failed (transient API error, e.g. 502); backing off 60s..."; sleep 60
+          done
+          echo "::error::extract-expense deploy to staging failed after 4 attempts (the previous version stays live and still extracts)"; exit 1
 
       # "Apply DB migrations to staging" used to sit here. It now runs before "Unit tests";
       # see the note on that step for why.
@@ -1017,7 +1038,9 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           # Retry-with-backoff for transient Supabase API 502s.
-          FNS=$(find supabase/functions -mindepth 1 -maxdepth 1 -type d -not -name '_*' -printf '%f ')
+          # extract-expense is NOT in this list: it ships after the front end upload (step
+          # "Deploy extract-expense ... after the front end"), docs/RUNBOOK-member-gate.md.
+          FNS=$(find supabase/functions -mindepth 1 -maxdepth 1 -type d -not -name '_*' -not -name extract-expense -printf '%f ')
           n=0
           until [ $n -ge 4 ]; do
             if supabase functions deploy $FNS --project-ref xzythvxmuxmczuiophwp --use-api; then
@@ -1027,12 +1050,14 @@ jobs:
           done
           echo "::error::Edge functions deploy to production failed after 4 attempts"; exit 1
 
-      # A random WRONG password must get 401, not 503, BEFORE the new front end is uploaded:
-      # a 503 would lock every member out of the new front end. Stopping here leaves the old
-      # front end live and working (the migrations above are additive).
-      - name: Member sign-in refuses a wrong password with 401 (production)
+      # A random WRONG password must get 401 and the REAL one 200 with a session (signed out
+      # again at once), BEFORE the new front end is uploaded: a 503 would lock every member
+      # out of the new front end. Stopping here leaves the old front end live and working
+      # (the migrations above are additive, extract-expense is not yet replaced).
+      - name: Member sign-in refuses a wrong password and accepts the real one (production)
         env:
           SUPABASE_PUBLIC_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          MEMBER_GATE_PASSWORD: ${{ secrets.MEMBER_GATE_PASSWORD }}
         run: node scripts/member-gate-smoke.mjs --environment production
 
       - name: Deploy via FTP (zero-downtime)
@@ -1077,6 +1102,23 @@ jobs:
             n=$((n + 1)); echo "::warning::Production FTP attempt $n failed (transient FTPS data-channel failure — runner-side; Metanet FTP verified reachable); retrying in 25s..."; sleep 25
           done
           echo "::error::Production FTP deploy failed after 4 attempts"; exit 1
+
+      # AFTER the front end upload, never before (review of PR #38, F3): this version accepts
+      # only a member session. Shipped earlier, a failed smoke or upload would leave the OLD
+      # front end live without receipt extraction. The old function accepts the new front
+      # end's member call, so until this step lands both front ends keep extracting.
+      - name: Deploy extract-expense (member-only) to production after the front end
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          n=0
+          until [ $n -ge 4 ]; do
+            if supabase functions deploy extract-expense --project-ref xzythvxmuxmczuiophwp --use-api; then
+              echo "extract-expense deployed to production (attempt $((n+1)))"; exit 0
+            fi
+            n=$((n + 1)); echo "::warning::extract-expense deploy attempt $n failed (transient API error, e.g. 502); backing off 60s..."; sleep 60
+          done
+          echo "::error::extract-expense deploy to production failed after 4 attempts (the previous version stays live and still extracts)"; exit 1
 
       - name: Post-deploy production smoke test
         run: |

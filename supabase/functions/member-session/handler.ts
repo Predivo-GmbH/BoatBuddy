@@ -4,7 +4,12 @@ import { clientIp } from '../_shared/client-ip.ts'
 export { clientIp }
 
 export const ACCESS_SECONDS = 900
-// Per caller address: every attempt counts, 10 per 15 minutes.
+// Auth's clock and this isolate's clock are different machines: a session stamped a few
+// seconds ahead of ours is still the 15-minute session, not a longer pass.
+export const CLOCK_TOLERANCE_SECONDS = 5
+// Per caller address: every attempt counts, 10 per 15 minutes. Applied only when the
+// request carries a trustworthy client address (_shared/client-ip.ts); without one there is
+// no per-address bucket at all, so no shared gateway address can lock every member out.
 export const IP_LIMIT = 10
 // Everyone together: only WRONG passwords count, 60 per hour. Members typing the right
 // password, preflights and malformed requests never use it up, so no amount of ordinary
@@ -48,13 +53,17 @@ export function createMemberHandler(deps: GateDependencies) {
       // Cross-isolate atomic counters. Fail closed on transport/SQL errors.
       // 1. Per caller address FIRST, counting every attempt: one address can never spend
       //    the shared budget below (10 per 15 min = at most 40 of its 60 per hour).
+      //    No trustworthy address: skip this step; the wrong-password budget still bounds it.
       const hour = Math.floor(now / 3600) * 3600
       const quarter = Math.floor(now / 900) * 900
       const hourWindow = new Date(hour * 1000).toISOString()
-      const ipKey = createHmac('sha256', deps.passwordHash).update(clientIp(req)).digest('hex')
-      const attempts = await deps.bump(`member-login:ip:${ipKey}`, new Date(quarter * 1000).toISOString())
-      if (!Number.isInteger(attempts) || attempts < 1) throw new Error('rate backend')
-      if (attempts > IP_LIMIT) return jsonResponse({ error: 'Too many attempts' }, 429, { 'Retry-After': String(quarter + 900 - now) })
+      const ip = clientIp(req)
+      if (ip !== null) {
+        const ipKey = createHmac('sha256', deps.passwordHash).update(ip).digest('hex')
+        const attempts = await deps.bump(`member-login:ip:${ipKey}`, new Date(quarter * 1000).toISOString())
+        if (!Number.isInteger(attempts) || attempts < 1) throw new Error('rate backend')
+        if (attempts > IP_LIMIT) return jsonResponse({ error: 'Too many attempts' }, 429, { 'Retry-After': String(quarter + 900 - now) })
+      }
       // 2. The shared wrong-password budget is READ here and spent only below, on a wrong
       //    password. Once it is used up every attempt is refused WITHOUT comparing, so the
       //    61st guess cannot learn that it was right. Simultaneous wrong guesses can pass
@@ -79,7 +88,7 @@ export function createMemberHandler(deps: GateDependencies) {
       // Refuse misconfigured TTLs/identities instead of handing out a longer pass.
       if (session.user.id !== SHARED_MEMBER_ID || session.user.app_metadata.boatbuddy_member !== true ||
           !session.access_token || !session.refresh_token || session.token_type !== 'bearer' ||
-          !Number.isFinite(session.expires_at) || session.expires_at <= issuedNow || session.expires_at > issuedNow + ACCESS_SECONDS ||
+          !Number.isFinite(session.expires_at) || session.expires_at <= issuedNow || session.expires_at > issuedNow + ACCESS_SECONDS + CLOCK_TOLERANCE_SECONDS ||
           !Number.isFinite(session.expires_in) || session.expires_in <= 0 || session.expires_in > ACCESS_SECONDS) throw new Error('session contract')
       return jsonResponse({
         access_token: session.access_token, refresh_token: session.refresh_token,

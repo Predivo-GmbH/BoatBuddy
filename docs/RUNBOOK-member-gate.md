@@ -12,17 +12,41 @@ the change ships in two releases.
 **Release 1 (this PR).** Migration `034_member_access_alongside_anon.sql` is additive: the
 membership helper, member grants and policies, member Storage policies and the server-set QR
 expiry. Every anon right stays. The deploy job runs, in this order: settings, migrations,
-edge functions, the wrong-password smoke (`scripts/member-gate-smoke.mjs`, must answer 401),
-then the front end upload. If anything fails before the upload, the old front end is still
-live and still works. It also ships `public/release.json` (`{"memberSession": true}`), which
+edge functions except `extract-expense`, the sign-in smoke (`scripts/member-gate-smoke.mjs`),
+the front end upload, and only then `extract-expense`. If anything fails before the upload,
+the old front end is still live and still works, receipt extraction included.
+
+The sign-in smoke sends a random wrong password (must answer 401), then the real one from the
+`MEMBER_GATE_PASSWORD` secret (must answer 200 with a session of at most 15 minutes), and
+signs that session out at once with `/auth/v1/logout?scope=local`, which ends only that one
+session, never the other devices of the shared member identity. It prints neither the
+password nor a token. Without the secret the step FAILS and names it; it never skips. It also ships `public/release.json` (`{"memberSession": true}`), which
 is how a later run can tell that the member front end is live.
 
 Expected in the log of every release-1 run: a notice from `apply-migrations.mjs` that
 `035_revoke_anonymous_access.sql` is deferred because gate `member-frontend-live` is off.
 
-One short, known gap: between the edge function deploy and the end of the upload, an old
-front end that is still open cannot run receipt extraction (`extract-expense` now requires a
-member). Its data access is unaffected. Reloading after the upload fixes it.
+**Why `extract-expense` ships last (re-review F3, 2026-11-04).** The new `extract-expense`
+accepts only a member session; the old front end calls it with the public key. Deployed with
+the other functions, a failed smoke or FTP upload would have left the old front end live
+without receipt extraction. Two options were weighed: keep the new function accepting the old
+anonymous call until release 2, or deploy it after the upload. The second is chosen because it
+is simpler and safer: it changes only the deploy order (the early deploy excludes it, step
+«Deploy extract-expense (member-only) to <env> after the front end» ships it), it never
+reopens the function to anonymous callers, and it needs no follow-up change in release 2. The
+OLD function accepts the new front end's member call, so if that late step fails both front
+ends still extract; the step fails red and the next release ships it. The only remaining gap
+is a browser tab still running the old front end after the upload: its next extraction fails
+until it reloads. Its data access is unaffected.
+
+**Caller address (re-review F1).** Rate limits key on `cf-connecting-ip` when it is a valid
+public address, else on the rightmost `X-Forwarded-For` entry. With neither (missing, invalid
+or a private gateway address), `member-session` applies no per-address limit (the 60 wrong
+passwords per hour still apply) and `extract-expense` no per-address hourly cap (its daily cap
+still applies), so one shared address can never lock out every member. On STAGING only, each
+function logs once per cold start the SHAPE of these headers (entry count, whether the
+rightmost entry equals `cf-connecting-ip`, whether it is private), never an address. Read it
+in the staging function logs after the first release to confirm which source is used.
 
 **Release 2 (a later, separate PR).** Migration `035_revoke_anonymous_access.sql` holds the
 anon revokes, the policy drops and the "no anonymous access remains" guard. Its first line is
@@ -37,7 +61,8 @@ Otherwise it is deferred: not applied, not recorded, named in the log, and the j
 How to do release 2:
 
 1. Release 1 is promoted to production and verified: the member sign-in works there and the
-   «Member sign-in refuses a wrong password with 401 (production)» step was green.
+   «Member sign-in refuses a wrong password and accepts the real one (production)» step was
+   green.
 2. Open a PR that only flips `"member-frontend-live"` to `true` in
    `supabase/release-gates.json` (and updates the assertion in
    `scripts/lib/release-gate.test.mjs` / `scripts/member-release.test.mjs` that pins it off).
@@ -60,7 +85,9 @@ out: they are sessions of the one shared member identity, and they keep refreshi
 So after every password change:
 
 1. Update `VITE_GATE_PASSWORD_HASH` (SHA-256 hex of the new password) and
-   `MEMBER_GATE_PASSWORD` (the password itself, used only by the staging E2E sign-in test).
+   `MEMBER_GATE_PASSWORD` (the password itself, used by the staging E2E sign-in test and by
+   the release sign-in smoke in both environments). Update both in the same sitting: with only
+   one changed, the next release stops at the smoke with «HTTP 401 to the real password».
 2. Run the staging release, then promote production, so both projects get the new hash.
 3. **Admin global sign-out of the member identity, in each project (staging and
    production):** user `07a91df9-55d7-42b4-9944-82f5b88dcf7e` (`members@boatbuddy.invalid`).

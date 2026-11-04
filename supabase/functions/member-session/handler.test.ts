@@ -2,8 +2,8 @@
 import { createHash } from 'node:crypto'
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { createMemberHandler, passwordMatches, clientIp, SHARED_MEMBER_ID, WRONG_GLOBAL_KEY, type MemberSession } from './handler.ts'
-import { clientIp as sharedClientIp } from '../_shared/client-ip.ts'
+import { createMemberHandler, passwordMatches, clientIp, SHARED_MEMBER_ID, WRONG_GLOBAL_KEY, ACCESS_SECONDS, CLOCK_TOLERANCE_SECONDS, type MemberSession } from './handler.ts'
+import { clientIp as sharedClientIp, headerShape, isPublicIp, isStagingProject, logHeaderShapeOnce, resetHeaderShapeLogForTests } from '../_shared/client-ip.ts'
 import { requireMember } from '../_shared/require-member.ts'
 import { requireService } from '../_shared/require-service.ts'
 
@@ -124,18 +124,79 @@ describe('server member exchange (offline)', () => {
     expect((await createMemberHandler(deps)(request())).status).toBe(503)
     expect(deps.issueSession).not.toHaveBeenCalled()
   })
-  it('ignores a caller-prepended IP and groups absent/malformed IPs', () => {
+  it('falls back to the rightmost X-Forwarded-For entry, never a caller-prepended one', () => {
     expect(clientIp(request(password, 'attacker, 192.0.2.1'))).toBe('192.0.2.1')
     expect(clientIp(request(password, '198.51.100.9, 192.0.2.1'))).toBe('192.0.2.1')
     expect(clientIp(request(password, '2001:db8::1'))).toBe('2001:db8::1')
-    expect(clientIp(request(password, 'attacker'))).toBe('unknown')
-    expect(clientIp(new Request('http://offline'))).toBe('unknown')
+  })
+  it('prefers a valid cf-connecting-ip over X-Forwarded-For', () => {
+    const req = request(password, 'attacker, 192.0.2.1'); req.headers.set('cf-connecting-ip', '203.0.113.7')
+    expect(clientIp(req)).toBe('203.0.113.7')
+    req.headers.set('cf-connecting-ip', '2001:db8::7'); expect(clientIp(req)).toBe('2001:db8::7')
+  })
+  it.each(['not-an-ip', '', '10.0.0.1', '127.0.0.1', '::1'])('an invalid or private cf-connecting-ip falls back to X-Forwarded-For (%#)', cf => {
+    const req = request(password, '192.0.2.1'); req.headers.set('cf-connecting-ip', cf)
+    expect(clientIp(req)).toBe('192.0.2.1')
+  })
+  it.each([
+    ['attacker'], ['192.0.2.1, attacker'], ['10.1.2.3'], ['198.51.100.9, 172.16.0.5'], ['192.168.1.1'],
+    ['100.64.0.1'], ['169.254.1.1'], ['fd12:3456::1'], ['fe80::1'], ['::ffff:10.0.0.1'], [''],
+  ])('no valid public address anywhere means no address at all (%s)', xff => {
+    const req = request(password, xff); req.headers.set('cf-connecting-ip', 'garbage')
+    expect(clientIp(req)).toBeNull()
+    expect(clientIp(new Request('http://offline'))).toBeNull()
+  })
+  it('classifies public and private addresses', () => {
+    for (const ip of ['192.0.2.1', '8.8.8.8', '172.32.0.1', '100.128.0.1', '2001:db8::1', 'fc1::1', '::ffff:8.8.8.8']) expect(isPublicIp(ip)).toBe(true)
+    for (const ip of ['0.0.0.0', '10.0.0.1', '172.31.255.255', '::', 'FD00::1', 'fe80::abcd', '1.2.3']) expect(isPublicIp(ip)).toBe(false)
+  })
+  it('without a client address there is no per-address bucket: members are never locked out together', async () => {
+    const { handle, deps } = harness()
+    const anonymous = (value: unknown = password) => new Request('http://offline/member-session', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '10.0.0.1' }, body: JSON.stringify({ password: value }),
+    })
+    for (let i = 0; i < 30; i++) expect((await handle(anonymous())).status).toBe(200)
+    expect(deps.bump.mock.calls.filter(([key]) => String(key).startsWith('member-login:ip:'))).toHaveLength(0)
+    // The global wrong-password budget still bounds that group.
+    for (let i = 0; i < 60; i++) expect((await handle(anonymous('wrong'))).status).toBe(401)
+    expect((await handle(anonymous())).status).toBe(429)
+    expect(deps.issueSession).toHaveBeenCalledTimes(30)
+  })
+  it('keys the per-address limit on cf-connecting-ip, not on a shared X-Forwarded-For value', async () => {
+    const { handle } = harness()
+    const via = (cf: string) => { const r = request('wrong', '192.0.2.1'); r.headers.set('cf-connecting-ip', cf); return r }
+    for (let i = 0; i < 10; i++) expect((await handle(via('203.0.113.1'))).status).toBe(401)
+    expect((await handle(via('203.0.113.1'))).status).toBe(429)
+    expect((await handle(via('203.0.113.2'))).status).toBe(401)
+  })
+  it('header-shape diagnostic: staging only, once per cold start, never an address', () => {
+    const lines: string[] = []; const log = (line: string) => lines.push(line)
+    const req = request(password, 'attacker, 198.51.100.9, 192.0.2.1'); req.headers.set('cf-connecting-ip', '192.0.2.1')
+    resetHeaderShapeLogForTests()
+    logHeaderShapeOnce(req, 'member-session', isStagingProject('https://xzythvxmuxmczuiophwp.supabase.co'), log)
+    logHeaderShapeOnce(req, 'member-session', isStagingProject(undefined), log)
+    expect(lines).toHaveLength(0)
+    logHeaderShapeOnce(req, 'member-session', isStagingProject('https://svpewgbwousyheohlrtt.supabase.co'), log)
+    logHeaderShapeOnce(req, 'member-session', true, log)
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).not.toMatch(/192\.0\.2|198\.51|attacker/)
+    expect(headerShape(req)).toEqual({ xffEntries: 3, cfPresent: true, cfValidPublic: true, rightmostEqualsCf: true,
+      rightmostValid: true, rightmostPrivate: false, resolved: 'cf-connecting-ip' })
+    expect(headerShape(request(password, '10.0.0.1'))).toMatchObject({ xffEntries: 1, cfPresent: false, rightmostPrivate: true, resolved: 'none' })
+    resetHeaderShapeLogForTests()
+  })
+  it('both functions call the diagnostic with the staging-only switch', () => {
+    for (const file of ['member-session/index.ts', 'extract-expense/index.ts']) {
+      expect(readFileSync(`supabase/functions/${file}`, 'utf8')).toMatch(/logHeaderShapeOnce\(req, '[a-z-]+', isStagingProject\(/)
+    }
   })
   it('member-session and extract-expense read the caller address the same way', () => {
     expect(clientIp).toBe(sharedClientIp)
     const extract = readFileSync('supabase/functions/extract-expense/index.ts', 'utf8')
-    expect(extract).toContain(`import { clientIp } from '../_shared/client-ip.ts'`)
+    expect(extract).toMatch(/import \{ clientIp\b[^}]*\} from '\.\.\/_shared\/client-ip\.ts'/)
     expect(extract).toContain('enforceRateLimit(supabase, clientIp(req))')
+    // No trustworthy address: the per-address cap is skipped, the global daily cap still runs.
+    expect(extract).toMatch(/ip: string \| null,[\s\S]*if \(ip !== null\) \{\s*const \{ data: ipCount[\s\S]*p_key: 'global'/)
     expect(extract).not.toMatch(/headers\.get\(['"](?:x-forwarded-for|cf-connecting-ip|x-real-ip)/i)
   })
   it.each([0, NaN, undefined])('fails closed on invalid rate-backend counts (%#)', async count => {
@@ -150,12 +211,17 @@ describe('server member exchange (offline)', () => {
   })
   it.each([
     { expires_at: now / 1000 - 1 }, { expires_at: now / 1000 }, { expires_at: now / 1000 + 3600 },
+    { expires_at: now / 1000 + ACCESS_SECONDS + CLOCK_TOLERANCE_SECONDS + 1 },
     { expires_in: 3600 }, { refresh_token: '' }, { user: { ...session.user, id: 'another-user' } },
     { user: { ...session.user, app_metadata: { boatbuddy_member: false } } },
   ])('refuses expired, overlong or nonmember sessions (%#)', async patch => {
     const { deps } = harness(); deps.issueSession.mockResolvedValue({ ...session, ...patch })
     const res = await createMemberHandler(deps)(request()); expect(res.status).toBe(503)
     expect(await res.text()).not.toContain('fixture-access')
+  })
+  it.each([1, CLOCK_TOLERANCE_SECONDS])('accepts a session stamped up to five seconds ahead of this clock (+%is)', async skew => {
+    const { deps } = harness(); deps.issueSession.mockResolvedValue({ ...session, expires_at: now / 1000 + ACCESS_SECONDS + skew })
+    expect((await createMemberHandler(deps)(request())).status).toBe(200)
   })
   it('handles preflight without spending a login attempt', async () => {
     const { handle, deps } = harness()

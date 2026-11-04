@@ -18,9 +18,10 @@ test('shared hash is provided only to release settings, never to a browser build
 })
 
 // RELEASE 1 of 2, in both environments: additive migrations, then the edge functions, then a
-// wrong-password smoke that must answer 401, and only then the new front end. Nothing before
-// the upload removes what the old front end uses, so a failed later step leaves it working.
-test('both releases: additive migrations, then functions, then the 401 smoke, then the front end', () => {
+// smoke (wrong password 401, real password 200 and signed out), then the new front end, and
+// only THEN the member-only extract-expense. Nothing before the upload removes what the old
+// front end uses, so a failed later step leaves it working.
+test('both releases: additive migrations, then functions, then the smoke, then the front end, then extract-expense', () => {
   for (const [name, env, upload, site] of [
     ['deploy-staging', 'staging', 'Deploy staging via FTP', 'https://staging.boatbuddy.predivo.ch'],
     ['deploy', 'production', 'Deploy via FTP', 'https://boatbuddy.predivo.ch'],
@@ -34,8 +35,15 @@ test('both releases: additive migrations, then functions, then the 401 smoke, th
       `Deploy edge functions to ${env}`,
       `node scripts/member-gate-smoke.mjs --environment ${env}`,
       upload,
+      `Deploy extract-expense (member-only) to ${env} after the front end`,
+      `supabase functions deploy extract-expense --project-ref`,
     ].map(at)
     assert.deepEqual([...order].sort((a, b) => a - b), order, `${name}: release order`)
+    // The early deploy excludes extract-expense, so it can never ship before the upload.
+    const early = steps(source).find(step => step.startsWith(`name: Deploy edge functions to ${env}`))
+    assert.match(early, /-not -name '_\*' -not -name extract-expense -printf/)
+    // The smoke gets the real password from the secret.
+    assert.match(steps(source).find(step => step.includes(`member-gate-smoke.mjs --environment ${env}`)), /MEMBER_GATE_PASSWORD: \$\{\{ secrets.MEMBER_GATE_PASSWORD \}\}/)
     // The release gate reads THIS environment's live site, never the other one.
     assert.match(source, new RegExp(`apply-migrations\\.mjs --project-ref \\w+ --site-url ${site.replaceAll('.', '\\.')}\\n`))
   }
@@ -85,14 +93,22 @@ test('staging browser tests use member sessions and can never target production'
   assert.match(read('scripts/lib/staging-member.mjs'), /env.STAGING_SUPABASE_URL !== STAGING_API/)
 })
 
-test('the real shared password is exercised end to end on staging, only there, never printed', () => {
+test('the real shared password is exercised by the staging E2E and the two release smokes only, never printed', () => {
   const spec = read('e2e/staging/member-password.spec.ts')
   assert.match(spec, /exchangeSharedPassword\(PASSWORD\)/)
   assert.match(spec, /functions\/v1\/member-session/)
   assert.doesNotMatch(spec, /\.fill\(PASSWORD|\.type\(PASSWORD|console\.|signInMember|stagingMemberSession/)
   assert.match(spec, /test\.use\(\{ trace: 'off', video: 'off' \}\)/)
   const workflows = ['deploy.yml', 'test.yml', 'staging-gates.yml'].map(f => read(`.github/workflows/${f}`)).join('\n')
-  assert.equal((workflows.match(/MEMBER_GATE_PASSWORD:/g) ?? []).length, 1)
+  // gate-e2e, and the release smoke of each environment (staging, production).
+  assert.equal((workflows.match(/MEMBER_GATE_PASSWORD:/g) ?? []).length, 3)
+  const smoke = read('scripts/member-gate-smoke.mjs')
+  assert.match(smoke, /password: process\.env\.MEMBER_GATE_PASSWORD/)
+  assert.match(smoke, /\/auth\/v1\/logout\?scope=local/)
+  // It prints one fixed success line and the error message (proven secret-free in its own suite).
+  assert.deepEqual(smoke.match(/console\.\w+\(/g), ['console.log(', 'console.error('])
+  assert.match(smoke, /console\.log\('[^'$`]*'\)/)
+  assert.match(smoke, /console\.error\(`::error::\$\{error\.message\}`\)/)
   assert.match(steps(job('.github/workflows/deploy.yml', 'gate-e2e')).find(s => s.startsWith('name: Run staging E2E tests')), /MEMBER_GATE_PASSWORD: \$\{\{ secrets.MEMBER_GATE_PASSWORD \}\}/)
 })
 
