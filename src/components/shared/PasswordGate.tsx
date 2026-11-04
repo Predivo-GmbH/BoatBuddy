@@ -9,13 +9,30 @@ function isMember(session: Session | null) {
     (session.expires_at ?? 0) > Date.now() / 1000
 }
 
+// What the member sees. Only a refused password says "wrong": a full rate limit or a
+// sign-in that is unavailable must not make members doubt the password they know.
+const MESSAGES = {
+  wrong: 'Falsches Passwort',
+  busy: 'Zu viele Anmeldeversuche. Bitte warte einige Minuten und versuche es dann erneut.',
+  unavailable: 'Anmeldung gerade nicht möglich. Bitte versuche es später erneut.',
+} as const
+type GateError = keyof typeof MESSAGES
+
+// supabase-js puts the function's HTTP response on FunctionsHttpError.context.
+function gateErrorOf(error: unknown): GateError {
+  const status = (error as { context?: { status?: unknown } } | null)?.context?.status
+  if (status === 401 || status === 400) return 'wrong'
+  if (status === 429) return 'busy'
+  return 'unavailable'
+}
+
 export function PasswordGate({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
   const [session, setSession] = useState<Session | null>(null)
   const [checking, setChecking] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(false)
+  const [error, setError] = useState<GateError | null>(null)
 
   useEffect(() => {
     let active = true
@@ -57,15 +74,20 @@ export function PasswordGate({ children }: { children: ReactNode }) {
     setSubmitting(true)
     try {
       const { data, error: gateError } = await supabase.functions.invoke('member-session', { body: { password } })
-      if (gateError || !data?.access_token || !data?.refresh_token) throw new Error('login')
+      if (gateError) {
+        const kind = gateErrorOf(gateError)
+        setError(kind)
+        if (kind === 'wrong') setPassword('')
+        return
+      }
+      if (!data?.access_token || !data?.refresh_token) throw new Error('login')
       const { data: signedIn, error: sessionError } = await supabase.auth.setSession(data)
       if (sessionError || !isMember(signedIn.session)) throw new Error('session')
       queryClient.clear()
       setSession(signedIn.session)
       setPassword('')
     } catch {
-      setError(true)
-      setPassword('')
+      setError('unavailable')
     } finally { setSubmitting(false) }
   }
 
@@ -82,13 +104,13 @@ export function PasswordGate({ children }: { children: ReactNode }) {
         <input
           type="password"
           value={password}
-          onChange={(e) => { setPassword(e.target.value); setError(false) }}
+          onChange={(e) => { setPassword(e.target.value); setError(null) }}
           placeholder="Passwort"
           aria-label="Passwort"
           className="min-h-[44px] w-full rounded-md border border-input bg-card px-3 text-base md:text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
           autoFocus
         />
-        {error && <p role="alert" className="text-sm text-destructive">Falsches Passwort</p>}
+        {error && <p role="alert" className="text-sm text-destructive">{MESSAGES[error]}</p>}
         <button
           type="submit"
           disabled={submitting}

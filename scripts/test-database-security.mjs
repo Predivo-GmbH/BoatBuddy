@@ -4,6 +4,7 @@
 import { spawnSync } from 'node:child_process'
 import { readFileSync, readdirSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
+import { gateOf } from './lib/release-gate.mjs'
 
 const image = 'public.ecr.aws/supabase/postgres@sha256:80d7b27c3e8d77cfa7226eee9508671796da214781ff15a35b3670d7ad5ee453'
 const name = `boatbuddy-security-${randomUUID()}`
@@ -31,17 +32,32 @@ try {
   // The platform stand-ins (Storage tables, extensions) are created by the platform's own
   // superuser, as on hosted Supabase; the migrations then run as postgres, the CI migrator.
   sql(readFileSync('scripts/fixtures/database-security-bootstrap.sql', 'utf8'), 'supabase_admin')
+  // TWO RELEASES, TWO PHASES (2026-11-04). Release 1 is every migration before the first
+  // one gated with `-- release-gate:` (see scripts/lib/release-gate.mjs); release 2 starts
+  // there. Phase 1 proves the OLD anonymous front end still works next to members; the
+  // final phase proves release 2 removes it. Same order apply-migrations.mjs uses.
   const migrations = readdirSync('supabase/migrations').filter(f => f.endsWith('.sql')).sort()
-  const source = [
-    ...migrations.map(file => readFileSync(`supabase/migrations/${file}`, 'utf8')),
+  const read = file => readFileSync(`supabase/migrations/${file}`, 'utf8')
+  const firstGated = migrations.findIndex(file => gateOf(read(file)))
+  if (firstGated < 1) throw new Error('Expected release-1 migrations followed by a gated release-2 migration')
+  const release1 = migrations.slice(0, firstGated)
+  const release2 = migrations.slice(firstGated)
+  const phase1 = sql([
+    ...release1.map(read),
+    readFileSync('scripts/fixtures/release-1-compatibility-checks.sql', 'utf8'),
+  ].join('\n'))
+  const phase1Receipts = phase1.split('\n').filter(line => /^\d+ release-1 compatibility assertions passed$/.test(line))
+  if (phase1Receipts.length !== 1) throw new Error('Release-1 checks produced no unique completion receipt')
+  // One psql session also makes temp-fixture lifetimes unambiguous.
+  const output = sql([
+    ...release2.map(read),
     readFileSync('scripts/fixtures/database-security-checks.sql', 'utf8'),
     readFileSync('scripts/fixtures/member-security-checks.sql', 'utf8'),
-  ].join('\n')
-  // One psql session also makes temp-fixture lifetimes unambiguous.
-  const output = sql(source)
+  ].join('\n'))
   const receipts = output.split('\n').filter(line => /^\d+ PostgreSQL security\/compatibility assertions passed$/.test(line))
   if (receipts.length !== 1) throw new Error('Local database checks produced no unique completion receipt')
-  console.log(`Applied ${migrations.length} migrations locally`)
+  console.log(`Release 1: applied ${release1.length} migrations locally; ${phase1Receipts[0]}`)
+  console.log(`Release 2: applied ${release2.join(', ')}`)
   console.log(receipts[0])
 } finally {
   if (created) docker(['rm', '--force', '--volumes', name])

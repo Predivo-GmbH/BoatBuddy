@@ -170,14 +170,16 @@ jobs:
         run: npx vitest run --maxWorkers=2 tests/integration/critical-paths.test.ts
         env:
           STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # Staging-only service key; the org-wide Management API token stays out of tests.
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
 
       # PRs run offline; main and the release gates retain the live coverage.
       - name: Run critical path tests
         if: github.event_name != 'pull_request'
         run: npx playwright test e2e/critical-path.spec.ts
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
           STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
           STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
 

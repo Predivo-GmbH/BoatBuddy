@@ -168,7 +168,8 @@ select pg_temp.check_security(not exists(select 1 from public.changelog where qu
 reset role;
 
 set role service_role;
-select pg_temp.check_security(public.bump_extract_rate('fixture',now()) = 1, 'edge rate counter works');
+select pg_temp.check_security(public.bump_extract_rate('fixture','2040-01-01') = 1, 'edge rate counter works');
+select pg_temp.check_security((select count from public.extract_rate_limit where bucket_key = 'fixture' and window_start = '2040-01-01') = 1, 'member-session reads its counter without spending it');
 update public.ausgaben set extraktion_daten = '{"fixture":true}' where bezeichnung = 'fixture';
 select pg_temp.check_security(exists(select 1 from public.ausgaben where extraktion_daten is not null), 'service AI result update works');
 insert into public.changelog(titel,kategorie) values ('server fixture','daten');

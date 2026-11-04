@@ -1,5 +1,14 @@
--- SR-SB-02/03: native Auth membership, unchanged shared boat permissions.
--- Roger: "Server checks shared pw", 2026-11-04. One atomic cutover.
+-- SR-SB-02/03, RELEASE 1 OF 2: member access ALONGSIDE the old anonymous access.
+-- Roger: "Server checks shared pw", 2026-11-04.
+--
+-- ADDITIVE ONLY. Nothing the live (old) front end uses is removed here: every anon
+-- grant, every anon policy and the anon Storage policies stay exactly as 033 left
+-- them, so the old front end keeps working while the edge functions and the new
+-- (member) front end go live, and keeps working if a later release step fails.
+-- The anonymous revokes, the policy drops and the "no anonymous access" guard are
+-- RELEASE 2: 035_revoke_anonymous_access.sql, which apply-migrations.mjs applies
+-- only once this release's front end is live in that environment
+-- (docs/RUNBOOK-member-gate.md).
 begin;
 
 create schema if not exists boatbuddy_private;
@@ -25,9 +34,11 @@ $$;
 revoke all on function boatbuddy_private.is_member() from public, anon, authenticated;
 grant execute on function boatbuddy_private.is_member() to authenticated;
 
--- Remove column as well as table privileges: REVOKE ALL ON TABLE alone does
--- not undo 033's column grants. Drop all previous policies on the inventory,
--- including permissive TO PUBLIC policies which otherwise OR with new rules.
+-- The authenticated role gets exactly the member rights below and nothing older.
+-- Policies that also serve anon (TO anon, TO public, or TO anon, authenticated as
+-- on changelog) are narrowed to anon, so the old front end keeps them and a
+-- signed-in NON-member gets nothing through them. Policies for other roles only
+-- are dropped. Release 2 drops the anon ones.
 do $$
 declare t text; c record; p record;
 begin
@@ -36,27 +47,26 @@ begin
     'nutzungslogs','boot_stats','eigentuemer','abrechnung_config','wartung',
     'gentleman_rules','ferien','changelog','phone_upload_sessions'
   ] loop
-    execute format('revoke all on public.%I from public, anon, authenticated', t);
+    execute format('revoke all on public.%I from authenticated', t);
     for c in select attname from pg_attribute where attrelid = ('public.' || t)::regclass
       and attnum > 0 and not attisdropped loop
-      execute format('revoke all (%I) on public.%I from public, anon, authenticated', c.attname, t);
+      execute format('revoke all (%I) on public.%I from authenticated', c.attname, t);
     end loop;
-    for p in select policyname from pg_policies where schemaname = 'public' and tablename = t loop
-      execute format('drop policy %I on public.%I', p.policyname, t);
+    for p in select policyname, roles from pg_policies where schemaname = 'public' and tablename = t loop
+      if p.roles && array['anon','public']::name[] then
+        if p.roles <> array['anon']::name[] then
+          execute format('alter policy %I on public.%I to anon', p.policyname, t);
+        end if;
+      else
+        execute format('drop policy %I on public.%I', p.policyname, t);
+      end if;
     end loop;
     execute format('alter table public.%I enable row level security', t);
-    execute format('create policy members on public.%I to authenticated using ((select boatbuddy_private.is_member())) with check ((select boatbuddy_private.is_member()))', t);
+    if t <> 'phone_upload_sessions' then
+      execute format('create policy members on public.%I to authenticated using ((select boatbuddy_private.is_member())) with check ((select boatbuddy_private.is_member()))', t);
+    end if;
   end loop;
 end $$;
-
--- Unused archive remains inaccessible to both browser roles; remove its old
--- permissive policy as well so a later grant cannot accidentally reopen it.
-drop policy if exists anon_all on public.tanken;
-
-revoke execute on function public.adjust_gesamtstunden(numeric),
-  public.create_nutzungslog_atomic(date,text,numeric,numeric,jsonb,text,jsonb,numeric,uuid),
-  public.delete_nutzungslog_atomic(uuid), public.delete_changelog_cascade(uuid)
-  from public, anon, authenticated;
 
 grant usage on schema public to authenticated;
 grant select on public.beitraege, public.ausgaben, public.kontostand_snapshots,
@@ -89,20 +99,18 @@ grant update (fahrer,von_datum,bis_datum,notiz) on public.ferien to authenticate
 grant insert (datum,titel,beschreibung,kategorie) on public.changelog to authenticated;
 grant update (datum,titel,beschreibung,kategorie) on public.changelog to authenticated;
 grant insert (token,status) on public.phone_upload_sessions to authenticated;
--- Completion is now service-only through the token-scoped phone-upload handler.
+-- Completion is service-only through the token-scoped phone-upload handler.
 
+-- Members call the four SECURITY INVOKER business RPCs. The anon grant from 033
+-- stays until release 2.
 grant execute on function public.adjust_gesamtstunden(numeric),
   public.create_nutzungslog_atomic(date,text,numeric,numeric,jsonb,text,jsonb,numeric,uuid),
   public.delete_nutzungslog_atomic(uuid), public.delete_changelog_cascade(uuid) to authenticated;
 
-
--- QR tokens are capabilities: only members mint them, lifetime at most ten
--- minutes, no client-selected completed state or path. Anon gets NO table grant.
+-- QR tokens are capabilities: only members mint them through these policies,
+-- lifetime at most ten minutes, set by the server clock, no client-selected
+-- completed state or path. (The old anon policies stay until release 2.)
 alter table public.phone_upload_sessions alter column expires_at set default (now() + interval '10 minutes');
--- Pending pre-cutover tokens were readable/mintable by anon. A rescan creates a
--- member-issued capability; old rows are retained for history, never reused.
-update public.phone_upload_sessions set status = 'expired' where status = 'pending';
-drop policy members on public.phone_upload_sessions;
 create policy member_upload_read on public.phone_upload_sessions for select to authenticated
   using ((select boatbuddy_private.is_member()));
 create policy member_upload_create on public.phone_upload_sessions for insert to authenticated
@@ -111,13 +119,11 @@ create policy member_upload_create on public.phone_upload_sessions for insert to
     and expires_at > now() and expires_at <= now() + interval '10 minutes');
 grant select, update on public.phone_upload_sessions to service_role;
 
--- Storage metadata permissions stay platform-owned; policies scope all access
--- to this private bucket and members. Public phone clients upload via the edge
--- function, never via Storage APIs and never through a readable signed URL.
-drop policy if exists "Anon can upload phone photos" on storage.objects;
-drop policy if exists "Anon can read phone uploads" on storage.objects;
-drop policy if exists "Anon can upload invoices" on storage.objects;
-drop policy if exists "Anon can read invoices" on storage.objects;
+-- member-session reads its wrong-password counter without spending an attempt.
+grant select on public.extract_rate_limit to service_role;
+
+-- Storage metadata permissions stay platform-owned; these policies scope member
+-- access to this private bucket. The anon Storage policies stay until release 2.
 create policy member_receipt_read on storage.objects for select to authenticated
   using (bucket_id = 'dokumente' and (select boatbuddy_private.is_member()));
 create policy member_receipt_insert on storage.objects for insert to authenticated
@@ -125,20 +131,5 @@ create policy member_receipt_insert on storage.objects for insert to authenticat
 create policy member_receipt_delete on storage.objects for delete to authenticated
   using (bucket_id = 'dokumente' and (select boatbuddy_private.is_member()));
 
--- The helper is deliberately in an unexposed schema. No new definer RPC is
--- exposed to browsers, and the four business RPCs remain SECURITY INVOKER.
-do $$
-begin
-  if exists (
-    select 1 from pg_class c where c.relnamespace = 'public'::regnamespace
-      and c.relkind in ('r','p') and
-      (has_table_privilege('anon',c.oid,'SELECT,INSERT,UPDATE,DELETE')
-       or has_any_column_privilege('anon',c.oid,'SELECT,INSERT,UPDATE'))
-  ) then raise exception '034: anonymous table rights remain'; end if;
-  if exists (
-    select 1 from pg_policies where schemaname in ('public','storage')
-      and (roles && array['anon','public']::name[])
-  ) then raise exception '034: anonymous policies remain; review unexpected policies'; end if;
-end $$;
 notify pgrst, 'reload schema';
 commit;

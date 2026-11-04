@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { settingsPlan, applySettings, authToApply, GATED_AUTH, TARGETS } from './configure-auth.mjs'
+import { settingsPlan, applySettings, authToApply, assertSessionHours, GATED_AUTH, TARGETS } from './configure-auth.mjs'
 import { createHash } from 'node:crypto'
 import { MEMBER_ID, MEMBER_EMAIL } from './lib/provision-member.mjs'
 const fixtureHash = createHash('sha256').update('offline fixture').digest('hex')
@@ -67,8 +67,8 @@ for (const environment of ['staging', 'production']) {
     assert.equal(auth.external_email_enabled, false)
     assert.equal(auth.disable_signup, true)
     assert.equal(auth.jwt_exp, 900)
-    assert.equal(auth.sessions_timebox, 2592000)
-    assert.equal(auth.sessions_inactivity_timeout, 604800)
+    assert.equal(auth.sessions_timebox, 720) // hours (SR-AUTH-06), 30 days
+    assert.equal(auth.sessions_inactivity_timeout, 168) // hours, 7 days
     assert.equal(auth.security_refresh_token_reuse_interval, 10)
     assert.equal(auth.password_min_length, 15)
     assert.equal(auth.password_hibp_enabled, true)
@@ -178,4 +178,24 @@ test('unknown environments are rejected', () => {
 test('missing member hash refuses before any network or settings change', async () => {
   await assert.rejects(applySettings('staging', { env: { ...context('staging'), MEMBER_PASSWORD_HASH: '' },
     fetchImpl: () => assert.fail('no requests allowed') }), /MEMBER_PASSWORD_HASH is required/)
+})
+
+test('SR-AUTH-06: session limits are whole HOURS in 1..8760; seconds are refused before any request', () => {
+  for (const environment of ['staging', 'production']) assert.doesNotThrow(() => assertSessionHours(settingsPlan(environment).auth))
+  for (const value of [1, 12, 168, 720, 8760]) {
+    assert.doesNotThrow(() => assertSessionHours({ sessions_timebox: value, sessions_inactivity_timeout: value }))
+  }
+  for (const value of [0, -1, 8761, 604800, 2592000, 1.5, '720', null, NaN, Infinity]) {
+    assert.throws(() => assertSessionHours({ sessions_timebox: value }), /whole HOURS between 1 and 8760/)
+    assert.throws(() => assertSessionHours({ sessions_inactivity_timeout: value }), /whole HOURS between 1 and 8760/)
+  }
+  // Free-plan gating still leaves them out entirely; absent is fine.
+  assert.doesNotThrow(() => assertSessionHours(authToApply(settingsPlan('production').auth, { tier: 'free', customSmtp: false }).apply))
+})
+test('on a Pro plan the hours are what is PATCHed', async () => {
+  const fake = harness('production', { tier: 'pro', smtp: true })
+  await applySettings('production', { env: context('production'), ...fake, log: quiet })
+  const patch = fake.calls.find(call => call.key === 'PATCH /config/auth').body
+  assert.equal(patch.sessions_timebox, 720)
+  assert.equal(patch.sessions_inactivity_timeout, 168)
 })

@@ -248,10 +248,19 @@ jobs:
       # drained boot_stats.gesamtstunden to -5.5, and 032 (the repair) was stuck behind it.
       # Applying first also means the suite checks the schema as it will ship.
       # Staging only. The production job keeps its own order, behind the full gauntlet.
+      #
+      # TWO-STEP RELEASES (2026-11-04). A migration marked `-- release-gate: <name>` (035, which
+      # removes the old anonymous access) is applied only when supabase/release-gates.json turns
+      # the gate on AND --site-url proves the front end it waits for is ALREADY LIVE here. This
+      # step runs before the FTP upload, so "live" always means a previous release delivered it.
+      # Until then it is deferred (named in the log, not recorded) and the job continues.
+      # docs/RUNBOOK-member-gate.md.
       - name: Apply DB migrations to staging
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: node scripts/apply-migrations.mjs --project-ref svpewgbwousyheohlrtt
+          SITE_AUTH_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
+          SITE_AUTH_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
+        run: node scripts/apply-migrations.mjs --project-ref svpewgbwousyheohlrtt --site-url https://staging.boatbuddy.predivo.ch
 
       - name: Apply and verify Supabase security settings for staging
         env:
@@ -278,6 +287,14 @@ jobs:
           done
           echo "::error::Edge functions deploy to staging failed after 4 attempts"; exit 1
 
+      # Before anything depends on it: a random WRONG password must get 401. A 503 means the
+      # sign-in is misconfigured (hash secret, member identity, rate counter) and the new
+      # front end would lock every member out, so the job stops here.
+      - name: Member sign-in refuses a wrong password with 401 (staging)
+        env:
+          SUPABASE_PUBLIC_KEY: ${{ secrets.STAGING_ANON_KEY }}
+        run: node scripts/member-gate-smoke.mjs --environment staging
+
       - name: Unit tests
         run: npm test -- --run --maxWorkers=2
         env:
@@ -287,7 +304,9 @@ jobs:
           # the env here too or createClient() throws "supabaseKey is required."
           STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          # Staging-only service key for the member fixture session. The org-wide Management
+          # API token never reaches a test process (review of PR #38, 2026-11-04).
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
 
       - name: Build for staging
         run: npm run build
@@ -602,7 +621,7 @@ jobs:
           # Test reads process.env.STAGING_SUPABASE_ANON_KEY (was misnamed STAGING_ANON_KEY,
           # previously masked by the hardcoded fallback).
           STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
 
   # 3. Run Playwright E2E against the deployed staging site — the gate that protects prod
   gate-e2e:
@@ -717,7 +736,9 @@ jobs:
           STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
           STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
+          # The real shared password, for e2e/staging/member-password.spec.ts only. Never printed.
+          MEMBER_GATE_PASSWORD: ${{ secrets.MEMBER_GATE_PASSWORD }}
 
       - name: Upload test results
         if: always()
@@ -976,10 +997,16 @@ jobs:
       - name: Refuse secrets in the public bundle
         run: '"$RUNNER_TEMP/gitleaks" dir dist --redact --exit-code 1 --config .gitleaks.toml'
 
+      # RELEASE ORDER (2026-11-04): additive migrations, then edge functions, then the sign-in
+      # smoke, then the front end. Every migration that runs here keeps the live (old) front end
+      # working, so a later step failing leaves production working, never half-cut. A migration
+      # that removes what an old front end uses carries `-- release-gate:` and is applied only
+      # when its gate is on in the repo AND the live site already serves the new front end
+      # (checked here, BEFORE this run's upload). docs/RUNBOOK-member-gate.md.
       - name: Apply DB migrations to production
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: node scripts/apply-migrations.mjs --project-ref xzythvxmuxmczuiophwp
+        run: node scripts/apply-migrations.mjs --project-ref xzythvxmuxmczuiophwp --site-url https://boatbuddy.predivo.ch
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
@@ -999,6 +1026,14 @@ jobs:
             n=$((n + 1)); echo "::warning::Supabase functions-deploy attempt $n failed (transient API error, e.g. 502); backing off 60s..."; sleep 60
           done
           echo "::error::Edge functions deploy to production failed after 4 attempts"; exit 1
+
+      # A random WRONG password must get 401, not 503, BEFORE the new front end is uploaded:
+      # a 503 would lock every member out of the new front end. Stopping here leaves the old
+      # front end live and working (the migrations above are additive).
+      - name: Member sign-in refuses a wrong password with 401 (production)
+        env:
+          SUPABASE_PUBLIC_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: node scripts/member-gate-smoke.mjs --environment production
 
       - name: Deploy via FTP (zero-downtime)
         env:

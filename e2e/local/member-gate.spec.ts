@@ -13,13 +13,14 @@ function fixtureSession(offset = 900) {
   const jwt = `${input}.${createHmac('sha256', 'offline signing fixture').update(input).digest('base64url')}`
   return { access_token: jwt, refresh_token: 'offline-refresh-fixture', expires_at: exp, expires_in: 900, token_type: 'bearer', user }
 }
-async function offlineBackend(page: Page, options: { rejectRefresh?: boolean } = {}) {
+async function offlineBackend(page: Page, options: { rejectRefresh?: boolean; wrongBudgetSpent?: boolean; misconfigured?: boolean } = {}) {
   const session = fixtureSession()
   const calls: { path: string; bearer?: string }[] = []
   const consoleErrors: string[] = []
   const counts = new Map<string, number>()
-  const gate = createMemberHandler({ passwordHash: createHash('sha256').update(password).digest('hex'),
+  const gate = createMemberHandler({ passwordHash: options.misconfigured ? '' : createHash('sha256').update(password).digest('hex'),
     bump: async (key, window) => { const id = key + window; const n = (counts.get(id) ?? 0) + 1; counts.set(id, n); return n },
+    peek: async (key, window) => options.wrongBudgetSpent ? 60 : counts.get(key + window) ?? 0,
     issueSession: async () => session,
   })
   let uploaded = false
@@ -80,6 +81,23 @@ test('old flag and wrong password stay locked; correct password gives every quer
   expect(backend.calls.every(call => call.bearer === `Bearer ${backend.session.access_token}`)).toBe(true)
   expect(backend.consoleErrors).toEqual([])
   await page.screenshot({ path: info.outputPath('member-dashboard.png'), fullPage: true })
+})
+
+test('a used-up guess budget and a broken sign-in say so, never "wrong password"', async ({ page }, info) => {
+  for (const [options, message] of [
+    [{ wrongBudgetSpent: true }, 'Zu viele Anmeldeversuche. Bitte warte einige Minuten und versuche es dann erneut.'],
+    [{ misconfigured: true }, 'Anmeldung gerade nicht möglich. Bitte versuche es später erneut.'],
+  ] as const) {
+    await page.unrouteAll({ behavior: 'ignoreErrors' })
+    const backend = await offlineBackend(page, options)
+    await page.goto('/dashboard')
+    await page.getByLabel('Passwort').fill(password)
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    await expect(page.getByRole('alert')).toHaveText(message)
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toHaveCount(0)
+    expect(backend.calls).toHaveLength(0)
+    await page.screenshot({ path: info.outputPath(`gate-${Object.keys(options)[0]}.png`), fullPage: true })
+  }
 })
 
 test('an expired session with a refused refresh cannot reveal boat data', async ({ page }) => {

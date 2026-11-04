@@ -96,4 +96,10 @@ update auth.users set raw_app_meta_data='{}' where id='00000000-0000-4000-8000-0
 set role authenticated;
 select pg_temp.check_security(not boatbuddy_private.is_member(), 'membership revocation takes effect without waiting for JWT refresh');
 reset role;
+-- Release 2 (035) specifics: the old anonymous QR token persisted after the release-1
+-- checks is dead, and the member policies from release 1 survived the policy drops.
+select pg_temp.check_security((select status from public.phone_upload_sessions where token = 'pre-cutover-anon-token') = 'expired', 'release 2 expires pending pre-cutover QR tokens');
+select pg_temp.check_security((select count(*) from pg_policies where schemaname = 'public' and policyname = 'members') = 13, 'release 2 keeps every member policy');
+select pg_temp.check_security(not exists(select 1 from pg_policies where schemaname in ('public','storage') and roles && array['anon','public']::name[]), 'release 2 leaves no anonymous policy');
+select pg_temp.check_security(not has_function_privilege('anon','public.create_nutzungslog_atomic(date,text,numeric,numeric,jsonb,text,jsonb,numeric,uuid)','EXECUTE'), 'release 2 removes anon RPC rights');
 select count(*) || ' PostgreSQL security/compatibility assertions passed' from security_results;

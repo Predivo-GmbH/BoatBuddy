@@ -4,6 +4,7 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { anthropicMessages } from '../_shared/anthropic-model.ts'
 import { logAnthropicUsage } from '../_shared/log-usage.ts'
 import { requireMember } from '../_shared/require-member.ts'
+import { clientIp } from '../_shared/client-ip.ts'
 
 /**
  * extract-expense: AI-powered invoice extraction for BoatBuddy
@@ -42,15 +43,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const IP_HOURLY_LIMIT = 30
 const GLOBAL_DAILY_LIMIT = 300
 
-/** Best client IP: first hop of x-forwarded-for, else cf-connecting-ip, else 'unknown'. */
-function getClientIp(req: Request): string {
-  const xff = req.headers.get('x-forwarded-for')
-  if (xff) {
-    const first = xff.split(',')[0]?.trim()
-    if (first) return first
-  }
-  return req.headers.get('cf-connecting-ip')?.trim() || 'unknown'
-}
+// The caller's address comes from the ONE shared definition (gateway-appended, rightmost
+// X-Forwarded-For entry), the same as member-session: _shared/client-ip.ts says why.
 
 async function enforceRateLimit(
   supabase: SupabaseClient,
@@ -177,7 +171,7 @@ serve(async (req) => {
 
     // Rate limit BEFORE any Anthropic call (each request = two paid passes).
     // Uses the service-role client + an atomic DB counter; keyed by client IP.
-    const { ok: allowed, message: limitMsg } = await enforceRateLimit(supabase, getClientIp(req))
+    const { ok: allowed, message: limitMsg } = await enforceRateLimit(supabase, clientIp(req))
     if (!allowed) {
       return new Response(JSON.stringify({ error: limitMsg }), {
         status: 429,

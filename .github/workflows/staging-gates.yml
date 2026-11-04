@@ -227,14 +227,15 @@ jobs:
         env:
           STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           STAGING_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
 
       - name: Run Gate A runtime crawl against staging
         if: always()
         run: npx playwright test --config playwright.gate-a-crawl.config.ts
         env:
           STAGING_URL: https://staging.boatbuddy.predivo.ch
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          STAGING_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
           STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
           STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
 

@@ -5,7 +5,7 @@ import path from 'node:path'
 
 const read = name => readFileSync(name, 'utf8').replaceAll('\r\n', '\n')
 const sql = read('supabase/migrations/033_security_rulebook_database_rights.sql')
-const memberSql = read('supabase/migrations/034_server_checked_member_gate.sql')
+const memberSql = read('supabase/migrations/034_member_access_alongside_anon.sql')
 const deploy = read('.github/workflows/deploy.yml')
 function job(name) {
   const start = deploy.indexOf(`\n  ${name}:\n`)

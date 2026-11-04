@@ -9,8 +9,15 @@
  * thing and the database did another, invisibly, because nothing checked.
  *
  * Contract:
- *   node scripts/apply-migrations.mjs --project-ref <ref> [--dry-run]
+ *   node scripts/apply-migrations.mjs --project-ref <ref> [--site-url https://<live site>] [--dry-run]
  *   env: SUPABASE_ACCESS_TOKEN  (Management API PAT)
+ *        SITE_AUTH_USER / SITE_AUTH_PASS  (optional Basic auth for --site-url, staging only)
+ *
+ * RELEASE GATES (2026-11-04): a migration whose first line is `-- release-gate: <name>` is
+ * applied only when supabase/release-gates.json turns <name> on AND --site-url proves the
+ * front end it waits for is LIVE. Otherwise it and every later migration are deferred:
+ * not applied, not recorded, named in the log, and the run still succeeds. See
+ * scripts/lib/release-gate.mjs and docs/RUNBOOK-member-gate.md.
  *
  * Applies every `supabase/migrations/NNN_name.sql` whose version is not yet in
  * `supabase_migrations.schema_migrations`, in filename order, one statement batch per file,
@@ -25,6 +32,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { loadGates, planPending } from './lib/release-gate.mjs'
 
 const API = 'https://api.supabase.com/v1/projects'
 const MIGRATIONS_DIR = path.resolve('supabase/migrations')
@@ -36,6 +44,7 @@ function arg(name) {
 
 const projectRef = arg('--project-ref')
 const dryRun = process.argv.includes('--dry-run')
+const siteUrl = arg('--site-url')
 const token = process.env.SUPABASE_ACCESS_TOKEN
 
 if (!projectRef) {
@@ -100,9 +109,22 @@ const applied = new Set(
     .map((r) => String(r.version)),
 )
 
-const pending = parsed.filter((m) => !applied.has(m.version))
+const readSql = (m) => fs.readFileSync(path.join(MIGRATIONS_DIR, m.file), 'utf8')
+const plan = await planPending(parsed.filter((m) => !applied.has(m.version)), {
+  readSql,
+  gates: loadGates(),
+  siteUrl,
+  basicAuth: { user: process.env.SITE_AUTH_USER, pass: process.env.SITE_AUTH_PASS },
+})
+if (plan.deferred.length > 0) {
+  // Gate off = the expected state between the two releases (notice). Gate on but the live
+  // site not ready = this environment has not received release 1 yet (warning).
+  console.log(`::${plan.enabled ? 'warning' : 'notice'}::apply-migrations: ${projectRef}: release gate "${plan.gate}" is closed - ${plan.reason}. Deferred, not applied and not recorded:`)
+  for (const m of plan.deferred) console.log(`  - ${m.file}`)
+}
+const pending = plan.apply
 if (pending.length === 0) {
-  console.log(`apply-migrations: ${projectRef} is up to date (${parsed.length} migrations, 0 pending)`)
+  console.log(`apply-migrations: ${projectRef} is up to date (${parsed.length} migrations, 0 to apply now, ${plan.deferred.length} deferred)`)
   done(0)
 } else {
 
@@ -114,7 +136,7 @@ if (dryRun) {
 } else {
 
 for (const m of pending) {
-  const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, m.file), 'utf8')
+  const sql = readSql(m)
   process.stdout.write(`apply-migrations: applying ${m.file} ... `)
   try {
     await query(sql)

@@ -18,6 +18,8 @@ vi.mock('@/lib/supabase', () => ({ supabase: {
 const member = () => ({ access_token: 'fixture-access', refresh_token: 'fixture-refresh', expires_at: Date.now() / 1000 + 900,
   user: { id: 'fixture-member', app_metadata: { boatbuddy_member: true } } })
 let client: QueryClient
+// supabase-js FunctionsHttpError carries the function's response as `context`.
+const httpError = (status: number) => Object.assign(new Error('Edge Function returned a non-2xx status code'), { context: new Response(null, { status }) })
 async function mount() {
   client = new QueryClient()
   render(<QueryClientProvider client={client}><PasswordGate><main>Protected</main></PasswordGate></QueryClientProvider>)
@@ -79,15 +81,30 @@ describe('PasswordGate with native member sessions', () => {
     await mount(); await submit(); expect(sessionStorage.getItem('boatbuddy-unlocked')).toBeNull()
   })
   it('preserves the wrong-password message and clears the input', async () => {
-    mocks.invoke.mockResolvedValue({ data: null, error: new Error('401') }); await mount(); await submit('wrong')
+    mocks.invoke.mockResolvedValue({ data: null, error: httpError(401) }); await mount(); await submit('wrong')
     expect(screen.getByRole('alert')).toHaveTextContent('Falsches Passwort'); expect(screen.getByLabelText('Passwort')).toHaveValue('')
     expect(mocks.setSession).not.toHaveBeenCalled()
   })
   it('clears the error on typing and allows a retry', async () => {
-    mocks.invoke.mockResolvedValueOnce({ data: null, error: new Error('401') }); await mount(); await submit('wrong')
+    mocks.invoke.mockResolvedValueOnce({ data: null, error: httpError(401) }); await mount(); await submit('wrong')
     await userEvent.setup().type(screen.getByLabelText('Passwort'), 'fixture password')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Weiter' })); expect(screen.getByText('Protected')).toBeVisible()
+  })
+  it('says "too many attempts", not "wrong password", when the rate limit answers 429', async () => {
+    mocks.invoke.mockResolvedValue({ data: null, error: httpError(429) }); await mount(); await submit()
+    expect(screen.getByRole('alert')).toHaveTextContent('Zu viele Anmeldeversuche')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Falsches Passwort')
+    expect(screen.getByLabelText('Passwort')).toHaveValue('fixture password')
+    expect(mocks.setSession).not.toHaveBeenCalled()
+  })
+  it.each([
+    ['a 503 from the function', () => ({ data: null, error: httpError(503) })],
+    ['an unreachable function', () => ({ data: null, error: new Error('Failed to send a request to the Edge Function') })],
+  ])('says the sign-in is unavailable, not "wrong password", on %s', async (_label, answer) => {
+    mocks.invoke.mockResolvedValue(answer()); await mount(); await submit()
+    expect(screen.getByRole('alert')).toHaveTextContent('Anmeldung gerade nicht möglich')
+    expect(screen.queryByText('Protected')).not.toBeInTheDocument()
   })
   it('submits with Enter', async () => {
     await mount(); await userEvent.setup().type(screen.getByLabelText('Passwort'), 'fixture password{Enter}')

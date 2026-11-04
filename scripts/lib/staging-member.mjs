@@ -1,5 +1,10 @@
 // CI fixture authentication only. Native member tokens, NEVER a service key in
 // a browser. Each browser context gets its own rotating refresh-token chain.
+//
+// KEYS (2026-11-04, review of PR #38): only STAGING-scoped secrets reach test processes:
+// BB_SVC_KEY (the staging service key) and the staging publishable key. The org-wide
+// Management API token (SUPABASE_ACCESS_TOKEN) is deliberately NOT read here, so no
+// workflow has a reason to hand it to npm test or Playwright.
 import { createClient } from '@supabase/supabase-js'
 import { MEMBER_ID, MEMBER_EMAIL } from './provision-member.mjs'
 
@@ -11,24 +16,17 @@ export function stagingMemberSession(env = process.env, { fresh = false } = {}) 
   cached ??= issue(env)
   return cached
 }
-async function issue(env) {
+
+export function stagingKeys(env = process.env) {
   if (env.STAGING_SUPABASE_URL && env.STAGING_SUPABASE_URL !== STAGING_API) throw new Error('Tests require the BoatBuddy staging project')
-  let serverKey = env.BB_SVC_KEY
-  let publicKey = env.STAGING_SUPABASE_ANON_KEY || env.STAGING_ANON_KEY
-  const management = env.SUPABASE_ACCESS_TOKEN || env.BB_MGMT_TOKEN
-  if ((!serverKey || !publicKey) && management) {
-    let res
-    try {
-      res = await fetch(`https://api.supabase.com/v1/projects/${STAGING_REF}/api-keys?reveal=true`, {
-        headers: { Authorization: `Bearer ${management}` }, redirect: 'error', signal: AbortSignal.timeout(30_000),
-      })
-    } catch { throw new Error('Staging fixture keys unavailable') }
-    if (!res.ok) { await res.body?.cancel(); throw new Error('Staging fixture keys unavailable') }
-    const keys = await res.json()
-    serverKey ??= keys.find(k => k.type === 'secret')?.api_key ?? keys.find(k => k.name === 'service_role')?.api_key
-    publicKey ||= keys.find(k => k.type === 'publishable')?.api_key ?? keys.find(k => k.name === 'anon')?.api_key
-  }
-  if (!serverKey || !publicKey) throw new Error('Staging member tests need existing staging API keys or SUPABASE_ACCESS_TOKEN')
+  const serverKey = env.BB_SVC_KEY
+  const publicKey = env.STAGING_SUPABASE_ANON_KEY || env.STAGING_ANON_KEY
+  return { serverKey, publicKey }
+}
+
+async function issue(env) {
+  const { serverKey, publicKey } = stagingKeys(env)
+  if (!serverKey || !publicKey) throw new Error('Staging member tests need BB_SVC_KEY and the staging publishable key (STAGING_SUPABASE_ANON_KEY)')
   const options = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
   const admin = createClient(STAGING_API, serverKey, options)
   const { data: existing, error: lookupError } = await admin.auth.admin.getUserById(MEMBER_ID)
@@ -44,4 +42,30 @@ async function issue(env) {
     if (verification?.code !== 'otp_expired') break
   }
   throw new Error('Staging fixture session unavailable')
+}
+
+/**
+ * The REAL member sign-in, exactly as the browser does it: POST the shared password to
+ * the deployed member-session function. Returns only the status and the parsed body; the
+ * password is never logged, echoed or put in an error message.
+ */
+export async function exchangeSharedPassword(password, env = process.env, fetchImpl = fetch) {
+  const { publicKey } = stagingKeys(env)
+  if (!publicKey) throw new Error('The staging publishable key (STAGING_SUPABASE_ANON_KEY) is required')
+  if (typeof password !== 'string' || password === '') throw new Error('No password given')
+  let response
+  try {
+    response = await fetchImpl(`${STAGING_API}/functions/v1/member-session`, {
+      method: 'POST',
+      headers: { apikey: publicKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+      redirect: 'error',
+      signal: AbortSignal.timeout(30_000),
+    })
+  } catch {
+    throw new Error('member-session unreachable')
+  }
+  let body = null
+  try { body = await response.json() } catch { /* status alone decides */ }
+  return { status: response.status, body }
 }

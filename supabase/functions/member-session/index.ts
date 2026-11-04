@@ -14,6 +14,13 @@ Deno.serve(async req => {
       if (error) throw new Error('rate unavailable')
       return data
     },
+    async peek(key, window) {
+      // Read-only: the service role may SELECT the counter table (034); nobody else can.
+      const { data, error } = await admin.from('extract_rate_limit').select('hits:count')
+        .eq('bucket_key', key).eq('window_start', window).maybeSingle()
+      if (error) throw new Error('rate unavailable')
+      return data?.hits ?? 0
+    },
     async issueSession() {
       // Only the release-provisioned account may be used; never auto-enrol users.
       const { data: existing, error: lookupError } = await admin.auth.admin.getUserById(SHARED_MEMBER_ID)

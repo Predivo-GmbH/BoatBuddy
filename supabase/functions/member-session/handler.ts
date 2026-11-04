@@ -1,8 +1,16 @@
 import { timingSafeEqual, createHash, createHmac } from 'node:crypto'
-import { isIP } from 'node:net'
 import { jsonResponse, MEMBER_CORS, readBoundedBody } from '../_shared/member-http.ts'
+import { clientIp } from '../_shared/client-ip.ts'
+export { clientIp }
 
 export const ACCESS_SECONDS = 900
+// Per caller address: every attempt counts, 10 per 15 minutes.
+export const IP_LIMIT = 10
+// Everyone together: only WRONG passwords count, 60 per hour. Members typing the right
+// password, preflights and malformed requests never use it up, so no amount of ordinary
+// traffic locks the boat out; a distributed guesser is still bounded at 60 guesses/hour.
+export const WRONG_GLOBAL_LIMIT = 60
+export const WRONG_GLOBAL_KEY = 'member-login:wrong'
 export const SHARED_MEMBER_ID = '07a91df9-55d7-42b4-9944-82f5b88dcf7e'
 export const MEMBER_EMAIL = 'members@boatbuddy.invalid'
 
@@ -17,7 +25,10 @@ export interface MemberSession {
 
 export interface GateDependencies {
   passwordHash: string
+  /** Atomically add one to the counter and return the new count. */
   bump: (key: string, window: string) => Promise<number>
+  /** Read a counter without changing it (0 when absent). */
+  peek: (key: string, window: string) => Promise<number>
   issueSession: () => Promise<MemberSession>
   now?: () => number
 }
@@ -25,13 +36,6 @@ export interface GateDependencies {
 export function passwordMatches(password: string, hash: string): boolean {
   if (!/^[a-f0-9]{64}$/i.test(hash)) throw new Error('Gate not configured')
   return timingSafeEqual(createHash('sha256').update(password, 'utf8').digest(), Buffer.from(hash, 'hex'))
-}
-
-export function clientIp(req: Request): string {
-  // Use the rightmost proxy-appended hop, never a caller-prepended first hop.
-  // A global budget also bounds guesses if a proxy changes its forwarding rules.
-  const ip = req.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ?? ''
-  return isIP(ip) ? ip : 'unknown'
 }
 
 export function createMemberHandler(deps: GateDependencies) {
@@ -42,15 +46,22 @@ export function createMemberHandler(deps: GateDependencies) {
     try {
       if (!/^[a-f0-9]{64}$/i.test(deps.passwordHash)) throw new Error('configuration')
       // Cross-isolate atomic counters. Fail closed on transport/SQL errors.
+      // 1. Per caller address FIRST, counting every attempt: one address can never spend
+      //    the shared budget below (10 per 15 min = at most 40 of its 60 per hour).
       const hour = Math.floor(now / 3600) * 3600
       const quarter = Math.floor(now / 900) * 900
-      const global = await deps.bump('member-login:global', new Date(hour * 1000).toISOString())
-      if (!Number.isInteger(global) || global < 1) throw new Error('rate backend')
-      if (global > 60) return jsonResponse({ error: 'Too many attempts' }, 429, { 'Retry-After': String(hour + 3600 - now) })
+      const hourWindow = new Date(hour * 1000).toISOString()
       const ipKey = createHmac('sha256', deps.passwordHash).update(clientIp(req)).digest('hex')
       const attempts = await deps.bump(`member-login:ip:${ipKey}`, new Date(quarter * 1000).toISOString())
       if (!Number.isInteger(attempts) || attempts < 1) throw new Error('rate backend')
-      if (attempts > 10) return jsonResponse({ error: 'Too many attempts' }, 429, { 'Retry-After': String(quarter + 900 - now) })
+      if (attempts > IP_LIMIT) return jsonResponse({ error: 'Too many attempts' }, 429, { 'Retry-After': String(quarter + 900 - now) })
+      // 2. The shared wrong-password budget is READ here and spent only below, on a wrong
+      //    password. Once it is used up every attempt is refused WITHOUT comparing, so the
+      //    61st guess cannot learn that it was right. Simultaneous wrong guesses can pass
+      //    this read together; step 1 bounds each source.
+      const wrong = await deps.peek(WRONG_GLOBAL_KEY, hourWindow)
+      if (!Number.isInteger(wrong) || wrong < 0) throw new Error('rate backend')
+      if (wrong >= WRONG_GLOBAL_LIMIT) return jsonResponse({ error: 'Too many attempts' }, 429, { 'Retry-After': String(hour + 3600 - now) })
       let password: unknown
       try {
         if (!req.headers.get('content-type')?.startsWith('application/json')) throw new Error('content type')
@@ -58,7 +69,11 @@ export function createMemberHandler(deps: GateDependencies) {
         password = body.password
       } catch { return jsonResponse({ error: 'Invalid request' }, 400) }
       if (typeof password !== 'string' || password.length > 512) return jsonResponse({ error: 'Invalid request' }, 400)
-      if (!passwordMatches(password, deps.passwordHash)) return jsonResponse({ error: 'Falsches Passwort' }, 401)
+      if (!passwordMatches(password, deps.passwordHash)) {
+        const spent = await deps.bump(WRONG_GLOBAL_KEY, hourWindow)
+        if (!Number.isInteger(spent) || spent < 1) throw new Error('rate backend')
+        return jsonResponse({ error: 'Falsches Passwort' }, 401)
+      }
       const session = await deps.issueSession()
       const issuedNow = Math.floor((deps.now?.() ?? Date.now()) / 1000)
       // Refuse misconfigured TTLs/identities instead of handing out a longer pass.

@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { createHash } from 'node:crypto'
 import { describe, it, expect, vi } from 'vitest'
-import { createMemberHandler, passwordMatches, clientIp, SHARED_MEMBER_ID, type MemberSession } from './handler.ts'
+import { readFileSync } from 'node:fs'
+import { createMemberHandler, passwordMatches, clientIp, SHARED_MEMBER_ID, WRONG_GLOBAL_KEY, type MemberSession } from './handler.ts'
+import { clientIp as sharedClientIp } from '../_shared/client-ip.ts'
 import { requireMember } from '../_shared/require-member.ts'
 import { requireService } from '../_shared/require-service.ts'
 
@@ -19,9 +21,11 @@ function harness() {
     bump: vi.fn(async (key: string, window: string) => {
       const k = key + window; const n = (counts.get(k) ?? 0) + 1; counts.set(k, n); return n
     }),
+    peek: vi.fn(async (key: string, window: string) => counts.get(key + window) ?? 0),
     issueSession: vi.fn(async () => structuredClone(session)),
   }
-  return { deps, handle: createMemberHandler(deps) }
+  const wrongCount = () => [...counts].filter(([k]) => k.startsWith(WRONG_GLOBAL_KEY)).reduce((n, [, v]) => n + v, 0)
+  return { deps, counts, wrongCount, handle: createMemberHandler(deps) }
 }
 const request = (value: unknown = password, ip = '192.0.2.1') => new Request('http://offline/member-session', {
   method: 'POST', headers: { 'Content-Type': 'application/json', 'x-forwarded-for': ip }, body: JSON.stringify({ password: value }),
@@ -80,15 +84,59 @@ describe('server member exchange (offline)', () => {
     deps.issueSession.mockResolvedValue({ ...session, expires_at: (now + 901_000) / 1000 + 900 })
     expect((await handle(request())).status).toBe(200)
   })
-  it('caps distributed guesses globally, regardless of forwarded IP', async () => {
-    const { handle } = harness()
+  it('caps distributed guesses globally, regardless of forwarded IP, without comparing the 61st', async () => {
+    const { handle, deps } = harness()
     for (let i = 0; i < 60; i++) expect((await handle(request('wrong', `192.0.2.${i + 1}`))).status).toBe(401)
-    expect((await handle(request(password, '198.51.100.2'))).status).toBe(429)
+    const blocked = await handle(request(password, '198.51.100.2'))
+    expect(blocked.status).toBe(429)
+    expect(blocked.headers.get('retry-after')).toBeTruthy()
+    expect(deps.issueSession).not.toHaveBeenCalled()
+  })
+  it('counts only WRONG passwords toward the shared budget: ordinary traffic never locks the boat out', async () => {
+    const { handle, wrongCount } = harness()
+    // 120 anonymous requests from 120 addresses that are not wrong passwords: right
+    // passwords, malformed bodies, preflights. Before the fix the 61st locked everyone out.
+    for (let i = 0; i < 40; i++) expect((await handle(request(password, `198.51.100.${i + 1}`))).status).toBe(200)
+    for (let i = 0; i < 40; i++) expect((await handle(request(null, `203.0.113.${i + 1}`))).status).toBe(400)
+    for (let i = 0; i < 40; i++) expect((await handle(new Request('http://offline', { method: 'OPTIONS' }))).status).toBe(204)
+    expect(wrongCount()).toBe(0)
+    expect((await handle(request(password, '192.0.2.200'))).status).toBe(200)
+  })
+  it('checks the caller address first: one address cannot spend the shared budget', async () => {
+    const { handle, deps, wrongCount } = harness()
+    // One attacker address hammering for a full hour, one request a second.
+    for (let second = 0; second < 3600; second += 1) {
+      deps.now = () => now + second * 1000
+      await handle(request('wrong', '192.0.2.66'))
+    }
+    expect(wrongCount()).toBe(40) // 10 per quarter hour, 4 quarters
+    deps.now = () => now + 3599_000
+    deps.issueSession.mockResolvedValue({ ...session, expires_at: (now + 3599_000) / 1000 + 900 })
+    expect((await handle(request(password, '198.51.100.7'))).status).toBe(200)
+  })
+  it('a member who typed the password right does not use up the shared budget', async () => {
+    const { handle, wrongCount } = harness()
+    await handle(request()); await handle(request('wrong')); await handle(request())
+    expect(wrongCount()).toBe(1)
+  })
+  it.each([NaN, -1, undefined])('fails closed when the shared budget cannot be read (%#)', async count => {
+    const { deps } = harness(); deps.peek.mockResolvedValue(count as number)
+    expect((await createMemberHandler(deps)(request())).status).toBe(503)
+    expect(deps.issueSession).not.toHaveBeenCalled()
   })
   it('ignores a caller-prepended IP and groups absent/malformed IPs', () => {
     expect(clientIp(request(password, 'attacker, 192.0.2.1'))).toBe('192.0.2.1')
+    expect(clientIp(request(password, '198.51.100.9, 192.0.2.1'))).toBe('192.0.2.1')
+    expect(clientIp(request(password, '2001:db8::1'))).toBe('2001:db8::1')
     expect(clientIp(request(password, 'attacker'))).toBe('unknown')
     expect(clientIp(new Request('http://offline'))).toBe('unknown')
+  })
+  it('member-session and extract-expense read the caller address the same way', () => {
+    expect(clientIp).toBe(sharedClientIp)
+    const extract = readFileSync('supabase/functions/extract-expense/index.ts', 'utf8')
+    expect(extract).toContain(`import { clientIp } from '../_shared/client-ip.ts'`)
+    expect(extract).toContain('enforceRateLimit(supabase, clientIp(req))')
+    expect(extract).not.toMatch(/headers\.get\(['"](?:x-forwarded-for|cf-connecting-ip|x-real-ip)/i)
   })
   it.each([0, NaN, undefined])('fails closed on invalid rate-backend counts (%#)', async count => {
     const { deps } = harness(); deps.bump.mockResolvedValue(count as number)
