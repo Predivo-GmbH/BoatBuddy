@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { settingsPlan, applySettings, authToApply, assertSessionHours, GATED_AUTH, TARGETS } from './configure-auth.mjs'
+import { settingsPlan, applySettings, authToApply, assertSessionHours, parseBody, GATED_AUTH, TARGETS } from './configure-auth.mjs'
 import { createHash } from 'node:crypto'
 import { MEMBER_ID, MEMBER_EMAIL } from './lib/provision-member.mjs'
 const fixtureHash = createHash('sha256').update('offline fixture').digest('hex')
@@ -15,7 +15,7 @@ function context(environment) {
 }
 
 // Defaults match both BoatBuddy projects as read on 2026-11-04: free plan, no custom SMTP.
-function harness(environment, { sslEnabled = false, fail, drift, malformed, tier = 'free', smtp = false, org = 'fixture-org' } = {}) {
+function harness(environment, { sslEnabled = false, fail, drift, malformed, empty, secretsPost = 'empty', secretsList, tier ='free', smtp = false, org = 'fixture-org' } = {}) {
   const calls = []
   const plan = settingsPlan(environment)
   return { calls, fetchImpl: async (url, options) => {
@@ -39,6 +39,10 @@ function harness(environment, { sslEnabled = false, fail, drift, malformed, tier
     calls.push({ key, body: options.body && JSON.parse(options.body) })
     if (key === fail) return new Response('DO NOT ECHO: fixture secret', { status: 403 })
     if (key === malformed) return new Response('DO NOT ECHO: fixture secret')
+    if (key === empty) return new Response(null, { status: options.method === 'PATCH' ? 204 : 200 })
+    // The real Management API answers POST /secrets with 201 and an EMPTY body (run 41927711961).
+    if (key === 'POST /secrets') return secretsPost === 'json' ? Response.json({}) : new Response(null, { status: 201 })
+    if (key === 'GET /secrets' && secretsList) return Response.json(secretsList)
     if (endpoint === '/api-keys?reveal=true') return Response.json([{ type: 'secret', api_key: 'fixture-service' }])
     if (endpoint === '/secrets') return Response.json(options.method === 'POST' ? {} : [{ name: 'MEMBER_PASSWORD_HASH', value: createHash('sha256').update(fixtureHash).digest('hex') }])
     let body = endpoint === '/config/auth' ? { ...plan.auth, smtp_host: smtp ? 'smtp.example.test' : '' } :
@@ -198,4 +202,61 @@ test('on a Pro plan the hours are what is PATCHed', async () => {
   const patch = fake.calls.find(call => call.key === 'PATCH /config/auth').body
   assert.equal(patch.sessions_timebox, 720)
   assert.equal(patch.sessions_inactivity_timeout, 168)
+})
+
+// Staging run 41927711961 stopped at "Settings POST /secrets: invalid JSON": the Management API
+// answers that write with 201 and an EMPTY body. Writes accept any 2xx body; reads still need JSON.
+test('a write answered 201 with an empty body passes, and the secret is then verified by a read', async () => {
+  const fake = harness('staging')
+  assert.equal((await applySettings('staging', { env: context('staging'), ...fake, log: quiet })).verified, true)
+  assert.deepEqual(fake.calls.slice(-2).map(c => c.key), ['POST /secrets', 'GET /secrets'])
+})
+test('a write answered 200 with JSON passes', async () => {
+  const fake = harness('staging', { secretsPost: 'json' })
+  assert.equal((await applySettings('staging', { env: context('staging'), ...fake, log: quiet })).verified, true)
+})
+test('PATCH answered 204 with no body passes (the read-back still verifies it)', async () => {
+  for (const empty of ['PATCH /config/auth', 'PATCH /postgrest']) {
+    const fake = harness('staging', { empty })
+    assert.equal((await applySettings('staging', { env: context('staging'), ...fake, log: quiet })).verified, true)
+  }
+})
+test('a write answered 4xx still fails, without echoing the body', async () => {
+  const fake = harness('staging', { fail: 'POST /secrets' })
+  await assert.rejects(applySettings('staging', { env: context('staging'), ...fake, log: quiet }), error => {
+    assert.match(error.message, /POST \/secrets: HTTP 403/)
+    assert.doesNotMatch(error.message, /fixture|DO NOT ECHO/)
+    return true
+  })
+})
+for (const key of ['GET /secrets', 'GET /config/auth', 'GET /postgrest', 'GET /ssl-enforcement', 'GET /project']) {
+  test(`a read answered with an empty body fails: ${key}`, async () => {
+    const fake = harness('staging', { empty: key })
+    await assert.rejects(applySettings('staging', { env: context('staging'), ...fake, log: quiet }), /empty body/)
+    assert.equal(fake.calls.at(-1).key, key)
+  })
+}
+test('an SSL write with an empty body is not taken as applied', async () => {
+  const fake = harness('staging', { empty: 'PUT /ssl-enforcement' })
+  await assert.rejects(applySettings('staging', { env: context('staging'), ...fake, log: quiet }), /SSL enforcement did not apply/)
+})
+test('the secret must be LISTED with the digest of what was written, or the release stops', async () => {
+  for (const secretsList of [[], [{ name: 'OTHER', value: 'x' }], [{ name: 'MEMBER_PASSWORD_HASH', value: '0'.repeat(64) }], {}, [null]]) {
+    const fake = harness('staging', { secretsList })
+    await assert.rejects(applySettings('staging', { env: context('staging'), ...fake, log: quiet }), error => {
+      assert.match(error.message, /function secret not verified/)
+      assert.doesNotMatch(error.message, new RegExp(fixtureHash))
+      return true
+    })
+  }
+})
+test('parseBody: reads need JSON, writes accept any 2xx body, nothing is echoed', () => {
+  assert.deepEqual(parseBody('GET', '/x', '{"a":1}'), { a: 1 })
+  assert.deepEqual(parseBody('POST', '/x', '{"a":1}'), { a: 1 })
+  for (const method of ['POST', 'PATCH', 'PUT', 'DELETE']) {
+    assert.equal(parseBody(method, '/x', ''), null)
+    assert.equal(parseBody(method, '/x', 'Created'), null)
+  }
+  assert.throws(() => parseBody('GET', '/x', ''), /GET \/x: empty body/)
+  assert.throws(() => parseBody('GET', '/x', 'DO NOT ECHO'), error => /invalid JSON/.test(error.message) && !/ECHO/.test(error.message))
 })
