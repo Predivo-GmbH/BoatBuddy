@@ -53,13 +53,41 @@ export function assertReleaseContext(environment, env) {
   return plan
 }
 
-export async function applySettings(environment, { env = process.env, fetchImpl = fetch } = {}) {
+// Supabase refuses the WHOLE auth PATCH when it holds one setting the project cannot have:
+// HTTP 402 for a Pro-plan feature on a free organization, HTTP 401 for the email rate limit
+// without custom SMTP (staging run 41908490580, 2026-11-04). The security standard asks for
+// these "where the plan offers them" (SR-AUTH-06) and "where passwords exist" (SR-AUTH-09).
+// So each is applied and read back whenever the project offers it, and named in a release
+// warning whenever it does not. Nothing is lowered and no plan is bought.
+export const GATED_AUTH = Object.freeze({
+  password_hibp_enabled: 'pro-plan',
+  sessions_timebox: 'pro-plan',
+  sessions_inactivity_timeout: 'pro-plan',
+  rate_limit_email_sent: 'custom-smtp',
+})
+
+// Only an explicit "free" tier skips the Pro settings. An unreadable or unknown tier sends
+// them, so Supabase itself decides and a refusal still stops the release.
+export function authToApply(auth, { tier, customSmtp }) {
+  const apply = {}
+  const notOffered = []
+  for (const [name, value] of Object.entries(auth)) {
+    const gate = GATED_AUTH[name]
+    if ((gate === 'pro-plan' && tier === 'free') || (gate === 'custom-smtp' && customSmtp !== true)) notOffered.push(name)
+    else apply[name] = value
+  }
+  return { apply, notOffered }
+}
+
+export async function applySettings(environment, { env = process.env, fetchImpl = fetch, log = console.log } = {}) {
   const plan = assertReleaseContext(environment, env)
-  const base = `https://api.supabase.com/v1/projects/${plan.ref}`
-  async function request(method, endpoint, body) {
+  const api = 'https://api.supabase.com/v1'
+  const base = `${api}/projects/${plan.ref}`
+  const request = (method, endpoint, body) => call(method, `${base}${endpoint}`, endpoint, body)
+  async function call(method, url, endpoint, body) {
     let response
     try {
-      response = await fetchImpl(`${base}${endpoint}`, {
+      response = await fetchImpl(url, {
         method,
         headers: { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}`, 'Content-Type': 'application/json' },
         ...(body ? { body: JSON.stringify(body) } : {}),
@@ -85,9 +113,23 @@ export async function applySettings(environment, { env = process.env, fetchImpl 
       throw new Error('SSL enforcement did not apply; release stopped')
     }
   }
-  await request('PATCH', '/config/auth', plan.auth)
+  const project = await call('GET', base, '/project')
+  if (typeof project.organization_id !== 'string' || !project.organization_id) {
+    throw new Error('Settings GET /project: no organization; release stopped')
+  }
+  const organization = await call('GET', `${api}/organizations/${encodeURIComponent(project.organization_id)}`, '/organization')
+  const current = await request('GET', '/config/auth')
+  const customSmtp = typeof current.smtp_host === 'string' && current.smtp_host.trim() !== ''
+  const { apply, notOffered } = authToApply(plan.auth, { tier: organization.plan, customSmtp })
+  for (const name of notOffered) {
+    const why = GATED_AUTH[name] === 'pro-plan'
+      ? `Supabase offers it on Pro plans and up; this organization's plan is "${organization.plan}"`
+      : 'Supabase allows it only with custom SMTP, which this project does not have'
+    log(`::warning::${environment}: auth setting ${name} not applied - ${why}`)
+  }
+  await request('PATCH', '/config/auth', apply)
   const auth = await request('GET', '/config/auth')
-  for (const [name, expected] of Object.entries(plan.auth)) {
+  for (const [name, expected] of Object.entries(apply)) {
     if (auth[name] !== expected) throw new Error(`Auth setting not verified: ${name}`)
   }
   await request('PATCH', '/postgrest', plan.postgrest)
@@ -95,7 +137,7 @@ export async function applySettings(environment, { env = process.env, fetchImpl 
   for (const [name, expected] of Object.entries(plan.postgrest)) {
     if (rest[name] !== expected) throw new Error(`Data API setting not verified: ${name}`)
   }
-  return { environment, verified: true }
+  return { environment, verified: true, notOffered }
 }
 
 export async function main(args = process.argv.slice(2)) {
