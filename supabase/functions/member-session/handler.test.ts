@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto'
 import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { createMemberHandler, passwordMatches, clientIp, SHARED_MEMBER_ID, WRONG_GLOBAL_KEY, ACCESS_SECONDS, CLOCK_TOLERANCE_SECONDS, type MemberSession } from './handler.ts'
+import { createMemberHandler, passwordMatches, describeFailure, GateFault, clientIp,SHARED_MEMBER_ID, WRONG_GLOBAL_KEY, ACCESS_SECONDS, CLOCK_TOLERANCE_SECONDS, type MemberSession } from './handler.ts'
 import { clientIp as sharedClientIp, headerShape, isPublicIp, isStagingProject, logHeaderShapeOnce, resetHeaderShapeLogForTests } from '../_shared/client-ip.ts'
 import { requireMember } from '../_shared/require-member.ts'
 import { requireService } from '../_shared/require-service.ts'
@@ -23,6 +23,7 @@ function harness() {
     }),
     peek: vi.fn(async (key: string, window: string) => counts.get(key + window) ?? 0),
     issueSession: vi.fn(async () => structuredClone(session)),
+    log: vi.fn(),
   }
   const wrongCount = () => [...counts].filter(([k]) => k.startsWith(WRONG_GLOBAL_KEY)).reduce((n, [, v]) => n + v, 0)
   return { deps, counts, wrongCount, handle: createMemberHandler(deps) }
@@ -228,6 +229,73 @@ describe('server member exchange (offline)', () => {
     expect((await handle(new Request('http://offline', { method: 'OPTIONS' }))).status).toBe(204)
     expect(deps.bump).not.toHaveBeenCalled()
     expect((await handle(new Request('http://offline'))).status).toBe(405)
+  })
+})
+
+// Staging release run 41929196303: every sign-in answered 503 because the comparison used the
+// GLOBAL Buffer, which Supabase's Edge Runtime does not provide. Node (this suite) has it, so
+// these run with the global removed, the way the platform runs.
+describe('runs without Node globals, like the Edge Runtime (run 41929196303)', () => {
+  // Node's own fetch/Request internals read the global Buffer too, so it cannot simply be
+  // deleted here. Hide it from the edge function sources only, the way the runtime does.
+  const withoutGlobalBuffer = async (body: () => Promise<void>) => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'Buffer')!
+    const real = (globalThis as { Buffer?: unknown }).Buffer
+    Object.defineProperty(globalThis, 'Buffer', {
+      configurable: true,
+      get() {
+        // Frame 0 is "Error", 1 this getter, 2 the code that read `Buffer`: refuse only when
+        // that reader is an edge function source (not Node internals it happens to call).
+        const reader = (new Error().stack ?? '').split('\n')[2] ?? ''
+        if (/supabase[\\/]functions[\\/](?!.*\.test\.ts)/.test(reader)) throw new ReferenceError('Buffer is not defined')
+        return real
+      },
+    })
+    try { await body() } finally { Object.defineProperty(globalThis, 'Buffer', original) }
+  }
+  it('a wrong password answers 401 and the right one 200 with no global Buffer', async () => {
+    await withoutGlobalBuffer(async () => {
+      const { handle, deps } = harness()
+      expect((await handle(request('wrong'))).status).toBe(401)
+      expect((await handle(request())).status).toBe(200)
+      expect(passwordMatches(password, hash)).toBe(true)
+      expect(deps.log).not.toHaveBeenCalled()
+    })
+  })
+  it('a 503 is logged with its stage and error kind only', async () => {
+    const { deps } = harness()
+    deps.peek.mockRejectedValue(new GateFault('rate unavailable', '42501'))
+    expect((await createMemberHandler(deps)(request('wrong'))).status).toBe(503)
+    expect(deps.log).toHaveBeenCalledWith('member-session 503 at stage=rate-shared-read kind=GateFault code=42501')
+  })
+  it.each([
+    ['configuration', (d: ReturnType<typeof harness>['deps']) => { d.passwordHash = '' }],
+    ['rate-address', (d: ReturnType<typeof harness>['deps']) => { d.bump.mockRejectedValueOnce(new GateFault('rate unavailable', 'PGRST202')) }],
+    ['issue-session', (d: ReturnType<typeof harness>['deps']) => { d.issueSession.mockRejectedValue(new GateFault('member unavailable', 'identity-missing')) }],
+    ['session-contract', (d: ReturnType<typeof harness>['deps']) => { d.issueSession.mockResolvedValue({ ...session, expires_in: 3600 }) }],
+  ])('names the failing stage: %s', async (stage, breakIt) => {
+    const { deps } = harness(); breakIt(deps)
+    expect((await createMemberHandler(deps)(request())).status).toBe(503)
+    expect(deps.log).toHaveBeenCalledWith(expect.stringContaining(`stage=${stage} `))
+  })
+  it('never logs a message, password, hash, token or an unsafe code', () => {
+    const line = describeFailure('compare', Object.assign(new Error(`${password} ${hash} fixture-access`), { code: 'has spaces; DROP' }))
+    expect(line).toBe('member-session 503 at stage=compare kind=Error code=other')
+    expect(describeFailure('compare', new ReferenceError('Buffer is not defined'))).toBe('member-session 503 at stage=compare kind=ReferenceError')
+    expect(describeFailure('compare', 'thrown string')).toBe('member-session 503 at stage=compare kind=string')
+  })
+  it('only allow-listed names and codes are logged; a secret shaped like a code becomes «other»', () => {
+    const secretish = Object.assign(new Error('x'), { name: 'my_shared_pass_2026', code: 'my_shared_pass_2026' })
+    const line = describeFailure('compare', secretish)
+    expect(line).toBe('member-session 503 at stage=compare kind=other code=other')
+    expect(line).not.toContain('my_shared_pass_2026')
+    expect(describeFailure('rate-address', new GateFault('rate unavailable', '42501'))).toBe('member-session 503 at stage=rate-address kind=GateFault code=42501')
+    expect(describeFailure('rate-address', new GateFault('rate unavailable', 'PGRST202'))).toBe('member-session 503 at stage=rate-address kind=GateFault code=PGRST202')
+    expect(describeFailure('issue-session', new GateFault('member unavailable', 'identity-missing'))).toBe('member-session 503 at stage=issue-session kind=GateFault code=identity-missing')
+  })
+  it('a failing logger never changes the answer', async () => {
+    const { deps } = harness(); deps.passwordHash = ''; deps.log.mockImplementation(() => { throw new Error('log down') })
+    expect((await createMemberHandler(deps)(request())).status).toBe(503)
   })
 })
 

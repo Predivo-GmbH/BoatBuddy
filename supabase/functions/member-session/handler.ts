@@ -1,4 +1,10 @@
 import { timingSafeEqual, createHash, createHmac } from 'node:crypto'
+// Imported, never the global: Supabase's Edge Runtime does not provide Node's globals
+// (Buffer, process, global, setImmediate). The global made every password comparison throw
+// a ReferenceError there, which the catch below turned into 503 for every sign-in
+// (staging release run 41929196303). Node, vitest and newer local Deno all have the
+// global, so every offline test passed. scripts/lib/edge-runtime-globals.test.mjs guards it.
+import { Buffer } from 'node:buffer'
 import { jsonResponse, MEMBER_CORS, readBoundedBody } from '../_shared/member-http.ts'
 import { clientIp } from '../_shared/client-ip.ts'
 export { clientIp }
@@ -36,6 +42,30 @@ export interface GateDependencies {
   peek: (key: string, window: string) => Promise<number>
   issueSession: () => Promise<MemberSession>
   now?: () => number
+  /** Where a 503 is explained (default console.error). Gets only a stage and an error KIND. */
+  log?: (line: string) => void
+}
+
+/** An error whose `code` is safe to log (a short PostgREST/Postgres/Auth code, no data). */
+export class GateFault extends Error {
+  constructor(message: string, readonly code?: string) { super(message); this.name = 'GateFault' }
+}
+
+// Explicit allowlists, never a pattern: a value outside them is logged as «other», so no message, body, header,
+// password, hash or token can reach the log even if it happens to look like a code.
+const KNOWN_ERROR_NAMES = new Set(['Error', 'TypeError', 'ReferenceError', 'RangeError', 'SyntaxError', 'GateFault',
+  'AuthApiError', 'AuthRetryableFetchError', 'AuthUnknownError', 'AuthSessionMissingError', 'AbortError', 'TimeoutError'])
+const KNOWN_CODES = new Set(['identity-mismatch', 'identity-missing', 'verify-otp', 'user_not_found', 'email_provider_disabled',
+  'otp_expired', 'otp_disabled', 'over_request_rate_limit', 'validation_failed', 'unexpected_failure', 'session_not_found',
+  'bad_jwt', 'not_admin', 'signup_disabled', 'user_banned'])
+const SQLSTATE = /^[0-9A-Z]{5}$/ // Postgres error class codes (e.g. 42501): five characters, never a secret
+const POSTGREST = /^PGRST\d{3}$/
+/** Stage + error kind only: never a message, body, header, password, hash or token. */
+export function describeFailure(stage: string, error: unknown): string {
+  const name = error instanceof Error ? (KNOWN_ERROR_NAMES.has(error.name) ? error.name : 'other') : typeof error
+  const raw = (error as { code?: unknown })?.code
+  const code = typeof raw !== 'string' ? '' : (KNOWN_CODES.has(raw) || SQLSTATE.test(raw) || POSTGREST.test(raw)) ? raw : 'other'
+  return `member-session 503 at stage=${stage} kind=${name}${code ? ` code=${code}` : ''}`
 }
 
 export function passwordMatches(password: string, hash: string): boolean {
@@ -48,6 +78,7 @@ export function createMemberHandler(deps: GateDependencies) {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: MEMBER_CORS })
     if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405)
     const now = Math.floor((deps.now?.() ?? Date.now()) / 1000)
+    let stage = 'configuration'
     try {
       if (!/^[a-f0-9]{64}$/i.test(deps.passwordHash)) throw new Error('configuration')
       // Cross-isolate atomic counters. Fail closed on transport/SQL errors.
@@ -57,6 +88,7 @@ export function createMemberHandler(deps: GateDependencies) {
       const hour = Math.floor(now / 3600) * 3600
       const quarter = Math.floor(now / 900) * 900
       const hourWindow = new Date(hour * 1000).toISOString()
+      stage = 'rate-address'
       const ip = clientIp(req)
       if (ip !== null) {
         const ipKey = createHmac('sha256', deps.passwordHash).update(ip).digest('hex')
@@ -68,6 +100,7 @@ export function createMemberHandler(deps: GateDependencies) {
       //    password. Once it is used up every attempt is refused WITHOUT comparing, so the
       //    61st guess cannot learn that it was right. Simultaneous wrong guesses can pass
       //    this read together; step 1 bounds each source.
+      stage = 'rate-shared-read'
       const wrong = await deps.peek(WRONG_GLOBAL_KEY, hourWindow)
       if (!Number.isInteger(wrong) || wrong < 0) throw new Error('rate backend')
       if (wrong >= WRONG_GLOBAL_LIMIT) return jsonResponse({ error: 'Too many attempts' }, 429, { 'Retry-After': String(hour + 3600 - now) })
@@ -78,12 +111,16 @@ export function createMemberHandler(deps: GateDependencies) {
         password = body.password
       } catch { return jsonResponse({ error: 'Invalid request' }, 400) }
       if (typeof password !== 'string' || password.length > 512) return jsonResponse({ error: 'Invalid request' }, 400)
+      stage = 'compare'
       if (!passwordMatches(password, deps.passwordHash)) {
+        stage = 'rate-shared-spend'
         const spent = await deps.bump(WRONG_GLOBAL_KEY, hourWindow)
         if (!Number.isInteger(spent) || spent < 1) throw new Error('rate backend')
         return jsonResponse({ error: 'Falsches Passwort' }, 401)
       }
+      stage = 'issue-session'
       const session = await deps.issueSession()
+      stage = 'session-contract'
       const issuedNow = Math.floor((deps.now?.() ?? Date.now()) / 1000)
       // Refuse misconfigured TTLs/identities instead of handing out a longer pass.
       if (session.user.id !== SHARED_MEMBER_ID || session.user.app_metadata.boatbuddy_member !== true ||
@@ -94,8 +131,10 @@ export function createMemberHandler(deps: GateDependencies) {
         access_token: session.access_token, refresh_token: session.refresh_token,
         expires_at: session.expires_at, expires_in: session.expires_in, token_type: session.token_type,
       })
-    } catch {
-      // No credentials, request bodies, Auth responses or transport errors in logs.
+    } catch (error) {
+      // No credentials, request bodies, Auth responses or transport errors in logs: only the
+      // stage and the error KIND, so a 503 in the function log says where it failed.
+      try { (deps.log ?? console.error)(describeFailure(stage, error)) } catch { /* never fail the answer on a log */ }
       return jsonResponse({ error: 'Anmeldung vorübergehend nicht möglich' }, 503)
     }
   }
