@@ -106,7 +106,7 @@ export function authToApply(auth, { tier, customSmtp }) {
 // Returns `null` for a write whose 2xx body is empty or not JSON. Never echoes the body.
 export function parseBody(method, endpoint, text) {
   try { return JSON.parse(text) } catch {
-    if (method !== 'GET') return null
+    if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)) return null
     throw new Error(`Settings ${method} ${endpoint}: ${text.trim() === '' ? 'empty body' : 'invalid JSON'}`)
   }
 }
