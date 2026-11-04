@@ -83,19 +83,17 @@ export function usePhoneUpload({ onExtracted }: UsePhoneUploadOptions = {}) {
       crypto.getRandomValues(bytes)
       const token = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
 
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
-
       const { data, error } = await supabase
         .from('phone_upload_sessions')
         .insert({
           token,
           status: 'pending',
-          expires_at: expiresAt.toISOString(),
         })
-        .select('id')
+        .select('id, expires_at')
         .single()
 
       if (error || !data) throw error
+      const expiresAt = new Date(data.expires_at) // server-owned ten-minute TTL
 
       const uploadUrl = `${window.location.origin}/phone-upload?token=${token}`
 

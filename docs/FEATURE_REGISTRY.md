@@ -9,7 +9,7 @@
 | ID | Feature | E2E Test | Status |
 |----|---------|----------|--------|
 | AUTH-001 | PasswordGate blocks access without password | `critical-path.spec.ts:"blocks access without password"` | COVERED |
-| AUTH-002 | PasswordGate grants access after correct password | `critical-path.spec.ts:"grants access after bypass"` | COVERED |
+| AUTH-002 | Server checks shared password; native member session opens PasswordGate | `critical-path.spec.ts:"grants access with a member session"` | COVERED |
 | NAV-001 | Sidebar shows all 6 nav items | `critical-path.spec.ts:"sidebar shows all 6 nav items"` | COVERED |
 | NAV-002 | Navigates to each page without error | `critical-path.spec.ts:"navigates to each page without error"` | COVERED |
 | NAV-003 | Bottom navigation (mobile) shows 6 items | `critical-path.spec.ts:"bottom nav shows 6 items on mobile"` | COVERED |

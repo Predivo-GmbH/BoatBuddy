@@ -5,6 +5,7 @@ import path from 'node:path'
 
 const read = name => readFileSync(name, 'utf8').replaceAll('\r\n', '\n')
 const sql = read('supabase/migrations/033_security_rulebook_database_rights.sql')
+const memberSql = read('supabase/migrations/034_server_checked_member_gate.sql')
 const deploy = read('.github/workflows/deploy.yml')
 function job(name) {
   const start = deploy.indexOf(`\n  ${name}:\n`)
@@ -42,7 +43,7 @@ test('all frontend database calls are covered by the reviewed SQL allow-list', (
   assert.equal(tables.size, 15) // 14 public tables plus the Storage bucket.
   for (const table of tables) {
     if (table === 'dokumente') continue // storage.from(), not a public table
-    assert.match(sql, new RegExp(`grant select on[\\s\\S]*?public\\.${table}\\b[\\s\\S]*?to anon;`))
+    assert.match(memberSql, new RegExp(`grant select on[\\s\\S]*?public\\.${table}\\b[\\s\\S]*?to authenticated;`))
   }
   assert.deepEqual([...functions].sort(), ['adjust_gesamtstunden','create_nutzungslog_atomic','delete_changelog_cascade','delete_nutzungslog_atomic'])
   for (const fn of functions) assert.match(sql, new RegExp(`alter function public\\.${fn}\\([^;]+security invoker;`))

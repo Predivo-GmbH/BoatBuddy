@@ -57,15 +57,11 @@ export default function PhoneUploadPage() {
     const urlToken = params.get('token')
     if (!urlToken) { requestAnimationFrame(() => setState('invalid')); return }
 
-    supabase
-      .from('phone_upload_sessions')
-      .select('id, status, expires_at')
-      .eq('token', urlToken)
-      .eq('status', 'pending')
-      .gt('expires_at', new Date().toISOString())
-      .single()
+    supabase.functions.invoke('phone-upload', {
+      body: {}, headers: { 'x-upload-token': urlToken },
+    })
       .then(({ data, error }) => {
-        if (error || !data) {
+        if (error || data?.valid !== true) {
           setState('invalid')
         } else {
           setToken(urlToken)
@@ -123,24 +119,11 @@ export default function PhoneUploadPage() {
     setState('uploading')
 
     try {
-      const storagePath = `phone-uploads/${token}/photo.jpg`
-
-      const { error: uploadError } = await supabase.storage
-        .from('dokumente')
-        .upload(storagePath, capturedBlob, { contentType: 'image/jpeg', upsert: false })
-
-      if (uploadError) throw uploadError
-
-      const { error: updateError } = await supabase
-        .from('phone_upload_sessions')
-        .update({
-          status: 'uploaded',
-          storage_path: storagePath,
-          uploaded_at: new Date().toISOString(),
-        })
-        .eq('token', token)
-
-      if (updateError) throw updateError
+      const { data, error } = await supabase.functions.invoke('phone-upload', {
+        body: capturedBlob,
+        headers: { 'x-upload-token': token, 'Content-Type': 'image/jpeg' },
+      })
+      if (error || data?.success !== true) throw new Error('upload')
 
       setState('success')
     } catch {

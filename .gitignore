@@ -52,6 +52,7 @@ playwright-report/
 playwright/.gate-a/
 test-results/
 blob-report/
+coverage/
 
 # The name-based guard that enforces the block above, in CI where nothing can bypass it:
 #   node scripts/guard-credential-files.mjs            (audit this repo)

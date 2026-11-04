@@ -35,6 +35,7 @@ try {
   const source = [
     ...migrations.map(file => readFileSync(`supabase/migrations/${file}`, 'utf8')),
     readFileSync('scripts/fixtures/database-security-checks.sql', 'utf8'),
+    readFileSync('scripts/fixtures/member-security-checks.sql', 'utf8'),
   ].join('\n')
   // One psql session also makes temp-fixture lifetimes unambiguous.
   const output = sql(source)

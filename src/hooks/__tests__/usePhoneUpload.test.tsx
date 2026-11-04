@@ -24,7 +24,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('phone upload completion without public Realtime', () => {
   it('polls the new session and extracts exactly once after upload', async () => {
-    mocks.single.mockResolvedValueOnce({ data: { id: 'session-id' }, error: null })
+    mocks.single.mockResolvedValueOnce({ data: { id: 'session-id', expires_at: new Date(Date.now() + 600_000).toISOString() }, error: null })
       .mockResolvedValue({ data: { status: 'uploaded', storage_path: 'phone-uploads/test/photo.jpg' } })
     mocks.extract.mockResolvedValue({ betrag: 25 })
     const onExtracted = vi.fn()
@@ -40,7 +40,7 @@ describe('phone upload completion without public Realtime', () => {
   })
 
   it('keeps polling while pending and stops on cancellation', async () => {
-    mocks.single.mockResolvedValueOnce({ data: { id: 'session-id' }, error: null })
+    mocks.single.mockResolvedValueOnce({ data: { id: 'session-id', expires_at: new Date(Date.now() + 600_000).toISOString() }, error: null })
       .mockResolvedValue({ data: { status: 'pending', storage_path: null } })
     const { result } = renderHook(() => usePhoneUpload())
     await act(async () => { await result.current.createSession() })
@@ -53,7 +53,7 @@ describe('phone upload completion without public Realtime', () => {
   })
 
   it('stops polling when the upload dialog unmounts', async () => {
-    mocks.single.mockResolvedValueOnce({ data: { id: 'session-id' }, error: null })
+    mocks.single.mockResolvedValueOnce({ data: { id: 'session-id', expires_at: new Date(Date.now() + 600_000).toISOString() }, error: null })
     const { result, unmount } = renderHook(() => usePhoneUpload())
     await act(async () => { await result.current.createSession() })
     unmount()
@@ -62,7 +62,7 @@ describe('phone upload completion without public Realtime', () => {
   })
 
   it('keeps a failed extraction available for manual receipt entry', async () => {
-    mocks.single.mockResolvedValueOnce({ data: { id: 'session-id' }, error: null })
+    mocks.single.mockResolvedValueOnce({ data: { id: 'session-id', expires_at: new Date(Date.now() + 600_000).toISOString() }, error: null })
       .mockResolvedValue({ data: { status: 'uploaded', storage_path: 'phone-uploads/test/photo.jpg' } })
     mocks.extract.mockRejectedValue(new Error('fixture extraction failure'))
     const onExtracted = vi.fn()

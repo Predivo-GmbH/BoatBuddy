@@ -4,11 +4,7 @@ import { test, expect } from '@playwright/test'
 // be free of console errors. This is the gate that protects production — a push to
 // main must turn these green on staging before a manual prod promote is allowed.
 
-// PasswordGate bypass: same mechanism as the production critical-path spec.
-async function bypassPasswordGate(page: import('@playwright/test').Page) {
-  await page.goto('/')
-  await page.evaluate(() => sessionStorage.setItem('boatbuddy-unlocked', 'true'))
-}
+import { signInMember } from '../member-session'
 
 const PAGES: { path: string; heading: string }[] = [
   { path: '/dashboard', heading: 'Dashboard' },
@@ -22,10 +18,10 @@ const PAGES: { path: string; heading: string }[] = [
 
 test.describe('Staging — authenticated', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
   })
 
-  test('dashboard loads after bypass', async ({ page }) => {
+  test('dashboard loads with a member session', async ({ page }) => {
     await page.goto('/dashboard')
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10_000 })
   })

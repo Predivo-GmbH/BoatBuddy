@@ -1,3 +1,4 @@
+import { signInMember } from '../member-session'
 import { test, expect, type Page } from '@playwright/test'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -52,7 +53,7 @@ async function deleteStorageObject(name: string): Promise<number> {
 
 async function unlock(page: Page) {
   await page.goto('/')
-  await page.evaluate(() => sessionStorage.setItem('boatbuddy-unlocked', 'true'))
+  await signInMember(page)
 }
 
 // -------------------------- GATE A: viewport reachability --------------------------

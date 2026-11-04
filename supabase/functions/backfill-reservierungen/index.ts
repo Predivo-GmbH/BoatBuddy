@@ -1,11 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { requireService } from '../_shared/require-service.ts';
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"))!;
 const responseHeaders = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 
-serve(async () => {
+serve(async (req) => {
+  if (!requireService(req, [Deno.env.get('SB_SECRET_KEY'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')])) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: responseHeaders });
+  }
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   // Get all reservierungen

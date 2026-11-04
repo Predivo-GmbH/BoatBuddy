@@ -1,8 +1,9 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { encode as encodeBase64 } from 'https://deno.land/std@0.208.0/encoding/base64.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.106.2'
 import { anthropicMessages } from '../_shared/anthropic-model.ts'
 import { logAnthropicUsage } from '../_shared/log-usage.ts'
+import { requireMember } from '../_shared/require-member.ts'
 
 /**
  * extract-expense: AI-powered invoice extraction for BoatBuddy
@@ -52,7 +53,7 @@ function getClientIp(req: Request): string {
 }
 
 async function enforceRateLimit(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   ip: string,
 ): Promise<{ ok: boolean; message?: string }> {
   // Fail-OPEN: if the rate-limit machinery itself errors (RPC missing, DB hiccup),
@@ -144,17 +145,13 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS })
   }
 
-  // Auth: the Supabase Edge gateway already enforces verify_jwt — it rejects any
-  // request without a valid project key (anon JWT or publishable key) before it
-  // reaches this handler. We only require an apikey/authorization header to be
-  // present. Do NOT compare against a hardcoded SUPABASE_ANON_KEY value: that env
-  // flips to the publishable key under the new API-key system and no longer matches
-  // the legacy anon JWT the frontend sends (broke 2026-06-02).
-  const apiKey = req.headers.get('apikey') ?? req.headers.get('authorization')?.replace('Bearer ', '')
-  if (!apiKey) {
+  if (req.method !== 'POST') return new Response(null, { status: 405, headers: CORS_HEADERS })
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!,
+    (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!,
+    { auth: { persistSession: false, autoRefreshToken: false } })
+  if (!await requireMember(req, supabase)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
@@ -175,11 +172,8 @@ serve(async (req) => {
       })
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const serviceRoleKey = (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')!
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     // Rate limit BEFORE any Anthropic call (each request = two paid passes).
     // Uses the service-role client + an atomic DB counter; keyed by client IP.

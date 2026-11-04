@@ -1,10 +1,9 @@
+import { signInMember } from '../member-session'
 /**
  * BoatBuddy's Gate A config. Everything here is product-specific; the machinery lives in
  * @predivo-gmbh/gate-kit/crawl and is shared by the whole fleet.
  *
- * AUTH MODEL: no user login at all. Staging sits behind HTTP basic auth (handled in
- * playwright.gate-a-crawl.config.ts), and the app itself is behind a PasswordGate whose unlock
- * flag is sessionStorage['boatbuddy-unlocked'] (src/components/shared/PasswordGate.tsx:5).
+ * AUTH MODEL: native Supabase Auth member session; HTTP basic auth stays at staging.
  *
  * SAFETY: the denylist is EVIDENCE, not a guess. A reconnaissance pass that clicked NOTHING
  * enumerated every visible trigger on all eight routes at both discovery widths: 143 trigger
@@ -39,21 +38,13 @@ export function declaredRoutes(): string[] {
 export const routeExclusions = routeData.exclusions
 
 async function unlock(page: Page) {
-  // Set on EVERY document, because the crawl re-navigates constantly and a fresh document
-  // would otherwise land back on the PasswordGate.
-  await page.addInitScript(() => {
-    sessionStorage.setItem('boatbuddy-unlocked', 'true')
-  })
-  await page.goto(STAGING_URL)
-  await page.evaluate(() => {
-    sessionStorage.setItem('boatbuddy-unlocked', 'true')
-  })
+  await signInMember(page)
 }
 
 const config: GateAConfig = {
   baseURL: STAGING_URL,
 
-  identities: [{ key: 'base', label: 'password gate only, no user session', setup: unlock }],
+  identities: [{ key: 'base', label: 'shared boat member', setup: unlock }],
 
   routes: routeData.swept,
 

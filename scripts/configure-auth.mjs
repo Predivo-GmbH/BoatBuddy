@@ -2,6 +2,7 @@
 // Settings as code. Default mode is offline. Only the matching Deploy job may apply.
 // Management API contracts: docs/DECISIONS.md (Wave 3).
 import { pathToFileURL } from 'node:url'
+import { provisionMember } from './lib/provision-member.mjs'
 
 export const TARGETS = Object.freeze({
   staging: Object.freeze({ ref: 'svpewgbwousyheohlrtt', origin: 'https://staging.boatbuddy.predivo.ch', job: 'deploy-staging', event: 'push' }),
@@ -14,7 +15,8 @@ export function settingsPlan(environment) {
   return {
     ...target,
     auth: {
-      // There is no Supabase sign-in in BoatBuddy. Preserve the closed mail endpoint.
+      // Only the server's admin-token exchange signs the shared member in.
+      // Public mail/password/signup endpoints remain closed.
       external_email_enabled: false,
       external_phone_enabled: false,
       external_anonymous_users_enabled: false,
@@ -28,6 +30,7 @@ export function settingsPlan(environment) {
       site_url: target.origin,
       uri_allow_list: `${target.origin}/`,
       refresh_token_rotation_enabled: true,
+      jwt_exp: 900,
       security_refresh_token_reuse_interval: 10,
       sessions_timebox: 30 * 24 * 60 * 60,
       sessions_inactivity_timeout: 7 * 24 * 60 * 60,
@@ -81,6 +84,9 @@ export function authToApply(auth, { tier, customSmtp }) {
 
 export async function applySettings(environment, { env = process.env, fetchImpl = fetch, log = console.log } = {}) {
   const plan = assertReleaseContext(environment, env)
+  if (!/^[a-f0-9]{64}$/i.test(env.MEMBER_PASSWORD_HASH ?? '')) {
+    throw new Error('MEMBER_PASSWORD_HASH is required (existing shared-password SHA-256 secret)')
+  }
   const api = 'https://api.supabase.com/v1'
   const base = `${api}/projects/${plan.ref}`
   const request = (method, endpoint, body) => call(method, `${base}${endpoint}`, endpoint, body)
@@ -137,6 +143,7 @@ export async function applySettings(environment, { env = process.env, fetchImpl 
   for (const [name, expected] of Object.entries(plan.postgrest)) {
     if (rest[name] !== expected) throw new Error(`Data API setting not verified: ${name}`)
   }
+  await provisionMember({ ref: plan.ref, passwordHash: env.MEMBER_PASSWORD_HASH, request, fetchImpl })
   return { environment, verified: true, notOffered }
 }
 

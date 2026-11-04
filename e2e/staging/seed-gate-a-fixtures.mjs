@@ -16,11 +16,11 @@
  *
  *   STAGING_SUPABASE_URL=... STAGING_ANON_KEY=... node e2e/staging/seed-gate-a-fixtures.mjs
  *
- * The anon key is enough: both tables carry an `anon_all` RLS policy
- * (supabase/migrations/004_gastsessions.sql, 005_nutzungslogs.sql).
+ * Uses a native staging member session; the public key alone has no table rights.
  */
-const url = process.env.STAGING_SUPABASE_URL
-const key = process.env.STAGING_ANON_KEY
+import { stagingMemberSession, STAGING_API } from '../../scripts/lib/staging-member.mjs'
+const url = STAGING_API
+const { session, publicKey: key } = await stagingMemberSession()
 
 if (!url || !key) {
   console.error('seed: STAGING_SUPABASE_URL and STAGING_ANON_KEY are required')
@@ -33,7 +33,7 @@ const FIXTURE_DATE = '2019-07-04'
 
 const headers = {
   apikey: key,
-  Authorization: `Bearer ${key}`,
+  Authorization: `Bearer ${session.access_token}`,
   'Content-Type': 'application/json',
   Prefer: 'return=representation',
 }

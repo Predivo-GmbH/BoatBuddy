@@ -1,17 +1,25 @@
 # Edge-function JWT verification, pinned explicitly so a CI `--use-api` deploy
 # can't silently flip a function to a wrong value.
 
-# extract-expense is called from the browser with the public publishable key.
-# verify_jwt = false lets that call reach the handler, where the AI-cost DoS guard
-# is a server-side per-IP rate limit (see migration 030 + bump_extract_rate RPC).
-# This matches the fleet pattern of gating inside the function rather than at the gateway.
+# New signing keys/publishable keys are checked in the handler using Auth getUser.
+# extract-expense requires a verified member before any Storage/AI/database work.
 [functions.extract-expense]
 verify_jwt = false
 
+# Public password exchange: constant-time comparison, fail-closed shared rate
+# counters, then native Auth session issuance. No API key is treated as a member.
+[functions.member-session]
+verify_jwt = false
+
+# Public capability endpoint: only one pending, unexpired 128-bit QR token and
+# one JPEG at its fixed path. No member tables or Storage objects are exposed.
+[functions.phone-upload]
+verify_jwt = false
+
 # backfill-reservierungen is an admin-only, one-off backfill that writes to the
-# changelog and has NO in-function auth. It is never called from the browser
+# changelog and checks the service credential in the handler. Never called from the browser
 # (no frontend caller), only invoked manually with the service-role key. Keep JWT
-# verification ON (the Supabase default) so an anonymous caller can't trigger this
-# privileged writer; a manual service-role invocation still passes the gateway.
+# verification ON as an additional gateway check; the handler rejects anon and
+# member JWTs even when their signature is valid.
 [functions.backfill-reservierungen]
 verify_jwt = true

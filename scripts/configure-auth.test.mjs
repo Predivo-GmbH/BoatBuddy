@@ -2,12 +2,15 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { settingsPlan, applySettings, authToApply, GATED_AUTH, TARGETS } from './configure-auth.mjs'
+import { createHash } from 'node:crypto'
+import { MEMBER_ID, MEMBER_EMAIL } from './lib/provision-member.mjs'
+const fixtureHash = createHash('sha256').update('offline fixture').digest('hex')
 
 function context(environment) {
   return {
     GITHUB_ACTIONS: 'true', GITHUB_WORKFLOW: 'Deploy', GITHUB_REPOSITORY: 'Predivo-GmbH/BoatBuddy',
     GITHUB_REF: 'refs/heads/main', GITHUB_JOB: TARGETS[environment].job,
-    GITHUB_EVENT_NAME: TARGETS[environment].event, RELEASE_CONFIRM: 'deploy', SUPABASE_ACCESS_TOKEN: 'fixture-only',
+    GITHUB_EVENT_NAME: TARGETS[environment].event, RELEASE_CONFIRM: 'deploy', SUPABASE_ACCESS_TOKEN: 'fixture-only', MEMBER_PASSWORD_HASH: fixtureHash,
   }
 }
 
@@ -16,6 +19,11 @@ function harness(environment, { sslEnabled = false, fail, drift, malformed, tier
   const calls = []
   const plan = settingsPlan(environment)
   return { calls, fetchImpl: async (url, options) => {
+    if (url.startsWith(`https://${plan.ref}.supabase.co/auth/v1/admin/users`)) {
+      assert.equal(options.headers.apikey, 'fixture-service')
+      assert.equal(options.redirect, 'error')
+      return Response.json({ id: MEMBER_ID, email: MEMBER_EMAIL, app_metadata: { boatbuddy_member: true } })
+    }
     assert.equal(options.redirect, 'error')
     assert.ok(options.signal instanceof AbortSignal)
     assert.equal(options.headers.Authorization, 'Bearer fixture-only')
@@ -31,6 +39,8 @@ function harness(environment, { sslEnabled = false, fail, drift, malformed, tier
     calls.push({ key, body: options.body && JSON.parse(options.body) })
     if (key === fail) return new Response('DO NOT ECHO: fixture secret', { status: 403 })
     if (key === malformed) return new Response('DO NOT ECHO: fixture secret')
+    if (endpoint === '/api-keys?reveal=true') return Response.json([{ type: 'secret', api_key: 'fixture-service' }])
+    if (endpoint === '/secrets') return Response.json(options.method === 'POST' ? {} : [{ name: 'MEMBER_PASSWORD_HASH', value: createHash('sha256').update(fixtureHash).digest('hex') }])
     let body = endpoint === '/config/auth' ? { ...plan.auth, smtp_host: smtp ? 'smtp.example.test' : '' } :
       endpoint === '/postgrest' ? { ...plan.postgrest } :
       endpoint === '/project' ? { organization_id: org } :
@@ -41,7 +51,7 @@ function harness(environment, { sslEnabled = false, fail, drift, malformed, tier
   } }
 }
 const SEQUENCE = ['GET /ssl-enforcement', 'PUT /ssl-enforcement', 'GET /project', 'GET /organization', 'GET /config/auth',
-  'PATCH /config/auth', 'GET /config/auth', 'PATCH /postgrest', 'GET /postgrest']
+  'PATCH /config/auth', 'GET /config/auth', 'PATCH /postgrest', 'GET /postgrest', 'GET /api-keys?reveal=true', 'POST /secrets', 'GET /secrets']
 const quiet = () => {}
 
 for (const environment of ['staging', 'production']) {
@@ -56,6 +66,7 @@ for (const environment of ['staging', 'production']) {
     assert.doesNotMatch(auth.mailer_templates_magic_link_content, /ConfirmationURL|href=/)
     assert.equal(auth.external_email_enabled, false)
     assert.equal(auth.disable_signup, true)
+    assert.equal(auth.jwt_exp, 900)
     assert.equal(auth.sessions_timebox, 2592000)
     assert.equal(auth.sessions_inactivity_timeout, 604800)
     assert.equal(auth.security_refresh_token_reuse_interval, 10)
@@ -162,4 +173,9 @@ test('CLI defaults to offline without a token', () => {
 })
 test('unknown environments are rejected', () => {
   for (const name of ['prod', '__proto__', undefined]) assert.throws(() => settingsPlan(name))
+})
+
+test('missing member hash refuses before any network or settings change', async () => {
+  await assert.rejects(applySettings('staging', { env: { ...context('staging'), MEMBER_PASSWORD_HASH: '' },
+    fetchImpl: () => assert.fail('no requests allowed') }), /MEMBER_PASSWORD_HASH is required/)
 })
