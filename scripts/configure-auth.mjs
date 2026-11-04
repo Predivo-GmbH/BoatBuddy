@@ -99,6 +99,18 @@ export function authToApply(auth, { tier, customSmtp }) {
   return { apply, notOffered }
 }
 
+// A READ must return JSON: it is what the release checks against. A WRITE answers 2xx with
+// whatever the endpoint likes: POST /v1/projects/{ref}/secrets answers 201 with an EMPTY body
+// (staging run 41927711961 stopped on it as "invalid JSON"), others 204. A write's body is
+// never trusted anyway: every write is followed by a read-back that verifies the result.
+// Returns `null` for a write whose 2xx body is empty or not JSON. Never echoes the body.
+export function parseBody(method, endpoint, text) {
+  try { return JSON.parse(text) } catch {
+    if (method !== 'GET') return null
+    throw new Error(`Settings ${method} ${endpoint}: ${text.trim() === '' ? 'empty body' : 'invalid JSON'}`)
+  }
+}
+
 export async function applySettings(environment, { env = process.env, fetchImpl = fetch, log = console.log } = {}) {
   const plan = assertReleaseContext(environment, env)
   assertSessionHours(plan.auth)
@@ -126,14 +138,17 @@ export async function applySettings(environment, { env = process.env, fetchImpl 
       await response.body?.cancel()
       throw new Error(`Settings ${method} ${endpoint}: HTTP ${response.status}; no security downgrade was attempted`)
     }
-    try { return await response.json() } catch { throw new Error(`Settings ${method} ${endpoint}: invalid JSON`) }
+    return parseBody(method, endpoint, await readText(response, method, endpoint))
+  }
+  async function readText(response, method, endpoint) {
+    try { return await response.text() } catch { throw new Error(`Settings ${method} ${endpoint}: transport failure`) }
   }
 
   // SSL changes can restart Postgres. Do not trigger an unnecessary restart on every release.
   const ssl = await request('GET', '/ssl-enforcement')
   if (ssl.currentConfig?.database !== true) {
     const applied = await request('PUT', '/ssl-enforcement', { requestedConfig: { database: true } })
-    if (applied.appliedSuccessfully !== true || applied.currentConfig?.database !== true) {
+    if (applied?.appliedSuccessfully !== true || applied.currentConfig?.database !== true) {
       throw new Error('SSL enforcement did not apply; release stopped')
     }
   }

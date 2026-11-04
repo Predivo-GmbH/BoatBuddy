@@ -43,11 +43,13 @@ export async function provisionMember({ ref, passwordHash, request, fetchImpl })
       (user.banned_until && Date.parse(user.banned_until) > Date.now())) {
     throw new Error('Member provisioning: identity not verified')
   }
+  // The write answers 201 with an empty body; its result is proven by the read-back below.
   await request('POST', '/secrets', [{ name: 'MEMBER_PASSWORD_HASH', value: passwordHash }])
   const secrets = await request('GET', '/secrets')
-  // Management API exposes only SHA-256 digests here (CLI's DIGEST column).
+  // Management API exposes only SHA-256 digests here (CLI's DIGEST column): the secret must be
+  // LISTED by name and carry the digest of what was written. Neither is ever printed.
   const expected = createHash('sha256').update(passwordHash).digest('hex')
-  if (!secrets.some(s => s.name === 'MEMBER_PASSWORD_HASH' && s.value === expected)) {
+  if (!Array.isArray(secrets) || !secrets.some(s => s?.name === 'MEMBER_PASSWORD_HASH' && s.value === expected)) {
     throw new Error('Member provisioning: function secret not verified')
   }
   const verified = await auth('GET', `/${MEMBER_ID}`)
