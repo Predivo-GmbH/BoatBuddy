@@ -23,7 +23,6 @@ export function usePhoneUpload({ onExtracted }: UsePhoneUploadOptions = {}) {
   const [session, setSession] = useState<PhoneUploadSession | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const processedRef = useRef(false)
   const onExtractedRef = useRef(onExtracted)
   useEffect(() => { onExtractedRef.current = onExtracted }, [onExtracted])
@@ -35,17 +34,9 @@ export function usePhoneUpload({ onExtracted }: UsePhoneUploadOptions = {}) {
     }
   }, [])
 
-  const cleanupChannel = useCallback(() => {
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current)
-      channelRef.current = null
-    }
-  }, [])
-
   const cleanup = useCallback(() => {
     stopPolling()
-    cleanupChannel()
-  }, [stopPolling, cleanupChannel])
+  }, [stopPolling])
 
   // Cleanup on unmount
   useEffect(() => cleanup, [cleanup])
@@ -118,25 +109,8 @@ export function usePhoneUpload({ onExtracted }: UsePhoneUploadOptions = {}) {
       }
       setSession(newSession)
 
-      // Subscribe to realtime updates
-      const channel = supabase
-        .channel(`phone-upload-${data.id}`)
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'phone_upload_sessions',
-          filter: `id=eq.${data.id}`,
-        }, (payload) => {
-          const updated = payload.new as { status: string; storage_path: string | null }
-          if (updated.status === 'uploaded' && updated.storage_path) {
-            processUpload(updated.storage_path)
-          }
-        })
-        .subscribe()
-
-      channelRef.current = channel
-
-      // Start polling as fallback
+      // Poll every two seconds. Public Realtime channels could broadcast upload
+      // tokens; this existing fallback gives the same completion behavior.
       startPolling(data.id, token)
 
       return newSession
@@ -146,7 +120,7 @@ export function usePhoneUpload({ onExtracted }: UsePhoneUploadOptions = {}) {
     } finally {
       setIsCreating(false)
     }
-  }, [cleanup, processUpload, startPolling])
+  }, [cleanup, startPolling])
 
   const cancelSession = useCallback(() => {
     cleanup()

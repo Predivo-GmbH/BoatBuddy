@@ -166,13 +166,9 @@ test.describe('Boot & Eigentümer', () => {
 
 test.describe('Supabase connectivity', () => {
   test('Supabase project is reachable', async ({ request }) => {
-    // GraphQL endpoint is the most reliable health check
-    const response = await request.post(
-      'https://xzythvxmuxmczuiophwp.supabase.co/graphql/v1',
-      {
-        headers: { 'Content-Type': 'application/json' },
-        data: JSON.stringify({ query: '{ __typename }' }),
-      }
+    // REST remains available before and after the unused GraphQL extension is removed.
+    const response = await request.get(
+      'https://xzythvxmuxmczuiophwp.supabase.co/rest/v1/'
     )
     // 401 or 200 both mean project is alive and responding
     expect([200, 401]).toContain(response.status())

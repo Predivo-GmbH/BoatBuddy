@@ -2,17 +2,9 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-  # Staggered 2026-09-15. Five repos fired their staging gates at 30 6 and all six fired
-  # keep-alive at 0 8, onto ONE shared self-hosted host - measured peak 41 simultaneous runs
-  # against 87% idle the rest of the week. Nothing here depends on the exact minute.
     - cron: '35 8 * * *'
   workflow_dispatch:
 
-# Serialise this workflow: one run at a time, and NEVER cancel a run that is already going.
-# The fleet's entire capacity is one laptop, so a superseded run that keeps its own slot is
-# what produced a 41-job peak against 87% idle. Queue it instead. cancel-in-progress is
-# deliberately absent: several of these workflows WRITE (support-KB sync, ledger, outreach),
-# and killing one half-way through is the same class of harm as killing an FTP mirror.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
 
@@ -21,70 +13,34 @@ permissions:
 
 jobs:
   ping:
-    # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Ping Supabase Production (real DB query via GraphQL)
+      # REST OpenAPI needs no row read and works before AND after migration 033.
+      # No GraphQL extension or sign-in request is needed.
+      - name: Ping Supabase production and staging REST
+        env:
+          PRODUCTION_URL: ${{ secrets.SUPABASE_URL }}
+          PRODUCTION_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          STAGING_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          STAGING_KEY: ${{ secrets.STAGING_ANON_KEY }}
         run: |
-          echo "=== Production: GraphQL ping ==="
-          gql_response=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.SUPABASE_URL }}/graphql/v1" \
-            -X POST \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query":"{ __typename }"}')
-          echo "Production GraphQL response: $gql_response"
-
-          echo "=== Production: Auth ping (backup) ==="
-          auth_response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "${{ secrets.SUPABASE_URL }}/auth/v1/token?grant_type=password" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"email":"keepalive@ping.local","password":"keepalive"}')
-          echo "Production Auth response: $auth_response"
-
-          if [ "$gql_response" = "000" ] && [ "$auth_response" = "000" ]; then
-            echo "::error::Production Supabase project appears completely unreachable"
-            exit 1
-          fi
-
-          if [ "$gql_response" != "200" ]; then
-            echo "::error::Production GraphQL ping returned $gql_response — database may be paused"
-            exit 1
-          fi
-
-          echo "Production Supabase project pinged successfully"
-
-      - name: Ping Supabase Staging (real DB query via GraphQL)
-        run: |
-          echo "=== Staging: GraphQL ping ==="
-          gql_response=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.STAGING_SUPABASE_URL }}/graphql/v1" \
-            -X POST \
-            -H "apikey: ${{ secrets.STAGING_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.STAGING_ANON_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query":"{ __typename }"}')
-          echo "Staging GraphQL response: $gql_response"
-
-          echo "=== Staging: Auth ping (backup) ==="
-          auth_response=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "${{ secrets.STAGING_SUPABASE_URL }}/auth/v1/token?grant_type=password" \
-            -H "apikey: ${{ secrets.STAGING_ANON_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"email":"keepalive@ping.local","password":"keepalive"}')
-          echo "Staging Auth response: $auth_response"
-
-          if [ "$gql_response" = "000" ] && [ "$auth_response" = "000" ]; then
-            echo "::error::Staging Supabase project appears completely unreachable"
-            exit 1
-          fi
-
-          if [ "$gql_response" != "200" ]; then
-            echo "::error::Staging GraphQL ping returned $gql_response — database may be paused"
-            exit 1
-          fi
-
-          echo "Staging Supabase project pinged successfully"
+          node --input-type=module <<'NODE'
+          for (const environment of ['PRODUCTION', 'STAGING']) {
+            const url = process.env[`${environment}_URL`]
+            const key = process.env[`${environment}_KEY`]
+            if (!url || !key) throw new Error(`${environment}: missing URL or public key`)
+            try {
+              const response = await fetch(`${url}/rest/v1/`, {
+                headers: { apikey: key, Authorization: `Bearer ${key}` },
+                redirect: 'error', signal: AbortSignal.timeout(30000),
+              })
+              await response.body?.cancel()
+              console.log(`${environment}: REST HTTP ${response.status}`)
+              if (!response.ok) process.exitCode = 1
+            } catch {
+              console.error(`${environment}: REST request failed`)
+              process.exitCode = 1
+            }
+          }
+          NODE
