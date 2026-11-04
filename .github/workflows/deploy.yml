@@ -253,6 +253,11 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: node scripts/apply-migrations.mjs --project-ref svpewgbwousyheohlrtt
 
+      - name: Apply and verify Supabase security settings for staging
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/configure-auth.mjs --environment staging --apply
+
       - name: Unit tests
         run: npm test -- --run --maxWorkers=2
         env:
@@ -945,6 +950,12 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_GATE_PASSWORD_HASH: ${{ secrets.VITE_GATE_PASSWORD_HASH }}
+
+      - name: Apply and verify Supabase security settings for production
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          RELEASE_CONFIRM: ${{ github.event.inputs.confirm }}
+        run: node scripts/configure-auth.mjs --environment production --apply
 
       # Same control as staging: the mirror below uploads ./dist/ wholesale to the live
       # site, so the upload refuses instead of merely happening to be safe.

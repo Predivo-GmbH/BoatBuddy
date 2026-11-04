@@ -69,6 +69,11 @@ jobs:
       # migration-grants-baseline.json lists the migrations from before the rule. It needs npm ci.
       - name: New tables grant their own Data API access
         run: node node_modules/@predivo-gmbh/gate-kit/scripts/verify-migration-grants.mjs
+
+      - name: Prepare pinned local database test image
+        run: docker pull public.ecr.aws/supabase/postgres@sha256:80d7b27c3e8d77cfa7226eee9508671796da214781ff15a35b3670d7ad5ee453
+      - name: Database rights and app compatibility (network disabled)
+        run: node scripts/test-database-security.mjs
       # A package a change ADDS must exist on npm, be 30+ days old and be used (100+ downloads last week):
       # AI tools invent package names and attackers register them, and npm audit only knows packages
       # already reported. The judge is gate-kit's (conformance/new-dependencies.js); it compares with the

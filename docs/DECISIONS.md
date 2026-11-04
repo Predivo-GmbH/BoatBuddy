@@ -1,3 +1,65 @@
+# Security rulebook Wave 3 — 2026-11-04
+
+The full SB/AUTH rows in `C:/Business/Internal Projects/standards/security-standard.md` section 5 govern this change. Migration **033** was free in every fetched remote branch and open PRs 10/11 on 2026-11-04 (`git ls-remote`, fetch, per-ref migration inventory, PR file lists). This is repository code, not a claim about deployed settings. No project API, app host or hosted database was contacted.
+
+## Authorization decision still required
+
+BoatBuddy has no Supabase sign-in: `PasswordGate.tsx` checks a browser-bundled hash and database calls use **anon**. The September auth-hole record says the unused email provider was disabled. Existing policies allow shared writes. The gate is not an authorization boundary and these financial records are **not public by design**. There is no `auth.uid()` to scope a policy to, and `fahrer` is a business field, not a verified identity. Adding a fabricated identity check would lock out the app; renaming `USING (true)` would hide the finding.
+
+Roger has been asked whether to include invitation-based member sign-in or preserve current sign-in and record SB-02/03 as unresolved. Until that answer, the migration preserves existing anonymous row policies. **SB-02 remains unresolved; SB-03 gains column protection but still lacks verified ownership.** This is not acceptance of anonymous financial access as a public-data exception.
+
+## Database changes and retained rights
+
+- **SB-06:** every routine in `public`/`graphql_public` gets `search_path = pg_catalog, public, pg_temp`. The explicit final `pg_temp` prevents temporary-object shadowing; schema CREATE is revoked from browser roles and PUBLIC. The four app RPCs become SECURITY INVOKER and obey caller grants/RLS. Trigger functions alone retain elevation to write derived news/source links and hour totals, with no browser EXECUTE. Formatting helpers are invoked by those triggers and have no browser EXECUTE. `bump_extract_rate(text,timestamptz)` remains service-only with an empty search path. There is **no intended browser SECURITY DEFINER API** after 033.
+- **SB-07:** revoke global and exposed-schema default rights for every actual object/default-ACL owner, not just the current migration role. Tables, sequences, functions, types and schemas get no automatic browser/PUBLIC rights. Existing service-role defaults remain. Future migrations must grant explicitly; the migration-grants baseline is unchanged.
+- **SB-08:** remove table and column ACLs before restoring the allow-list below. Remove TRUNCATE/REFERENCES/TRIGGER and schema CREATE from PUBLIC, anon and authenticated across non-system schemas; revoke Vault's decrypted view when present. No browser sequence rights are needed (UUID defaults).
+- **SB-09 partial:** make `dokumente` private, maximum **10 MiB**, MIME allow-list **PDF/JPEG/PNG/WebP**, matching `extractInvoice.ts`. Existing Storage SELECT/INSERT/DELETE access remains for receipt upload/download/discard and the phone workflow. These are existing shared-anon permissions, not owner isolation. Client-side MIME validation and phone-image canvas re-encoding are not server-side content validation. Owner-scoped storage, denial of listing, server-generated upload names, quotas, attachment serving, server-side re-encoding and malware scanning remain unresolved with the upload/auth redesign. Do not claim the full SB-09 row passes.
+- **SB-12:** remove `pg_graphql` without CASCADE; move relocatable public extensions (notably `btree_gist`) into `extensions`, refusing unknown non-relocatable ones. Existing indexes keep their extension dependencies by OID. Limit PostgREST to `public` in settings code and give anon/authenticated 5s/10s statement timeouts. Keep-alive and connectivity tests use the existing REST schema endpoint, which works even before production receives 033. Phone upload retains its existing two-second poll; remove its public Realtime subscription and publication membership, so upload tokens are not broadcast. No other app Realtime caller exists.
+
+The frontend inventory is `src/hooks/use*.ts`, `src/lib/extractInvoice.ts`, `src/pages/PhoneUploadPage.tsx`; edge callers are `extract-expense` and `backfill-reservierungen`. The integration suite also needs SELECT/DELETE for fixture cleanup. Every public table below keeps **anon SELECT**. `authenticated` has no app table/function grant because the current app never signs in. INSERT/UPDATE are column grants, not whole-table grants. IDs and creation timestamps are not writable.
+
+| Table | Additional anon grants kept | Caller/purpose |
+|---|---|---|
+| `beitraege` | INSERT `(fahrer,betrag,monat,notiz)`; DELETE | Contributions, news cascade, test cleanup |
+| `ausgaben` | INSERT `(bezeichnung,betrag,kategorie,datum,notiz,bezahlt_von,dokument_pfad,verarbeitungs_status,treibstoff_liter)`; UPDATE the same plus `(erstattet,erstattet_am)`; DELETE | Expense/receipt forms and reimbursements; AI `extraktion_daten` stays server-only |
+| `kontostand_snapshots` | INSERT `(betrag,datum,notiz)`; DELETE | Snapshot creation, news cascade, test cleanup |
+| `reservierungen` | INSERT/UPDATE `(fahrer,datum,ganzer_tag,von_zeit,bis_zeit,notiz)`; DELETE | Calendar, linked trips, cleanup |
+| `gastsessions` | INSERT `(gast_name,betrag,bezahlt_an,datum,notiz,auf_konto_eingezahlt)`; UPDATE the same plus `(eingezahlt_am,eingezahlt_von)`; DELETE | Guest payments and deposits |
+| `nutzungslogs` | INSERT `(datum,fahrer,betriebsstunden,treibstoff_liter,aktivitaeten,notiz,teilnehmer,reservierung_id)`; UPDATE the same plus `(motorstunden_stand)`; DELETE | Invoker atomic RPCs, trip editing, news cascade, cleanup |
+| `boot_stats` | UPDATE `(gesamtstunden,startsaldo,kaufdatum,modell,motorstunden_grenze,notiz,aktualisiert_am)` | Boat settings, account balance and atomic hour adjustments; no singleton INSERT/DELETE |
+| `eigentuemer` | UPDATE `(fahrer,anteil_prozent,einstieg_datum,notiz)` | Shared ownership editor; these are boat shares, not authentication roles |
+| `abrechnung_config` | UPDATE `(boot_marktwert,bewertung_datum,abschreibung_prozent,kuendigungsfrist_monate,beitrag_pro_monat,notiz,aktualisiert_am)` | Settlement settings; no singleton INSERT/DELETE |
+| `wartung` | INSERT `(bezeichnung,intervall_monate,naechstes_datum,zustaendig,notiz)`; UPDATE `(erledigt,erledigt_am)`; DELETE | Create/complete/remove maintenance |
+| `gentleman_rules` | INSERT `(regel,sortierung)`; UPDATE `(regel,sortierung,aktiv)`; DELETE | Rules editor |
+| `ferien` | INSERT/UPDATE `(fahrer,von_datum,bis_datum,notiz)`; DELETE | Holiday calendar |
+| `changelog` | INSERT/UPDATE `(datum,titel,beschreibung,kategorie)`; DELETE | Manual news and invoker cascade RPC; derived `quelle_typ/quelle_id` protected |
+| `phone_upload_sessions` | INSERT `(token,status,expires_at)`; UPDATE `(status,storage_path,uploaded_at)` | Desktop QR creation/poll and phone completion; token/expiry immutable after insertion |
+
+Also retain anon schema USAGE and EXECUTE on **`adjust_gesamtstunden(numeric)`, `create_nutzungslog_atomic(date,text,numeric,numeric,jsonb,text,jsonb,numeric,uuid)`, `delete_nutzungslog_atomic(uuid)`, `delete_changelog_cascade(uuid)`**. No browser grants remain on the unused `tanken` archive or `extract_rate_limit`. Existing backend service grants are preserved; explicitly retain service SELECT on `reservierungen`, INSERT on `changelog`, SELECT/UPDATE on `ausgaben`, and EXECUTE on `bump_extract_rate`. Supabase Storage's backend grants remain intact.
+
+## Settings and release path
+
+There was no settings-as-code mechanism to extend. `scripts/configure-auth.mjs` uses the existing `SUPABASE_ACCESS_TOKEN` secret. It defaults to an offline plan; `--apply` requires the exact repository, Deploy workflow, main branch and matching job/event. Staging runs only in `deploy-staging` on push; production runs only in `deploy` after the existing promotion gates and explicit `deploy` input. Both verify readback and fail closed without logging config bodies or transport errors. No production job, migration or settings application was invoked here.
+
+- **AUTH-01:** defensive OTP expiry 600 seconds and length 6.
+- **AUTH-03:** preserve disabled email/phone providers and disable signup/anonymous Auth users; there is no public form sending auth mail and no send-email hook. CAPTCHA and webhook replay storage are inapplicable to that closed endpoint. Set the defensive email rate to 30/hour. Enabling a real sign-in flow needs corresponding CAPTCHA/mail configuration first.
+- **AUTH-04:** defensive magic-mail template uses `{{ .Token }}` only, with no consumable confirmation URL. The current product has no mail sign-in UI.
+- **AUTH-05:** exact site origin and root redirect per environment, with no wildcard or localhost.
+- **AUTH-06:** rotation on, reuse interval 10 seconds, consumer timebox 30 days/inactivity 7 days. Multiple devices are allowed (`sessions_single_per_user=false`); useful for desktop-to-phone receipt capture if member sign-in is introduced. These are inactive safeguards until real Auth sessions exist.
+- **AUTH-08:** BoatBuddy is a friends' boat tool, not BackOffice/Cockpit/Portal staff. Staff AAL2 is not applicable. Disable signup defensively; no invitation or account has been sent/created.
+- **AUTH-09:** defensive Supabase password minimum 15, no composition rules, HIBP enabled, reauthentication required for changes. This does not strengthen the current shared browser password. Plan-dependent session/HIBP settings must be accepted and read back at release; the script does not silently downgrade or buy a plan.
+- **SB-14 partial:** GET current SSL state and PUT `requestedConfig.database=true` only when needed; require successful readback. Enabling SSL can briefly restart Postgres, so avoid a PUT on subsequent compliant releases. **Network restrictions are intentionally not applied.** CI migrations use the HTTPS Management API; edge functions use HTTPS supabase-js; neither currently opens direct Postgres. Before restrictions are enabled, inventory/allow any CI runner egress that starts using direct SQL, any edge-function fixed egress if it starts using a Postgres client, and approved office/VPN/local-tool addresses for psql/pg_dump/CLI connections. GitHub-hosted runners need stable egress if direct SQL is introduced; do not invent IP ranges.
+
+API contracts were verified against official documentation: [Auth config](https://supabase.com/docs/reference/api/v1-update-auth-service-config), [PostgREST config](https://supabase.com/docs/reference/api/v1-update-postgrest-service-config), [SSL enforcement](https://supabase.com/docs/guides/platform/ssl-enforcement), [function privileges/search paths](https://supabase.com/docs/guides/database/functions). SB-10 outside review, SB-15 backups and SB-16 account MFA are out of scope.
+
+## Local verification
+
+- Migration-grants lint: 33 migrations, 2 judged beyond the unchanged historical baseline, zero findings.
+- `scripts/test-database-security.mjs`: all 33 migrations replayed in a disposable pinned Supabase Postgres 17 container with `--network none`, no published ports or persistent volume; **90 SQL assertions** cover catalog permissions, future object ACLs, actual denied operations, business inserts, trigger helpers, cascades, hour accounting, phone completion and service writes. Storage platform tables are explicitly fixture substitutes; this is not a live Storage API test. CI runs the same script.
+- Offline Node guards: **150 passed** (145 existing/settings cases plus 5 database/release wiring cases).
+- Unit tests: **183 passed** across the suite and focused retry, including 4 phone-poll regression tests. Windows worker startup timed out initially; retrying the two affected files with one worker passed all 18 tests in those files. No live integration tests ran.
+- Typecheck and build passed. Lint's redundant callback dependency was removed and checked again. No screenshot was needed: no visible UI changed.
+
 # Security rulebook Wave 2 — 2026-11-04
 
 This change prepares repository controls. It has not been merged or deployed and does not establish that live responses comply. The rules are defined in `C:/Business/Internal Projects/standards/security-standard.md` section 5; the release procedure is `deploy-standard.md` sections 4d and 5d.

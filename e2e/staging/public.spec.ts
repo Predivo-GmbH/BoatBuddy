@@ -25,13 +25,12 @@ test.describe('Staging — public', () => {
     expect(errors, errors.join('\n')).toHaveLength(0)
   })
 
-  test('staging Supabase is reachable (GraphQL health)', async ({ request }) => {
+  test('staging Supabase is reachable (REST schema)', async ({ request }) => {
     const url = process.env.STAGING_SUPABASE_URL ?? 'https://svpewgbwousyheohlrtt.supabase.co'
     const key = process.env.STAGING_SUPABASE_ANON_KEY
     test.skip(!key, 'STAGING_SUPABASE_ANON_KEY not set')
-    const res = await request.post(`${url}/graphql/v1`, {
+    const res = await request.get(`${url}/rest/v1/`, {
       headers: { apikey: key!, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      data: { query: '{ __typename }' },
     })
     expect(res.ok()).toBeTruthy()
   })
