@@ -38,3 +38,14 @@ condition = "AND"
 regexTarget = "secret"
 paths = ['''^(?:dist/)?assets/(?:supabase|useKontoberechnung)-[A-Za-z0-9_-]+\.js$''']
 regexes = ['''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2cGV3Z2J3b3VzeWhlb2hscnR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzOTgzNzIsImV4cCI6MjA5NTk3NDM3Mn0\.[A-Za-z0-9_-]{43}$''']
+
+# PR #38: the release-1 compatibility SQL fixture carries synthetic test tokens (QR/session test values made up for
+# the local PostgreSQL checks). Checked 2026-11-04: its 2 flagged values match none of BoatBuddy's real credentials
+# by SHA-256 digest. Only this one fixture file and only the generic-api-key rule are exempt; every other rule and
+# every other file stays blocking.
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Synthetic test tokens in the release-1 compatibility SQL fixture"
+paths = ['''^scripts/fixtures/release-1-compatibility-checks\.sql$''']
