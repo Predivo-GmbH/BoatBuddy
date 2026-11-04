@@ -1,78 +1,47 @@
 name: Secret Scan (gitleaks)
 
-# Blocks secrets from entering the repo. On PRs it scans the PR commits; on
-# pushes it scans the pushed commits. Free for user-owned repos (no license).
-# Anon/publishable Supabase keys are public by design (RLS-protected) — if a
-# scan flags one, add it to .gitleaksignore with a comment, don't hide a real secret.
+# Blocks secrets from entering the repo. On PRs it scans the PR commits; on pushes to main it scans
+# the pushed commits; both then scan the files as they now stand. Anon/publishable Supabase keys are
+# safe to expose by design (RLS-protected) - if a scan flags one, add it to .gitleaksignore with a
+# comment rather than hiding a real secret.
+#
+# SR-SUP-09/10: use the fleet runner and CLI; both event commits and the working tree block.
 
 on:
-  # A branch push and its own pull request scanned the SAME commits twice. `pull_request`
-  # already covers every branch on its way to main, so `push` only needs to guard main
-  # itself - a direct push that never opened a PR. MEASURED 2026-09-15 across the six product
-  # repos: 274 gitleaks runs in 7 days, the single largest source of runs on the shared
-  # laptop runner, most of them a branch and its PR scanning one commit twice.
+  # `pull_request` already covers every branch on its way to main, so `push` only needs to guard
+  # main itself. A branch push and its own pull request used to scan the same commits twice.
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
 
-# THIS WORKFLOW HAD NO CONCURRENCY BLOCK AT ALL, in any of the six product repos.
-# Every push to a branch started a scan and nothing ever stopped a superseded one, so scans
-# queued behind each other on the one self-hosted host. Measured 2026-09-15: a ScoutCopilot
-# scan that did 1m22s of actual scanning sat 56m19s waiting for a free runner (59m18s total),
-# and a ChannelMover one did 1m12s of scanning inside 40m20s.
-# cancel-in-progress is safe here and nowhere near the deploy: this job only READS the tree,
-# writes nothing, and the newest commit is the one whose secrets matter.
+# Read-only job, nowhere near the deploy, so cancelling a superseded scan is safe.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
-  # gitleaks-action lists PR commits via the API on pull_request events;
-  # without this it 403s with "Resource not accessible by integration".
-  pull-requests: read
 
 jobs:
   gitleaks:
-    # GitHub-hosted ON PURPOSE - this job does NOT run on our own machine.
-    #
-    # ci-runner/README.md has said so since the migration: "Secret Scan (gitleaks) |
-    # GitHub-hosted | gitleaks-action is a Docker container action. $5.53/month across the
-    # fleet is a fair price for not making a Docker daemon a hard CI dependency." It ended up
-    # on the self-hosted host anyway, because `${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}`
-    # inherits the repository variable like every other job and nothing pinned it back.
-    #
-    # Measured 2026-09-15, and this is the reason it matters beyond the money: a runner belongs
-    # to ONE repository and can never take another's work, and every product here has fewer
-    # runners than its widest single run needs (ReplyFlow 7 vs 3, backoffice 6 vs 3,
-    # signalscore 6 vs 4, ChannelMover 6 vs 4, BoatBuddy 5 vs 3, ScoutCopilot 2 vs 1), so part
-    # of every run queues however idle the machine is. gitleaks was taking 1,640 wall-minutes a
-    # week of those scarce slots. Moving it off gives every other job its slot back.
-    #
-    # Forward cost measured the same day: 174 runs/wk after the branch filter x 0.62 min median
-    # = 460 billable min/month = $3.68/month, BELOW the $5.53 the design doc already sanctions.
-    #
-    # To put it back on our own machine, change this one line to
-    # `${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}`.
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}   # OUR OWN RUNNER SINCE 2026-09-17: the Docker container action below was the only reason this
-    # job needed a rented one, and it is gone. Roger: CI must not cost anything.
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # The fleet secret-scan gate requires read access to PR metadata.
+      pull-requests: read
+    # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          fetch-depth: 0
-      # NO DOCKER, AND THEREFORE NO RENTED RUNNER. This step was `uses: gitleaks/gitleaks-action@v3`,
-      # a Docker CONTAINER action, and that single fact pinned this whole job to `ubuntu-latest` -
-      # which stopped being free when the repos went private. Secret Scan was the third largest
-      # billed line on the account at $8.73/month across seven repos (cost guard run 35193842671).
-      # ci-runner/README.md had priced the container at "a fair price for not making a Docker daemon
-      # a hard CI dependency"; Roger, 2026-09-17: "I do not want to have any costs."
-      #
-      # The container was never needed: the working-tree step below has ALWAYS used the plain
-      # gitleaks binary. This does the same scan the action did - same tool, same version 8.24.3,
-      # same rules, same --redact, same COMMIT RANGE OF THE EVENT. Proven on signalscore first:
-      # run 35198873793 concluded success with billable minutes EMPTY, on wsl-...-signalscore-2.
-      # Lost: the action's PR annotations and its SARIF artifact. Findings stay in the log, redacted.
+          fetch-depth: 0 # full history so PR/commit range scanning works
+      - name: Install gitleaks 8.24.3
+        run: |
+          # "$RUNNER_TEMP", not /tmp: /tmp is shared by every runner on the machine.
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o "$RUNNER_TEMP/gitleaks.tar.gz" https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+          chmod +x "$RUNNER_TEMP/gitleaks"
       - name: gitleaks (this event's commits)
         env:
           BEFORE: ${{ github.event.before }}
@@ -80,10 +49,8 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | tar -xz -C "$RUNNER_TEMP" gitleaks
-          chmod +x "$RUNNER_TEMP/gitleaks"
-          # FAIL CLOSED ON AN UNUSABLE RANGE. A new branch pushes BEFORE=000...0, and an empty
-          # range would scan nothing and PASS - absence is not success. Scan the last 50 instead.
+          # FAIL CLOSED ON AN UNUSABLE RANGE. A first push has BEFORE=000...0, and an empty range would
+          # scan nothing and pass. Scan the last 50 commits instead.
           if [ -n "${BASE_SHA:-}" ]; then
             OPTS="$BASE_SHA..$HEAD_SHA"
           elif [ -n "${BEFORE:-}" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
@@ -92,45 +59,14 @@ jobs:
             OPTS="-50"
           fi
           echo "scanning commits: $OPTS"
-          # NO --config: this repo has no .gitleaks.toml, and gitleaks exits non-zero on a
-          # config path that does not exist - which would fail this step for the wrong reason
-          # and look exactly like a leak. Default rules apply.
-          "$RUNNER_TEMP/gitleaks" git . --redact --exit-code 1 --log-opts="$OPTS"
-      # The action above scans the COMMIT RANGE of the event, and that is not enough.
-      # Proven 2026-08-20 on ReplyFlow: a merge commit introduced a service_role JWT and
-      # this workflow reported "No leaks detected". A working-tree scan sees the file as
-      # it now stands regardless of how it got there (same form deploy.yml uses).
-      # --config is passed ONLY when the repo actually has a .gitleaks.toml: gitleaks
-      # exits non-zero on a config path that does not exist, which would fail the step
-      # for the wrong reason and look exactly like a leak.
-      # THE INVOCATION IS UNQUALIFIED ON PURPOSE (2026-09-14). The binary goes on PATH and is
-      # called as `gitleaks dir .`. That exact text is the fleet's one detectable shape for "this
-      # repo scans its working tree" — production-monitor scripts/lib/gitleaks-gate-scope.mjs,
-      # hasWorkingTreeScan(), /gitleaks\s+dir\s+\./. When this step moved off /tmp onto $RUNNER_TEMP
-      # the call became `"$RUNNER_TEMP/gitleaks" dir .`; the closing quote broke that match, and the
-      # live fleet gate reported FOUR repos as having no working-tree scan while all four were
-      # running one — a false red on every production-monitor PR (run 34814766454). The scan never
-      # stopped; only the proof that it existed did. Receipt that it was running all along:
-      # BoatBuddy run 34810626846, step "gitleaks (working tree)" scanned 2.79 MB, no leaks found.
-      #
-      # chmod targets $RUNNER_TEMP too. It used to chmod /tmp/gitleaks — a file this step no longer
-      # creates. It only kept passing because a stale /tmp/gitleaks is left lying around on the
-      # shared WSL runners; on a clean runner chmod would fail and redden the step for no reason.
+          "$RUNNER_TEMP/gitleaks" git . --config .gitleaks.toml --redact --exit-code 1 --log-opts="$OPTS"
+      # The step above sees only this event's commits; a secret that arrives in a merge commit is
+      # invisible to it. Scan the files as they now stand too (the fleet's step, signalscore gitleaks.yml).
+      # `if: always()`: a failing range scan must not skip this one, or it hides what the tree holds.
       - name: gitleaks (working tree)
-        run: |
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | tar -xz -C "$RUNNER_TEMP" gitleaks
-          chmod +x "$RUNNER_TEMP/gitleaks"
-          export PATH="$RUNNER_TEMP:$PATH"
-          CFG=""
-          if [ -f .gitleaks.toml ]; then CFG="--config .gitleaks.toml"; fi
-          gitleaks dir . --no-banner --redact --exit-code 1 $CFG
+        if: always()
+        run: '"$RUNNER_TEMP/gitleaks" dir . --config .gitleaks.toml --redact --exit-code 1'
 
-  # gitleaks scans CONTENT for secret-shaped VALUES. It cannot see a credentials file
-  # that is correctly ignored today and one `git add -f` (or one deleted .gitignore
-  # line) away from being committed tomorrow - which is exactly what happened here on
-  # 2026-08-30, when a rotation left docs/Credentials.txt.bak-2026-08-30-before-mailbox-pw
-  # untracked and matched by nothing in .gitignore. This job scans NAMES instead, and
-  # asserts the ignore rules still bite on a case-sensitive runner.
   credential-files:
     # SECOND WAVE ON PURPOSE (2026-09-17, board row
     # one-laptop-pretends-to-be-18-build-machines-so-every-job).
@@ -152,13 +88,14 @@ jobs:
     needs: gitleaks
     if: ${{ always() }}
     name: No credential-shaped file is committable
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: '22'
       - name: Guard - no credential-shaped file is committable
         run: node scripts/guard-credential-files.mjs
       - name: Prove the guard refuses a decoy of the same shape
-        run: node --test scripts/guard-credential-files.test.mjs
+        run: node --test --test-concurrency=2 scripts/guard-credential-files.test.mjs

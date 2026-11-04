@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"))!;
+const responseHeaders = { "Content-Type": "application/json", "Cache-Control": "no-store" };
 
 serve(async () => {
   const supabase = createClient(supabaseUrl, supabaseKey);
@@ -14,7 +15,7 @@ serve(async () => {
     .order("datum", { ascending: false });
 
   if (fetchError) {
-    return new Response(JSON.stringify({ error: fetchError.message }), { status: 400 });
+    return new Response(JSON.stringify({ error: fetchError.message }), { status: 400, headers: responseHeaders });
   }
 
   const months = [
@@ -57,11 +58,11 @@ serve(async () => {
   const { error: insertError } = await supabase.from("changelog").insert(entries);
 
   if (insertError) {
-    return new Response(JSON.stringify({ error: insertError.message }), { status: 400 });
+    return new Response(JSON.stringify({ error: insertError.message }), { status: 400, headers: responseHeaders });
   }
 
   return new Response(
     JSON.stringify({ success: true, count: entries.length }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
+    { status: 200, headers: responseHeaders }
   );
 });

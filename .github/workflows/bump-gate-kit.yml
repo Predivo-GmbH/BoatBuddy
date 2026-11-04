@@ -1,49 +1,56 @@
 name: Bump gate-kit
 
-# One-shot, manually triggered. The lockfile pins @predivo-gmbh/gate-kit exactly, so a
-# published fix does not reach this repo until the lock moves. Nobody can run that install
-# from a laptop without a read:packages token, but CI already holds PACKAGES_READ_TOKEN,
-# so the bump belongs here rather than behind a new personal credential.
-
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'gate-kit version to pin (e.g. 0.2.10)'
+        description: 'Exact gate-kit version to propose (e.g. 0.8.0)'
         required: true
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   bump:
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
+    runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      # Propose dependency changes on a branch/PR; never push directly to main.
+      contents: write
+      pull-requests: write
+    env:
+      VERSION: ${{ inputs.version }}
+      NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: main
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
-          registry-url: https://npm.pkg.github.com
-          scope: '@predivo-gmbh'
-      - name: Install the requested version
-        run: npm install "@predivo-gmbh/gate-kit@${{ github.event.inputs.version }}" --no-audit --no-fund
+      - name: Validate the version and update only the lockfile before installation
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo '::error::Expected an exact stable version'; exit 1; }
+          npm ci
+          npm pkg set "devDependencies.@predivo-gmbh/gate-kit=$VERSION"
+          npm update @predivo-gmbh/gate-kit --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci
+          node --input-type=module -e 'import fs from "node:fs"; const p = JSON.parse(fs.readFileSync("node_modules/@predivo-gmbh/gate-kit/package.json")); if (p.version !== process.env.VERSION) throw new Error("Requested version was not installed")'
+      - name: Open a dependency pull request
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
-      - name: Verify the lock actually moved
+          GH_TOKEN: ${{ github.token }}
         run: |
-          got=$(node -p "require('./node_modules/@predivo-gmbh/gate-kit/package.json').version")
-          echo "installed: $got"
-          [ "$got" = "${{ github.event.inputs.version }}" ] || { echo "::error::wanted ${{ github.event.inputs.version }}, got $got"; exit 1; }
-          grep -q "\"version\": \"${{ github.event.inputs.version }}\"" package-lock.json || { echo "::error::package-lock.json was not updated"; exit 1; }
-      - name: Commit the lockfile
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- package.json package-lock.json; then
-            echo "already at ${{ github.event.inputs.version }}, nothing to commit"
-            exit 0
-          fi
+          if git diff --quiet -- package.json package-lock.json; then exit 0; fi
+          branch="chore/gate-kit-$VERSION-$GITHUB_RUN_ID"
+          git switch -c "$branch"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add package.json package-lock.json
-          git commit -m "chore(deps): gate-kit ${{ github.event.inputs.version }}" -m "The lockfile pins gate-kit exactly, so the per-route identity fix published in 0.2.10 does not reach this repo until the lock moves. Bumped from CI because that is where the read:packages token lives."
-          git push
+          git commit -m "Update gate-kit to $VERSION"
+          git push origin "$branch"
+          printf '%s\n' 'Updates the exact gate-kit dependency and lockfile. No direct push to main.' '' 'This bot PR needs its normal checks before merge. GitHub does not trigger them from GITHUB_TOKEN-created PRs; a maintainer must close/reopen it or push a reviewed change.' > "$RUNNER_TEMP/pr-body.txt"
+          gh pr create --base main --head "$branch" --title "Update gate-kit to $VERSION" --body-file "$RUNNER_TEMP/pr-body.txt"

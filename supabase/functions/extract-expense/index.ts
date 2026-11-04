@@ -24,6 +24,7 @@ import { logAnthropicUsage } from '../_shared/log-usage.ts'
 const AI_TIER = 'fast' as const
 
 const CORS_HEADERS = {
+  'Cache-Control': 'no-store',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',

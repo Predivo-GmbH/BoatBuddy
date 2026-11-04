@@ -41,13 +41,6 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: read
-  # `checks: read` is required to read a pull request's check-runs, and its absence is why the
-  # first live run of this job exited 2 with "HTTP 403". SignalScore and ChannelMover had passed
-  # the same code minutes earlier only because neither had an open pull request to look at — a
-  # green run that proved nothing, which is the failure this whole day is about. The check itself
-  # behaved correctly: it refused loudly rather than reporting nothing found.
-  checks: read
 
 env:
   # Needed by npm ci: .npmrc points @predivo-gmbh at GitHub Packages.
@@ -55,12 +48,17 @@ env:
 
 jobs:
   waiting-to-land:
-    runs-on: ${{ vars.RUNNER_LABEL || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      # Read PRs and their check results; no write access is needed.
+      pull-requests: read
+      checks: read
+    # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
 

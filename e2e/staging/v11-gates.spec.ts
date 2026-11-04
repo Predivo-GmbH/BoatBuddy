@@ -464,7 +464,8 @@ const ACCEPTED_UNREACHABLE: { file: string; reason: string; expires?: string }[]
 
 test('Gate A — coverage denominator (surfaces enumerated vs actually opened)', async () => {
   const fs = await import('node:fs')
-  const manifestPath = 'playwright/.gate-a/crawl-manifest.json'
+  // A local report file, not a URL to request from staging.
+  const manifestPath = new URL('../../playwright/.gate-a/crawl-manifest.json', import.meta.url)
   expect(
     fs.existsSync(manifestPath),
     'no crawl manifest: the Gate A crawl step must run BEFORE this gate, or its result is stale',
