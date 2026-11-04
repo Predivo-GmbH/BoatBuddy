@@ -17,8 +17,26 @@ const entries = allowlists.map(block => {
 const signature = 'x'.repeat(43) // Synthetic, never a usable signed credential.
 const matches = (entry, path, token) => entry.path.test(path) && entry.secret.test(token)
 
+test('rule exceptions exist only for the public anon JWTs and the one synthetic SQL fixture', () => {
+  const ids = rules.map(rule => /^\s*id = "([\w-]+)"/m.exec(rule)?.[1]).sort()
+  assert.deepEqual(ids, ['generic-api-key', 'jwt'])
+})
+
+test('the generic-api-key exception covers only the release-1 SQL fixture, by path, and nothing else', () => {
+  const generic = rules.find(rule => /^\s*id = "generic-api-key"/m.test(rule))
+  const blocks = generic.split('[[rules.allowlists]]').slice(1)
+  assert.equal(blocks.length, 1)
+  assert.doesNotMatch(blocks[0], /^regexes =/m, 'path-only: no value pattern may widen it')
+  const path = new RegExp(/^paths = \['''(.*)'''\]$/m.exec(blocks[0])?.[1])
+  assert.equal(path.test('scripts/fixtures/release-1-compatibility-checks.sql'), true)
+  for (const other of ['scripts/fixtures/member-security-checks.sql', 'scripts/fixtures/release-1-compatibility-checks.sql.bak',
+    'src/lib/supabase.ts', 'supabase/functions/member-session/handler.ts', 'docs/Credentials.txt', '.env']) {
+    assert.equal(path.test(other), false, `${other} must stay scanned`)
+  }
+})
+
 test('only the two verified Supabase anon payloads have jwt-specific, path-scoped AND exceptions', () => {
-  assert.equal(rules.length, 1)
+  assert.ok(jwt, 'the jwt rule block must exist')
   assert.equal(allowlists.length, 2)
   for (const entry of entries) {
     assert.match(entry.block, /^condition = "AND"$/m)
