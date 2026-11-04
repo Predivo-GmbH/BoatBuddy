@@ -5,6 +5,8 @@
 import { describe, test, expect, beforeAll, afterAll } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { q } from './_transient'
+// @ts-expect-error Node-only CI helper
+import { stagingMemberSession } from '../../scripts/lib/staging-member.mjs'
 
 const STAGING_URL = process.env.STAGING_SUPABASE_URL ?? 'https://svpewgbwousyheohlrtt.supabase.co'
 const STAGING_ANON = process.env.STAGING_SUPABASE_ANON_KEY ?? ''
@@ -181,7 +183,10 @@ const describeStaging = STAGING_ANON ? describe : describe.skip
 
 beforeAll(async () => {
   if (!STAGING_ANON) return
-  supabase = createClient(STAGING_URL, STAGING_ANON)
+  const { session } = await stagingMemberSession()
+  supabase = createClient(STAGING_URL, STAGING_ANON, { auth: { persistSession: false } })
+  const { error: memberError } = await supabase.auth.setSession(session)
+  if (memberError) throw new Error('Staging member login failed')
 
   // Clear what earlier runs could not clear themselves. All seven at once: see the
   // foreign-key note above, nothing here can be blocked or ordered by anything else.

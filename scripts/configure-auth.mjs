@@ -2,6 +2,7 @@
 // Settings as code. Default mode is offline. Only the matching Deploy job may apply.
 // Management API contracts: docs/DECISIONS.md (Wave 3).
 import { pathToFileURL } from 'node:url'
+import { provisionMember } from './lib/provision-member.mjs'
 
 export const TARGETS = Object.freeze({
   staging: Object.freeze({ ref: 'svpewgbwousyheohlrtt', origin: 'https://staging.boatbuddy.predivo.ch', job: 'deploy-staging', event: 'push' }),
@@ -14,7 +15,8 @@ export function settingsPlan(environment) {
   return {
     ...target,
     auth: {
-      // There is no Supabase sign-in in BoatBuddy. Preserve the closed mail endpoint.
+      // Only the server's admin-token exchange signs the shared member in.
+      // Public mail/password/signup endpoints remain closed.
       external_email_enabled: false,
       external_phone_enabled: false,
       external_anonymous_users_enabled: false,
@@ -28,9 +30,12 @@ export function settingsPlan(environment) {
       site_url: target.origin,
       uri_allow_list: `${target.origin}/`,
       refresh_token_rotation_enabled: true,
+      jwt_exp: 900,
       security_refresh_token_reuse_interval: 10,
-      sessions_timebox: 30 * 24 * 60 * 60,
-      sessions_inactivity_timeout: 7 * 24 * 60 * 60,
+      // HOURS, not seconds (SR-AUTH-06): the Management API reads these two in hours.
+      // Seconds here once overflowed Auth's maximum duration and crash-looped sign-in.
+      sessions_timebox: 30 * 24, // 720 h = 30 days
+      sessions_inactivity_timeout: 7 * 24, // 168 h = 7 days
       sessions_single_per_user: false,
       password_min_length: 15,
       password_required_characters: '',
@@ -66,6 +71,21 @@ export const GATED_AUTH = Object.freeze({
   rate_limit_email_sent: 'custom-smtp',
 })
 
+// SR-AUTH-06: the Management API takes these in HOURS. Refuse anything outside 1..8760
+// (one hour to one year) before a single request is sent, so a value written in seconds
+// (2,592,000) can never reach Auth again.
+export const SESSION_HOUR_SETTINGS = Object.freeze(['sessions_timebox', 'sessions_inactivity_timeout'])
+export function assertSessionHours(auth) {
+  for (const name of SESSION_HOUR_SETTINGS) {
+    if (!Object.hasOwn(auth, name)) continue
+    const value = auth[name]
+    if (!Number.isInteger(value) || value < 1 || value > 8760) {
+      throw new Error(`Auth setting ${name} must be whole HOURS between 1 and 8760; refusing to send ${value}`)
+    }
+  }
+  return auth
+}
+
 // Only an explicit "free" tier skips the Pro settings. An unreadable or unknown tier sends
 // them, so Supabase itself decides and a refusal still stops the release.
 export function authToApply(auth, { tier, customSmtp }) {
@@ -81,6 +101,10 @@ export function authToApply(auth, { tier, customSmtp }) {
 
 export async function applySettings(environment, { env = process.env, fetchImpl = fetch, log = console.log } = {}) {
   const plan = assertReleaseContext(environment, env)
+  assertSessionHours(plan.auth)
+  if (!/^[a-f0-9]{64}$/i.test(env.MEMBER_PASSWORD_HASH ?? '')) {
+    throw new Error('MEMBER_PASSWORD_HASH is required (existing shared-password SHA-256 secret)')
+  }
   const api = 'https://api.supabase.com/v1'
   const base = `${api}/projects/${plan.ref}`
   const request = (method, endpoint, body) => call(method, `${base}${endpoint}`, endpoint, body)
@@ -127,7 +151,7 @@ export async function applySettings(environment, { env = process.env, fetchImpl 
       : 'Supabase allows it only with custom SMTP, which this project does not have'
     log(`::warning::${environment}: auth setting ${name} not applied - ${why}`)
   }
-  await request('PATCH', '/config/auth', apply)
+  await request('PATCH', '/config/auth', assertSessionHours(apply))
   const auth = await request('GET', '/config/auth')
   for (const [name, expected] of Object.entries(apply)) {
     if (auth[name] !== expected) throw new Error(`Auth setting not verified: ${name}`)
@@ -137,6 +161,7 @@ export async function applySettings(environment, { env = process.env, fetchImpl 
   for (const [name, expected] of Object.entries(plan.postgrest)) {
     if (rest[name] !== expected) throw new Error(`Data API setting not verified: ${name}`)
   }
+  await provisionMember({ ref: plan.ref, passwordHash: env.MEMBER_PASSWORD_HASH, request, fetchImpl })
   return { environment, verified: true, notOffered }
 }
 
@@ -148,6 +173,7 @@ export async function main(args = process.argv.slice(2)) {
     throw new Error('Usage: configure-auth.mjs --environment staging|production [--apply]')
   }
   const plan = settingsPlan(environment)
+  assertSessionHours(plan.auth)
   if (apply) {
     await applySettings(environment)
     console.log(`Settings verified for ${environment}`)

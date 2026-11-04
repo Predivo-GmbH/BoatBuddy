@@ -161,17 +161,27 @@ jobs:
             npx playwright install --with-deps chromium
           fi
 
+      - name: Member gate and public phone upload (offline desktop and mobile)
+        run: npx playwright test --config playwright.member-local.config.ts
+
       # PRs run offline; main and the release gates retain the live coverage.
       - name: Run integration tests (staging Supabase)
         if: github.event_name != 'pull_request'
         run: npx vitest run --maxWorkers=2 tests/integration/critical-paths.test.ts
         env:
           STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
+          # Staging-only service key; the org-wide Management API token stays out of tests.
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
 
       # PRs run offline; main and the release gates retain the live coverage.
       - name: Run critical path tests
         if: github.event_name != 'pull_request'
         run: npx playwright test e2e/critical-path.spec.ts
+        env:
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
+          BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
+          STAGING_HTPASSWD_USER: ${{ secrets.STAGING_HTPASSWD_USER }}
+          STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
 
       - name: Upload test results
         if: failure()

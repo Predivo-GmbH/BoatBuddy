@@ -1,0 +1,4 @@
+{
+  "$comment": "Read by scripts/lib/release-gate.mjs. A migration whose first line is '-- release-gate: <name>' is applied only when <name> is true here AND the environment's live site proves the matching front end is live. Turn member-frontend-live on in its own PR only after release 1 (034 + member-session + the member front end) is live and verified in production: docs/RUNBOOK-member-gate.md.",
+  "member-frontend-live": false
+}

@@ -1,8 +1,10 @@
 import { serve } from 'https://deno.land/std@0.208.0/http/server.ts'
 import { encode as encodeBase64 } from 'https://deno.land/std@0.208.0/encoding/base64.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.106.2'
 import { anthropicMessages } from '../_shared/anthropic-model.ts'
 import { logAnthropicUsage } from '../_shared/log-usage.ts'
+import { requireMember } from '../_shared/require-member.ts'
+import { clientIp, isStagingProject, logHeaderShapeOnce } from '../_shared/client-ip.ts'
 
 /**
  * extract-expense: AI-powered invoice extraction for BoatBuddy
@@ -41,19 +43,14 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const IP_HOURLY_LIMIT = 30
 const GLOBAL_DAILY_LIMIT = 300
 
-/** Best client IP: first hop of x-forwarded-for, else cf-connecting-ip, else 'unknown'. */
-function getClientIp(req: Request): string {
-  const xff = req.headers.get('x-forwarded-for')
-  if (xff) {
-    const first = xff.split(',')[0]?.trim()
-    if (first) return first
-  }
-  return req.headers.get('cf-connecting-ip')?.trim() || 'unknown'
-}
+// The caller's address comes from the ONE shared definition (cf-connecting-ip, else the
+// rightmost X-Forwarded-For entry), the same as member-session: _shared/client-ip.ts says why.
+// `null` (no trustworthy address) skips the per-address cap: one shared 'unknown' bucket
+// would let 30 receipts an hour stop every member. The global daily cap still applies.
 
 async function enforceRateLimit(
-  supabase: ReturnType<typeof createClient>,
-  ip: string,
+  supabase: SupabaseClient,
+  ip: string | null,
 ): Promise<{ ok: boolean; message?: string }> {
   // Fail-OPEN: if the rate-limit machinery itself errors (RPC missing, DB hiccup),
   // never block a legit upload — log and allow.
@@ -67,15 +64,17 @@ async function enforceRateLimit(
       now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
     )).toISOString()
 
-    const { data: ipCount, error: ipErr } = await supabase.rpc('bump_extract_rate', {
-      p_key: `ip:${ip}`, p_window: hourWindow,
-    })
-    if (ipErr) {
-      console.error('extract-expense rate-limit ip bump failed (fail-open):', ipErr.message)
-      return { ok: true }
-    }
-    if ((ipCount ?? 0) > IP_HOURLY_LIMIT) {
-      return { ok: false, message: `Rate limit: max ${IP_HOURLY_LIMIT} extractions per hour from your network. Please try again later.` }
+    if (ip !== null) {
+      const { data: ipCount, error: ipErr } = await supabase.rpc('bump_extract_rate', {
+        p_key: `ip:${ip}`, p_window: hourWindow,
+      })
+      if (ipErr) {
+        console.error('extract-expense rate-limit ip bump failed (fail-open):', ipErr.message)
+        return { ok: true }
+      }
+      if ((ipCount ?? 0) > IP_HOURLY_LIMIT) {
+        return { ok: false, message: `Rate limit: max ${IP_HOURLY_LIMIT} extractions per hour from your network. Please try again later.` }
+      }
     }
 
     const { data: globalCount, error: gErr } = await supabase.rpc('bump_extract_rate', {
@@ -144,17 +143,15 @@ serve(async (req) => {
     return new Response('ok', { headers: CORS_HEADERS })
   }
 
-  // Auth: the Supabase Edge gateway already enforces verify_jwt — it rejects any
-  // request without a valid project key (anon JWT or publishable key) before it
-  // reaches this handler. We only require an apikey/authorization header to be
-  // present. Do NOT compare against a hardcoded SUPABASE_ANON_KEY value: that env
-  // flips to the publishable key under the new API-key system and no longer matches
-  // the legacy anon JWT the frontend sends (broke 2026-06-02).
-  const apiKey = req.headers.get('apikey') ?? req.headers.get('authorization')?.replace('Bearer ', '')
-  if (!apiKey) {
+  if (req.method !== 'POST') return new Response(null, { status: 405, headers: CORS_HEADERS })
+  // Staging only (off in production by the project URL): the header SHAPE, never an address.
+  logHeaderShapeOnce(req, 'extract-expense', isStagingProject(Deno.env.get('SUPABASE_URL')))
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!,
+    (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!,
+    { auth: { persistSession: false, autoRefreshToken: false } })
+  if (!await requireMember(req, supabase)) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
@@ -175,15 +172,12 @@ serve(async (req) => {
       })
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const serviceRoleKey = (Deno.env.get('SB_SECRET_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY')!
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     // Rate limit BEFORE any Anthropic call (each request = two paid passes).
     // Uses the service-role client + an atomic DB counter; keyed by client IP.
-    const { ok: allowed, message: limitMsg } = await enforceRateLimit(supabase, getClientIp(req))
+    const { ok: allowed, message: limitMsg } = await enforceRateLimit(supabase, clientIp(req))
     if (!allowed) {
       return new Response(JSON.stringify({ error: limitMsg }), {
         status: 429,

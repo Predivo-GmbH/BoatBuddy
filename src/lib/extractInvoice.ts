@@ -57,9 +57,8 @@ export async function removeReceipt(storagePath: string): Promise<void> {
 export async function extractFromStorage(storagePath: string): Promise<ExtractedInvoice> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-  // The edge fn's AI-cost DoS guard is now a SERVER-SIDE per-IP rate limit — no
-  // frontend header needed (the earlier shared-secret approach broke uploads
-  // because Vite didn't inline the build var).
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Bitte erneut anmelden')
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 120_000) // 2 min ceiling
@@ -68,7 +67,7 @@ export async function extractFromStorage(storagePath: string): Promise<Extracted
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
+        'Authorization': `Bearer ${session.access_token}`,
         'apikey': anonKey,
       },
       body: JSON.stringify({ storage_path: storagePath }),

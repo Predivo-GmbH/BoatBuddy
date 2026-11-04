@@ -1,12 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-// PasswordGate bypass: set sessionStorage key before navigation
-async function bypassPasswordGate(page: import('@playwright/test').Page) {
-  await page.goto('/')
-  await page.evaluate(() => sessionStorage.setItem('boatbuddy-unlocked', 'true'))
-  await page.goto('/dashboard')
-  await page.waitForLoadState('networkidle')
-}
+import { signInMember } from './member-session'
 
 test.describe('PasswordGate', () => {
   test('blocks access without password', async ({ page }) => {
@@ -15,15 +9,15 @@ test.describe('PasswordGate', () => {
     await expect(page.locator('input[type="password"]')).toBeVisible({ timeout: 10_000 })
   })
 
-  test('grants access after bypass', async ({ page }) => {
-    await bypassPasswordGate(page)
+  test('grants access with a member session', async ({ page }) => {
+    await signInMember(page)
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10_000 })
   })
 })
 
 test.describe('Navigation', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
   })
 
   test('sidebar shows all 6 nav items', async ({ page }) => {
@@ -55,7 +49,7 @@ test.describe('Navigation', () => {
 
 test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
   })
 
   test('shows hero balance card', async ({ page }) => {
@@ -85,7 +79,7 @@ test.describe('Dashboard', () => {
 
 test.describe('Finanzen — CRUD', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await page.goto('/finanzen')
     await page.waitForLoadState('networkidle')
   })
@@ -105,7 +99,7 @@ test.describe('Finanzen — CRUD', () => {
 
 test.describe('Kalender', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await page.goto('/kalender')
     await page.waitForLoadState('networkidle')
   })
@@ -124,7 +118,7 @@ test.describe('Kalender', () => {
 
 test.describe('Boot & Eigentümer', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await page.goto('/boot')
     await page.waitForLoadState('networkidle')
   })
@@ -168,7 +162,7 @@ test.describe('Supabase connectivity', () => {
   test('Supabase project is reachable', async ({ request }) => {
     // REST remains available before and after the unused GraphQL extension is removed.
     const response = await request.get(
-      'https://xzythvxmuxmczuiophwp.supabase.co/rest/v1/'
+      'https://svpewgbwousyheohlrtt.supabase.co/rest/v1/'
     )
     // 401 or 200 both mean project is alive and responding
     expect([200, 401]).toContain(response.status())
@@ -180,7 +174,7 @@ test.describe('Supabase connectivity', () => {
 test.describe('Navigation — extended', () => {
   test('bottom nav shows 4 primary tabs plus Mehr on mobile', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
-    await bypassPasswordGate(page)
+    await signInMember(page)
     const bottomNav = page.locator('nav.fixed.bottom-0')
     await expect(bottomNav).toBeVisible({ timeout: 10_000 })
     // 4 primary tabs (Gäste/Boot/News moved into the "Mehr" sheet)
@@ -192,7 +186,7 @@ test.describe('Navigation — extended', () => {
   })
 
   test('dark mode toggle works', async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     // Desktop sidebar has dark mode toggle
     const toggleBtn = page.locator('aside').getByLabel(/Design aktivieren/)
     if (await toggleBtn.isVisible()) {
@@ -206,12 +200,12 @@ test.describe('Navigation — extended', () => {
 
   test('mobile header visible on small viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 })
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await expect(page.locator('header').getByText('BoatBuddy')).toBeVisible({ timeout: 10_000 })
   })
 
   test('footer shows copyright and slogan', async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     const footer = page.locator('footer')
     await expect(footer.getByText('BoatBuddy by Predivo GmbH')).toBeVisible({ timeout: 10_000 })
     await expect(footer.getByText(/Swiss-made/)).toBeVisible()
@@ -222,7 +216,7 @@ test.describe('Navigation — extended', () => {
 
 test.describe('Dashboard — extended', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
   })
 
   test('shows next reservation or empty state', async ({ page }) => {
@@ -281,7 +275,7 @@ test.describe('Dashboard — extended', () => {
 
 test.describe('Finanzen — extended', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await page.goto('/finanzen')
     await page.waitForLoadState('networkidle')
   })
@@ -370,7 +364,7 @@ test.describe('Finanzen — extended', () => {
 
 test.describe('Kalender — extended', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await page.goto('/kalender')
     await page.waitForLoadState('networkidle')
   })
@@ -442,7 +436,7 @@ test.describe('Kalender — extended', () => {
 
 test.describe('Ferien', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await page.goto('/kalender')
     await page.waitForLoadState('networkidle')
   })
@@ -479,7 +473,7 @@ test.describe('Ferien', () => {
 
 test.describe('Gast-Sessions — extended', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await page.goto('/gastsessions')
     await page.waitForLoadState('networkidle')
   })
@@ -536,7 +530,7 @@ test.describe('Gast-Sessions — extended', () => {
 
 test.describe('Nutzungslog — extended', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await page.goto('/nutzung')
     await page.waitForLoadState('networkidle')
   })
@@ -620,7 +614,7 @@ test.describe('Nutzungslog — extended', () => {
 
 test.describe('Boot & Eigentumer — extended', () => {
   test.beforeEach(async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await page.goto('/boot')
     await page.waitForLoadState('networkidle')
   })
@@ -698,12 +692,12 @@ test.describe('Infrastructure — extended', () => {
     // Verify ErrorBoundary exists in the app by checking the rendered output
     // We can't trigger an error easily, so just confirm the app wraps in ErrorBoundary
     // by checking the app renders at all (which means ErrorBoundary didn't catch anything)
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10_000 })
   })
 
   test('404 page shows not found message', async ({ page }) => {
-    await bypassPasswordGate(page)
+    await signInMember(page)
     await page.goto('/non-existent-page')
     await page.waitForLoadState('networkidle')
     await expect(page.getByText('Seite nicht gefunden')).toBeVisible({ timeout: 10_000 })
@@ -713,7 +707,7 @@ test.describe('Infrastructure — extended', () => {
   test('loading skeleton appears', async ({ page }) => {
     // Navigate to dashboard without waiting for network — skeleton should flash
     await page.goto('/')
-    await page.evaluate(() => sessionStorage.setItem('boatbuddy-unlocked', 'true'))
+    await signInMember(page)
     await page.goto('/dashboard')
     // The page should eventually show Dashboard heading (skeleton replaced by content)
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10_000 })

@@ -2,11 +2,14 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: ['**/local/**'],
   reporter: process.env.CI ? [['./e2e/strip-runner-artifacts.reporter.ts'], ['list']] : undefined,
   timeout: 30_000,
   retries: 1,
   use: {
-    baseURL: 'https://boatbuddy.predivo.ch',
+    baseURL: 'https://staging.boatbuddy.predivo.ch',
+    httpCredentials: process.env.STAGING_HTPASSWD_USER && process.env.STAGING_HTPASSWD_PASS
+      ? { username: process.env.STAGING_HTPASSWD_USER, password: process.env.STAGING_HTPASSWD_PASS } : undefined,
     headless: true,
     // NOTHING IS RECORDED BY THIS SUITE (2026-09-14). It signs a real user in, so a trace records
     // what was typed and a screenshot photographs the form it was typed into. On 2026-09-14 exactly

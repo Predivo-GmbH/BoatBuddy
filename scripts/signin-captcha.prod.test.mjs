@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 /**
+ * 2026-11-04 update: the auth-model observations below are historical. The
+ * server now exchanges the shared password for a native Auth member session;
+ * public email/password/recovery/signup remain disabled and no email is sent.
+ * This live mail-endpoint guard is unchanged; never run it in offline/PR checks.
+ *
  * signin-captcha.prod.test.mjs — production/staging regression guard for the unauthenticated
  * sign-in-email hole on BoatBuddy.
  *

@@ -102,6 +102,21 @@ select pg_temp.check_security(pg_temp.expect_denied('update public.phone_upload_
 select pg_temp.check_security(pg_temp.expect_denied('update public.phone_upload_sessions set expires_at = now()'), 'upload expiry immutable');
 select pg_temp.check_security(pg_temp.expect_denied('insert into public.boot_stats(modell) values (''another boat'')'), 'singleton INSERT denied');
 
+reset role;
+insert into auth.users(id,raw_app_meta_data,raw_user_meta_data) values
+  ('07a91df9-55d7-42b4-9944-82f5b88dcf7e','{"boatbuddy_member":true}','{}'),
+  ('00000000-0000-4000-8000-000000000002','{"boatbuddy_member":true}','{}'),
+  ('00000000-0000-4000-8000-000000000003','{}','{"boatbuddy_member":true}');
+select set_config('request.jwt.claims', jsonb_build_object('sub','07a91df9-55d7-42b4-9944-82f5b88dcf7e',
+  'role','authenticated','exp',extract(epoch from now())+900)::text,false);
+set role authenticated;
+select pg_temp.check_security(boatbuddy_private.is_member(), 'native member accepted');
+select pg_temp.check_security(pg_temp.expect_denied('update public.ausgaben set extraktion_daten = ''{}'''), 'member cannot forge AI fields');
+select pg_temp.check_security(pg_temp.expect_denied('update public.changelog set quelle_id = gen_random_uuid()'), 'member cannot forge derived links');
+select pg_temp.check_security(pg_temp.expect_denied('update public.phone_upload_sessions set token = ''replaced'''), 'member cannot replace QR token');
+select pg_temp.check_security(pg_temp.expect_denied('update public.phone_upload_sessions set expires_at = now()'), 'member cannot extend QR lifetime');
+select pg_temp.check_security(pg_temp.expect_denied('update public.phone_upload_sessions set status = ''uploaded'''), 'phone completion is service-only');
+
 -- Real app paths: inserts fire helpers/triggers, deletes cascade both ways.
 insert into public.beitraege(fahrer,betrag,monat,notiz) values ('roger',400,'2040-01-01','security fixture');
 select pg_temp.check_security(exists(select 1 from public.changelog where quelle_typ = 'beitrag'), 'contribution trigger writes derived fields');
@@ -138,18 +153,26 @@ select pg_temp.check_security(exists(select 1 from public.gentleman_rules where 
 insert into public.changelog(datum,titel,beschreibung,kategorie) values ('2040-01-01','fixture','manual','neu');
 update public.changelog set titel = 'edited' where titel = 'fixture';
 select pg_temp.check_security(exists(select 1 from public.changelog where titel = 'edited'), 'manual news edit works');
-insert into public.phone_upload_sessions(token,status,expires_at) values ('fixture-token','pending',now()+interval '10 minutes');
-update public.phone_upload_sessions set status = 'uploaded', storage_path = 'phone-uploads/fixture-token/photo.jpg', uploaded_at = now() where token = 'fixture-token';
+insert into public.phone_upload_sessions(token,status) values ('00000000000000000000000000000001','pending');
+select pg_temp.check_security(exists(select 1 from public.phone_upload_sessions where expires_at > now() + interval '9 minutes' and expires_at <= now() + interval '10 minutes'), 'QR expiry comes from server clock');
+select pg_temp.check_security(pg_temp.expect_denied($sql$insert into public.phone_upload_sessions(token,status,expires_at) values ('00000000000000000000000000000002','pending',now()+interval '11 minutes')$sql$), 'QR lifetime bounded by database');
+select pg_temp.check_security(pg_temp.expect_denied($sql$insert into public.phone_upload_sessions(token,status) values ('guessable','pending')$sql$), 'QR shape constrained');
+reset role;
+set role service_role;
+update public.phone_upload_sessions set status = 'uploaded', storage_path = 'phone-uploads/00000000000000000000000000000001/photo.jpg', uploaded_at = now() where token = '00000000000000000000000000000001';
 select pg_temp.check_security(exists(select 1 from public.phone_upload_sessions where status = 'uploaded'), 'phone upload and polling work');
+reset role;
+set role authenticated;
 delete from public.beitraege;
 select pg_temp.check_security(not exists(select 1 from public.changelog where quelle_typ = 'beitrag'), 'source delete removes derived news');
 reset role;
 
 set role service_role;
-select pg_temp.check_security(public.bump_extract_rate('fixture',now()) = 1, 'edge rate counter works');
+select pg_temp.check_security(public.bump_extract_rate('fixture','2040-01-01') = 1, 'edge rate counter works');
+select pg_temp.check_security((select count from public.extract_rate_limit where bucket_key = 'fixture' and window_start = '2040-01-01') = 1, 'member-session reads its counter without spending it');
 update public.ausgaben set extraktion_daten = '{"fixture":true}' where bezeichnung = 'fixture';
 select pg_temp.check_security(exists(select 1 from public.ausgaben where extraktion_daten is not null), 'service AI result update works');
 insert into public.changelog(titel,kategorie) values ('server fixture','daten');
 select pg_temp.check_security(exists(select 1 from public.changelog where titel = 'server fixture'), 'backfill service can write news');
 reset role;
-select count(*) || ' PostgreSQL security/compatibility assertions passed' from security_results;
+-- member-security-checks.sql continues this session and emits the final receipt.
