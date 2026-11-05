@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 import { signInMember } from './member-session'
 
@@ -138,13 +138,20 @@ test.describe('Boot & Eigentümer', () => {
     // tab's data has loaded, data-independent) before asserting names/percentages,
     // so a slow Supabase load doesn't flake the data assertions.
     await expect(page.getByText('Eigentumsanteile')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText(/Total: \d+\.\d+%/)).toBeVisible({ timeout: 15_000 })
-    // Data assertions — three equal owners (Roger, Dani, Jan), each ~33.3%
-    await expect(page.getByText('Roger')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText('Dani')).toBeVisible()
-    await expect(page.getByText('Jan')).toBeVisible()
-    // All three hold an equal third — the 33.3% share is shown on each of the 3 cards
-    await expect(page.getByText('33.3%')).toHaveCount(3)
+    const total = page.getByText(/Total: \d+\.\d+%/)
+    await expect(total).toBeVisible({ timeout: 15_000 })
+    // NOT production's owners. This suite runs against STAGING since #38, and staging's owners are not
+    // production's three equal thirds (measured 2026-11-05: two rows, 72.73 % and 27.27 %). A marked
+    // third owner would push staging past 100 % and change its Abrechnung, so nothing is seeded: the
+    // test checks what the tab renders from whatever owners exist. Every owner card shows its share,
+    // and the shares add up to the Total line (cards round to one decimal, the Total to two).
+    const shares = page.getByText(/\d+\.\d% von /)
+    await expect(shares.first()).toBeVisible()
+    const cardPct = (await shares.allTextContents()).map((t) => Number(/(\d+\.\d)% von /.exec(t)![1]))
+    const totalPct = Number(/Total: (\d+\.\d+)%/.exec((await total.textContent()) ?? '')![1])
+    const sum = cardPct.reduce((s, p) => s + p, 0)
+    expect(Math.abs(sum - totalPct), `owner cards ${cardPct.join(' + ')} vs Total ${totalPct}`)
+      .toBeLessThanOrEqual(0.05 * cardPct.length + 0.001)
   })
 
   test('Wartung tab shows empty state or tasks', async ({ page }) => {
@@ -309,10 +316,20 @@ test.describe('Finanzen — extended', () => {
     await page.getByRole('tab', { name: 'Ausgaben' }).click()
     // The button, not the text: the empty state names it too (see 'tab navigation works').
     await expect(page.getByRole('button', { name: 'Neue Ausgabe' })).toBeVisible({ timeout: 10_000 })
-    // Search input
-    await expect(page.getByLabel('Ausgaben durchsuchen')).toBeVisible()
-    // Category filter
+    // The search and filter bar exists only once there is an expense. With none, AusgabenTabelle shows
+    // its empty state instead, and staging had none on 2026-11-05. So wait for whichever of the two the
+    // data calls for (locator.or waits; a bare isVisible() does not), then check that one completely.
+    // The bar with real rows is also proven offline in e2e/local/tables-with-data.spec.ts.
+    const search = page.getByLabel('Ausgaben durchsuchen')
+    const empty = page.getByText('Noch keine Ausgaben erfasst')
+    await expect(search.or(empty)).toBeVisible({ timeout: 10_000 })
+    if (await empty.isVisible()) {
+      await expect(search).toHaveCount(0)
+      return
+    }
     await expect(page.getByLabel('Nach Kategorie filtern')).toBeVisible()
+    await expect(page.getByLabel('Nach Jahr filtern')).toBeVisible()
+    await expect(page.locator('table.table-premium')).toBeVisible()
   })
 
   test('Ausgaben tab Neue Ausgabe dialog has expected fields', async ({ page }) => {
@@ -589,20 +606,39 @@ test.describe('Nutzungslog — extended', () => {
     }
   })
 
-  test('nutzungslog table columns are sortable', async ({ page }) => {
+  // The trip table exists only once there is a trip log; with none the page shows its empty state.
+  // Both tests below WAIT for one of the two. They used `if (await table.isVisible())`, which answers
+  // at once and so skipped every assertion whenever the table had not rendered yet. That is how a
+  // check for the "Liter" column, removed in 4f4b370 (2026-06-15), passed against production for months.
+  const tripTableOrEmpty = async (page: Page) => {
     const table = page.locator('table.table-premium').first()
-    if (await table.isVisible()) {
-      await expect(table.getByText('Datum').first()).toBeVisible({ timeout: 10_000 })
-      await expect(table.getByText('Stunden').first()).toBeVisible()
-      await expect(table.getByText('Liter').first()).toBeVisible()
-    }
+    const empty = page.getByText('Noch keine Nutzungslogs erfasst')
+    await expect(table.or(empty)).toBeVisible({ timeout: 10_000 })
+    return (await empty.isVisible()) ? null : table
+  }
+
+  test('nutzungslog table columns are sortable', async ({ page }) => {
+    const table = await tripTableOrEmpty(page)
+    if (!table) return
+    // Columns since 4f4b370: Datum, Fahrer, Stunden, Aktivitäten, Notiz. Datum and Stunden sort.
+    const datum = table.getByRole('columnheader', { name: /datum/i })
+    const stunden = table.getByRole('columnheader', { name: /stunden/i })
+    await expect(table.getByRole('columnheader', { name: /fahrer/i })).toBeVisible()
+    await expect(table.getByRole('columnheader', { name: /aktivitäten/i })).toBeVisible()
+    await expect(datum).toHaveAttribute('aria-sort', 'descending')
+    await expect(stunden).toHaveAttribute('aria-sort', 'none')
+    await stunden.click()
+    await expect(stunden).toHaveAttribute('aria-sort', 'descending')
+    await expect(datum).toHaveAttribute('aria-sort', 'none')
   })
 
   test('nutzungslog table shows summary row', async ({ page }) => {
-    const tfoot = page.locator('tfoot')
-    if (await tfoot.isVisible()) {
-      await expect(tfoot.getByText(/Fahrten?/)).toBeVisible({ timeout: 10_000 })
-    }
+    const table = await tripTableOrEmpty(page)
+    if (!table) return
+    // The footer counts the rows shown: "1 Fahrt" or "<n> Fahrten". The old /Fahrten?/ reads as
+    // "Fahrte" plus an optional "n", so it never matched the singular, and staging has exactly one trip.
+    const rows = await table.locator('tbody tr').count()
+    await expect(table.locator('tfoot td').first()).toHaveText(rows === 1 ? '1 Fahrt' : `${rows} Fahrten`)
   })
 
   test('shows fuel per driver breakdown', async ({ page }) => {
