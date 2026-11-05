@@ -1,0 +1,56 @@
+name: Release when staging is green
+
+# A CHANGE GOES LIVE AS SOON AS ITS STAGING RUN IS GREEN (Roger 2026-11-05, pop-up: customer products go live "as
+# soon as staging is green, like Cockpit already does"). Until now production waited for the daily Promotion Sweep
+# (~04:00Z) or a session: 91 % of merge->production time was that wait, and on 05.11 the sweep shipped nothing.
+# The sweep and production-monitor's self-heal stay behind this as the backstop.
+#
+# This starts when a "Deploy" run COMPLETES, so deploy.yml's staging gate always finds the green run it
+# asks for. It hands scripts/release-when-green.mjs the commit that run proved (workflow_run.head_sha, never the tip
+# of main), and the script dispatches deploy.yml pinned to exactly that commit (input release_sha) - only while it is
+# still the tip of main (or newer only by docs), only when it descends from the commit live in production, never
+# twice. deploy.yml is otherwise unchanged: its gates and its exact-commit staging check still decide.
+#
+# STOP IT: disable this workflow (`gh workflow disable release-when-green.yml`). The release button, the sweep and
+# self-heal keep working without it.
+
+on:
+  workflow_run:
+    workflows: ['Deploy']
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: boatbuddy-release-when-green
+  cancel-in-progress: false
+
+jobs:
+  release:
+    permissions:
+      contents: read
+      actions: write # Dispatch deploy.yml, the already-gated production release.
+    # A push run of main in this repository that finished green. The production run this dispatches completes too,
+    # and is not a push, so it never starts a second release.
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    # GitHub-hosted like every BoatBuddy job (public repository, SR-SUP-08). A few GitHub reads, one dispatch, a 15 s settle.
+    # Up to 3 passes of ~1 min each (decide, dispatch, confirm the run GitHub created; again if main moved meanwhile).
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 22
+      - name: Release the commit staging just proved, if it is still the one to ship
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/release-when-green.mjs

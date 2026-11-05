@@ -65,7 +65,10 @@ jobs:
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
+    # After a STAGING deploy only (a push run). A production release (dispatch) or a nightly gauntlet (schedule) leaves
+    # staging exactly as the push run left it, so re-running these gates after them tested the same staging twice;
+    # since 2026-11-05 every green push is followed by an automatic release, which would have doubled this suite.
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' }}
     env:
       # Ubuntu 26.04 (what our self-hosted runners came up on, 2026-08-25) has no Playwright
       # browser build: `npx playwright install chromium` dies with "Playwright does not
