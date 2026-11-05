@@ -89,7 +89,9 @@ test.describe('Finanzen — CRUD', () => {
     const ausgabenTab = page.getByRole('tab', { name: 'Ausgaben' })
     await expect(ausgabenTab).toBeVisible({ timeout: 10_000 })
     await ausgabenTab.click()
-    await expect(page.getByText('Neue Ausgabe')).toBeVisible({ timeout: 5_000 })
+    // The BUTTON: with no expenses yet the empty state also says 'Klicke "Neue Ausgabe"', and a
+    // bare getByText then matches two elements (strict-mode failure, run 41931476724).
+    await expect(page.getByRole('button', { name: 'Neue Ausgabe' })).toBeVisible({ timeout: 5_000 })
 
     const einnahmenTab = page.getByRole('tab', { name: 'Einnahmen' })
     await einnahmenTab.click()
@@ -305,7 +307,8 @@ test.describe('Finanzen — extended', () => {
 
   test('Ausgaben tab shows table with search and filter', async ({ page }) => {
     await page.getByRole('tab', { name: 'Ausgaben' }).click()
-    await expect(page.getByText('Neue Ausgabe')).toBeVisible({ timeout: 10_000 })
+    // The button, not the text: the empty state names it too (see 'tab navigation works').
+    await expect(page.getByRole('button', { name: 'Neue Ausgabe' })).toBeVisible({ timeout: 10_000 })
     // Search input
     await expect(page.getByLabel('Ausgaben durchsuchen')).toBeVisible()
     // Category filter
