@@ -173,8 +173,41 @@ export async function productionCommit(dispatchRuns, jobsOf, max = MAX_RELEASES_
   return null
 }
 
-/** One pass: read, decide, dispatch. `api(path, init)` answers { ok, status, body }. */
-export async function releaseWhenGreen({ repo, sha, workflowText, api, wait = (ms) => new Promise((r) => setTimeout(r, ms)), log = console.log }) {
+/**
+ * deploy.yml names a pinned dispatch after its pin (its `run-name`), because a dispatch run's head_sha is whatever main
+ * pointed at when GitHub created it, and the API does not return a run's inputs. Same idea as techLEARN's release.yml.
+ */
+export const pinTitle = (sha) => `Release ${sha} (release-when-green)`
+
+/** The commit a dispatch run was pinned to, from its name, or null for a run that carries no pin. Pure. */
+export function pinOf(run) {
+  const m = /^Release ([0-9a-f]{40}) \(release-when-green\)$/.exec(String(run?.display_title ?? ''))
+  return m ? m[1] : null
+}
+
+/**
+ * Will this dispatch run really release its head commit? A run without a pin (the button, the sweep, a session) does;
+ * a run whose pin is not its head commit skips every gate and deploy (release-pin), so it is no release of anything and
+ * must not stop the real one (Codex review 2026-11-05). Pure.
+ */
+export const releasesItsHead = (run) => {
+  const pin = pinOf(run)
+  return pin === null || pin === run.head_sha
+}
+
+/** Read, decide, dispatch; when main moved between the decision and the dispatch, decide again (at most 3 times). */
+export async function releaseWhenGreen(opts) {
+  let out
+  for (let pass = 1; pass <= 3; pass++) {
+    out = await releasePass(opts)
+    if (!out.retry) return out
+    ;(opts.log ?? console.log)(`Deciding again (pass ${pass + 1}): main moved while the release of ${short(out.ship)} was dispatched.`)
+  }
+  return { ...out, retry: false }
+}
+
+/** One pass: read, decide, dispatch, confirm. `api(path, init)` answers { ok, status, body }. */
+export async function releasePass({ repo, sha, workflowText, api, wait = (ms) => new Promise((r) => setTimeout(r, ms)), log = console.log, now = () => Date.now() }) {
   const ref = await api(`/repos/${repo}/git/ref/heads/${BRANCH}`)
   const tipSha = ref.ok ? ref.body?.object?.sha ?? null : null
   let newerFiles = []
@@ -201,7 +234,9 @@ export async function releaseWhenGreen({ repo, sha, workflowText, api, wait = (m
     if (r.body.workflow_runs.length < 100) break
   }
   const dispatches = readable ? runs.filter((r) => r.event === 'workflow_dispatch' && r.head_branch === BRANCH) : null
-  const shipReleases = dispatches ? dispatches.filter((r) => r.head_sha === ship).map((r) => ({ status: r.status, conclusion: r.conclusion })) : null
+  const shipReleases = dispatches
+    ? dispatches.filter((r) => r.head_sha === ship && releasesItsHead(r)).map((r) => ({ status: r.status, conclusion: r.conclusion }))
+    : null
   const productionSha = dispatches
     ? await productionCommit(dispatches, async (id) => {
       const j = await api(`/repos/${repo}/actions/runs/${id}/jobs?per_page=100`)
@@ -217,18 +252,37 @@ export async function releaseWhenGreen({ repo, sha, workflowText, api, wait = (m
   log(`${d.release ? 'Releasing' : 'Not releasing'}: ${d.why}`)
   if (!d.release) return { ...d, ship, dispatched: false }
 
+  const dispatchedAt = now()
   const sent = await api(`/repos/${repo}/actions/workflows/${DEPLOY_WORKFLOW}/dispatches`, {
     method: 'POST',
     body: JSON.stringify({ ref: BRANCH, inputs: { confirm: 'deploy', release_sha: ship } }),
   })
   if (!sent.ok) throw new Error(`the production release of ${short(ship)} could not be dispatched (HTTP ${sent.status}); the Promotion Sweep and self-heal are still behind this`)
   log(`Production release of ${ship} dispatched (deploy.yml, confirm=deploy, release_sha=${short(ship)}).`)
-  // A second staging completion waits in this workflow's concurrency group; holding this pass a moment lets GitHub
-  // list the new release, so the next pass sees it queued and does not dispatch it twice.
-  await wait(15_000)
-  const after = await api(`/repos/${repo}/actions/workflows/${DEPLOY_WORKFLOW}/runs?per_page=20`)
-  const mine = after.ok ? (after.body?.workflow_runs || []).find((r) => r.event === 'workflow_dispatch' && r.head_sha === ship) : null
-  log(mine ? `Release run: ${mine.html_url}` : 'The release run is not listed yet; it is in the deploy-production queue.')
+
+  // CONFIRM WHAT GITHUB MADE OF IT. The dispatch names the branch, so if main moved in the second between reading its
+  // tip and this dispatch, the run carries the newer commit and ships nothing (release-pin). A newer CODE commit then
+  // releases itself when its staging run is green (and this run no longer counts as its release: releasesItsHead), but
+  // a newer DOCS-only commit starts no staging run, so nothing else would ever release it: decide again now.
+  // Waiting here also lets GitHub list the new run before a second staging completion is decided (this workflow's
+  // concurrency group queues it behind this pass), so the same commit is never dispatched twice.
+  let mine = null
+  for (let i = 0; i < 6 && !mine; i++) {
+    await wait(i === 0 ? 15_000 : 10_000)
+    const after = await api(`/repos/${repo}/actions/workflows/${DEPLOY_WORKFLOW}/runs?per_page=30`)
+    mine = after.ok
+      ? (after.body?.workflow_runs || []).find((r) => r.event === 'workflow_dispatch' && pinOf(r) === ship && Date.parse(r.created_at) >= dispatchedAt - 120_000) ?? null
+      : null
+  }
+  if (!mine) {
+    log('The release run is not listed yet; it is in the deploy-production queue.')
+    return { ...d, ship, dispatched: true }
+  }
+  if (mine.head_sha !== ship) {
+    log(`Main moved on to ${short(mine.head_sha)} before GitHub created the run (${mine.html_url}): it ships nothing.`)
+    return { ...d, ship, dispatched: false, retry: true, superseded: mine.html_url }
+  }
+  log(`Release run: ${mine.html_url}`)
   return { ...d, ship, dispatched: true }
 }
 

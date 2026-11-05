@@ -4,8 +4,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  BRANCH, DEPLOY_WORKFLOW, PRODUCTION_JOBS, chooseShip, filesOfCompare, globToRegExp, productionCommit,
-  pushPathFilter, releaseDecision, releaseWhenGreen, startsStagingRun,
+  BRANCH, DEPLOY_WORKFLOW, PRODUCTION_JOBS, chooseShip, filesOfCompare, globToRegExp, pinOf, pinTitle, productionCommit,
+  pushPathFilter, releaseDecision, releaseWhenGreen, releasesItsHead, startsStagingRun,
 } from './release-when-green.mjs'
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n')
@@ -121,10 +121,19 @@ test('a compare GitHub cut off or could not answer is not trusted', () => {
   assert.deepEqual(filesOfCompare({ status: 'ahead', files: [{ filename: 'b', previous_filename: 'a' }] }), ['b', 'a'])
 })
 
-function fakeGitHub({ tip, production, runs = [], compare = {} }) {
+// A GitHub that creates a dispatch run on POST, on whatever main points at by then (`tipAtDispatch`, default the tip),
+// named after its pin exactly as deploy.yml's run-name does.
+function fakeGitHub({ tip, production, runs = [], compare = {}, tipAtDispatch = [] }) {
   const sent = []
+  let nextId = 100
   const api = async (path, init) => {
-    if (init?.method === 'POST') { sent.push({ path, body: JSON.parse(init.body) }); return { ok: true, status: 204, body: null } }
+    if (init?.method === 'POST') {
+      const body = JSON.parse(init.body)
+      sent.push({ path, body })
+      tip = tipAtDispatch.shift() ?? tip
+      runs.unshift({ id: nextId++, event: 'workflow_dispatch', head_branch: BRANCH, head_sha: tip, status: 'queued', conclusion: null, created_at: new Date().toISOString(), display_title: pinTitle(body.inputs.release_sha), html_url: 'u' })
+      return { ok: true, status: 204, body: null }
+    }
     if (path.endsWith(`/git/ref/heads/${BRANCH}`)) return { ok: true, status: 200, body: { object: { sha: tip } } }
     if (path.includes('/compare/')) {
       const key = path.split('/compare/')[1]
@@ -166,6 +175,51 @@ test('end to end: nothing is dispatched when main moved on by code, or productio
   })
   assert.equal((await releaseWhenGreen({ repo: 'o/r', sha: X, workflowText: DEPLOY, api: backwards.api, wait: async () => {}, log: () => {} })).dispatched, false)
   assert.equal(backwards.sent.length, 0)
+})
+
+test('a pin is read back from the run name; a run pinned to another commit is no release of its head', () => {
+  assert.equal(pinOf({ display_title: pinTitle(X) }), X)
+  assert.equal(pinOf({ display_title: 'Deploy to Production' }), null)
+  assert.equal(releasesItsHead({ head_sha: X, display_title: pinTitle(X) }), true)
+  assert.equal(releasesItsHead({ head_sha: Y, display_title: pinTitle(X) }), false)
+  assert.equal(releasesItsHead({ head_sha: Y, display_title: 'Deploy to Production' }), true, 'the button, the sweep and sessions carry no pin')
+})
+
+const D = 'd'.repeat(40)
+const greenProduction = () => [{ id: 7, event: 'workflow_dispatch', head_branch: BRANCH, head_sha: P, status: 'completed', conclusion: 'success' }]
+
+test('Codex 2026-11-05: a docs-only commit landing during the dispatch is released at once, not left waiting', async () => {
+  const gh = fakeGitHub({
+    tip: X,
+    production: P,
+    runs: greenProduction(),
+    tipAtDispatch: [D], // main moves to D (docs only) between reading the tip and GitHub creating the run
+    compare: { [`${P}...${X}`]: { status: 'ahead' }, [`${X}...${D}`]: { status: 'ahead', files: [{ filename: 'docs/RECORD.md' }] }, [`${P}...${D}`]: { status: 'ahead' } },
+  })
+  const out = await releaseWhenGreen({ repo: 'o/r', sha: X, workflowText: DEPLOY, api: gh.api, wait: async () => {}, log: () => {} })
+  assert.equal(gh.sent.length, 2, 'the first dispatch became a no-op on D, so D is dispatched again')
+  assert.equal(gh.sent[1].body.inputs.release_sha, D)
+  assert.equal(out.dispatched, true)
+})
+
+test('Codex 2026-11-05: a queued run pinned to another commit does not stop the real release of its head', async () => {
+  const gh = fakeGitHub({
+    tip: Y,
+    production: P,
+    // Pinned to X, created after main had moved to Y: it will skip everything, so it is no release of Y.
+    runs: [{ id: 9, event: 'workflow_dispatch', head_branch: BRANCH, head_sha: Y, status: 'queued', conclusion: null, display_title: pinTitle(X) }, ...greenProduction()],
+    compare: { [`${P}...${Y}`]: { status: 'ahead' } },
+  })
+  const out = await releaseWhenGreen({ repo: 'o/r', sha: Y, workflowText: DEPLOY, api: gh.api, wait: async () => {}, log: () => {} })
+  assert.equal(out.dispatched, true)
+  assert.equal(gh.sent[0].body.inputs.release_sha, Y)
+  const button = fakeGitHub({ tip: Y, production: P, runs: [{ id: 9, event: 'workflow_dispatch', head_branch: BRANCH, head_sha: Y, status: 'queued', conclusion: null, display_title: 'Deploy to Production' }, ...greenProduction()], compare: { [`${P}...${Y}`]: { status: 'ahead' } } })
+  assert.equal((await releaseWhenGreen({ repo: 'o/r', sha: Y, workflowText: DEPLOY, api: button.api, wait: async () => {}, log: () => {} })).dispatched, false, 'an unpinned queued release of Y is a real one')
+})
+
+test('the wiring: deploy.yml names a pinned dispatch after its pin, which is how the pin is read back', () => {
+  assert.match(DEPLOY, /\nrun-name: >-\n {2}\$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.release_sha != ''\n {6}&& format\('Release \{0\} \(release-when-green\)', inputs\.release_sha\)\n {6}\|\| ' ' \}\}\n/)
+  assert.equal(pinTitle(X), `Release ${X} (release-when-green)`)
 })
 
 test('the wiring: release-when-green.yml listens to this deploy workflow by its exact name, after green pushes of main', () => {

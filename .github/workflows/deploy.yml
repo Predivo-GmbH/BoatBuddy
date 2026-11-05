@@ -1,5 +1,14 @@
 name: Deploy
 
+# A run that release-when-green.yml dispatched is named after the commit it was pinned to, because a dispatch run's
+# head_sha is whatever main pointed at when GitHub created it and the API does not return a run's inputs: that name is
+# how scripts/release-when-green.mjs tells a pinned release from one that main outran (release-pin). Every other run
+# keeps GitHub's own name - a run-name of only whitespace falls back to it (same as techLEARN's release.yml).
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha != ''
+      && format('Release {0} (release-when-green)', inputs.release_sha)
+      || ' ' }}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # TIERED PIPELINE (2026-07-15) — "gates guard prod, not every staging push".
 #
