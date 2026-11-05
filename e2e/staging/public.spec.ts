@@ -25,13 +25,19 @@ test.describe('Staging — public', () => {
     expect(errors, errors.join('\n')).toHaveLength(0)
   })
 
-  test('staging Supabase is reachable (REST schema)', async ({ request }) => {
+  // Not the Data API schema root (GET /rest/v1/): since 2026-04-08 Supabase refuses it to
+  // every non-secret key on every project ("Access to schema is forbidden",
+  // supabase.com/changelog/42949), so that check could never pass (gate-e2e run 41969015343).
+  // GraphQL went with migration 033. Auth's health endpoint sits behind the same gateway key
+  // check (no key: "No API key found"; a wrong key: "Invalid API key"), so this still catches
+  // a wrong key or a project that is down. The Data API itself is covered by
+  // member-password.spec.ts, which reads boot_stats with a real member session.
+  test('staging Supabase is reachable and accepts the publishable key (Auth health)', async ({ request }) => {
     const url = process.env.STAGING_SUPABASE_URL ?? 'https://svpewgbwousyheohlrtt.supabase.co'
     const key = process.env.STAGING_SUPABASE_ANON_KEY
     test.skip(!key, 'STAGING_SUPABASE_ANON_KEY not set')
-    const res = await request.get(`${url}/rest/v1/`, {
-      headers: { apikey: key!, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    })
-    expect(res.ok()).toBeTruthy()
+    const res = await request.get(`${url}/auth/v1/health`, { headers: { apikey: key! } })
+    // The body is the gateway's error or Auth's name and version, never a key.
+    expect(res.status(), `Auth health answered ${res.status()}: ${(await res.text()).slice(0, 200)}`).toBe(200)
   })
 })
