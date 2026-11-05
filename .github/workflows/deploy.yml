@@ -41,13 +41,26 @@ on:
   # that push already covers it; measured 2026-09-13, push SKIPS gate-integration, gate-security
   # and gate-e2e (ChannelMover run 34719595752), so this cron is the only daily run of them. The
   # 2026-09-09 security advisory that blocked five products was caught by exactly this run.
+  # 02:55 UTC (was 04:35 until 2026-11-05). 04:00-05:00 is the Promotion Sweep's window, and the sweep gives up on the
+  # whole fleet while any run of any of its repos is in flight (deploy-failure-analysis-2026-11-05.md: on 05.11 it
+  # shipped nothing, and this cron's run 41969015343 was one of the runs in flight). The products' nightly gauntlets
+  # are spread over 02:05-02:55 instead: signalscore 02:05, ChannelMover 02:20, ReplyFlow 02:40, BoatBuddy 02:55.
   schedule:
-    - cron: '35 4 * * *'
+    - cron: '55 2 * * *'
   workflow_dispatch:
     inputs:
       confirm:
         description: 'Type "deploy" to confirm production deployment (runs staging + E2E first)'
         required: true
+        default: ''
+      # RELEASE EXACTLY THE COMMIT STAGING PROVED (2026-11-05). release-when-green.yml sets this to the commit whose
+      # staging run just went green. A dispatch can only name a branch, so if main moved on between that decision and
+      # this run starting, the run would ship a commit nobody decided to release: then every gate and the production
+      # job are SKIPPED (the release-pin job says why) and the newer commit's own staging run releases it. Empty (the
+      # release button, the sweep, a session) = the tip of main, exactly as before.
+      release_sha:
+        description: 'Automatic releases only: the exact commit to ship. Leave empty to release the tip of main.'
+        required: false
         default: ''
 
 # ===========================================================================
@@ -127,7 +140,23 @@ permissions:
   contents: read
 
 jobs:
+  # THE PIN DID NOT HOLD: say so, instead of a green run that silently skipped everything. Runs only on an automatic
+  # release (release_sha set) whose commit is no longer the one this run would ship. Every gate and `deploy` below carry
+  # `(inputs.release_sha || github.sha) == github.sha`, which is always true without a pin (push, schedule, the button).
+  release-pin:
+    if: github.event_name == 'workflow_dispatch' && inputs.release_sha != '' && inputs.release_sha != github.sha
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Main moved on - nothing is released by this run
+        env:
+          PINNED: ${{ inputs.release_sha }}
+          TIP: ${{ github.sha }}
+        run: |
+          echo "::notice::This release was for $PINNED, but main now points at $TIP. Nothing was gated or deployed by this run; $TIP has a staging run of its own, and release-when-green releases it when that run is green."
+
   main-pr-guard:
+    if: (inputs.release_sha || github.sha) == github.sha
     uses: ./.github/workflows/main-pr-guard.yml
     permissions:
       contents: read
@@ -624,7 +653,7 @@ jobs:
     # in the same commit - and then gate-e2e and this one must be merged into ONE job, or they will
     # start erasing each other again.
     # ---------------------------------------------------------------------------
-    if: github.event_name != 'push'
+    if: github.event_name != 'push' && (inputs.release_sha || github.sha) == github.sha
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -683,7 +712,7 @@ jobs:
     # run still reports both gates rather than hiding one behind the other. Prod stays
     # blocked either way: the deploy job needs gate-integration as well.
     needs: gate-integration
-    if: ${{ !cancelled() && github.event_name != 'push' }}
+    if: ${{ !cancelled() && github.event_name != 'push' && (inputs.release_sha || github.sha) == github.sha }}
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -786,7 +815,7 @@ jobs:
   # security-review stays advisory. Fleet retrofit 2026-08-15 (clean at high).
   # ===========================================================================
   gate-security:
-    if: github.event_name != 'push'
+    if: github.event_name != 'push' && (inputs.release_sha || github.sha) == github.sha
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -837,7 +866,7 @@ jobs:
           semgrep scan --config=p/security-audit --config=p/secrets --severity=ERROR --error --metrics=off .
 
   deploy:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'deploy'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'deploy' && (inputs.release_sha || github.sha) == github.sha
     needs: [main-pr-guard, gate-integration, gate-e2e, gate-security]
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
     runs-on: ubuntu-latest
