@@ -126,6 +126,10 @@ jobs:
           STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
           BB_MGMT_TOKEN: ${{ secrets.BB_MGMT_TOKEN }}
           BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
+          # The member sign-in (e2e/member-session.ts) exchanges the session with the staging
+          # PUBLISHABLE key. Without it every gate died in its beforeEach with "Staging member
+          # tests need BB_SVC_KEY and the staging publishable key" (run 41931838828, 2026-11-04).
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
 
       - name: Upload report on failure
         if: failure()
@@ -260,6 +264,10 @@ jobs:
           STAGING_HTPASSWD_PASS: ${{ secrets.STAGING_HTPASSWD_PASS }}
           BB_MGMT_TOKEN: ${{ secrets.BB_MGMT_TOKEN }}
           BB_SVC_KEY: ${{ secrets.BB_SVC_KEY }}
+          # The member sign-in (e2e/member-session.ts) exchanges the session with the staging
+          # PUBLISHABLE key. Without it every gate died in its beforeEach with "Staging member
+          # tests need BB_SVC_KEY and the staging publishable key" (run 41931838828, 2026-11-04).
+          STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_ANON_KEY }}
 
       - name: Upload report on failure
         if: failure()
