@@ -16,9 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      # REST OpenAPI needs no row read and works before AND after migration 033.
-      # No GraphQL extension or sign-in request is needed.
-      - name: Ping Supabase production and staging REST
+      # Auth health needs no row read and works before AND after migrations 033 and 035.
+      # Not the REST schema root (GET /rest/v1/): since 2026-04-08 Supabase refuses it to
+      # every non-secret key ("Access to schema is forbidden", supabase.com/changelog/42949),
+      # so it answers 401 on a healthy project. GraphQL went with 033. The gateway checks
+      # the key on /auth/v1/health too (no key: "No API key found"; a wrong key: "Invalid
+      # API key"), so a wrong secret or a project that is down still turns this red.
+      - name: Ping Supabase production and staging (Auth health)
         env:
           PRODUCTION_URL: ${{ secrets.SUPABASE_URL }}
           PRODUCTION_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -31,15 +35,19 @@ jobs:
             const key = process.env[`${environment}_KEY`]
             if (!url || !key) throw new Error(`${environment}: missing URL or public key`)
             try {
-              const response = await fetch(`${url}/rest/v1/`, {
-                headers: { apikey: key, Authorization: `Bearer ${key}` },
+              const response = await fetch(`${url}/auth/v1/health`, {
+                headers: { apikey: key },
                 redirect: 'error', signal: AbortSignal.timeout(30000),
               })
-              await response.body?.cancel()
-              console.log(`${environment}: REST HTTP ${response.status}`)
-              if (!response.ok) process.exitCode = 1
+              // The body is the gateway's error or Auth's name and version, never a key.
+              const body = (await response.text()).slice(0, 200)
+              console.log(`${environment}: Auth health HTTP ${response.status}`)
+              if (!response.ok) {
+                console.error(`${environment}: ${body}`)
+                process.exitCode = 1
+              }
             } catch {
-              console.error(`${environment}: REST request failed`)
+              console.error(`${environment}: Auth health request failed`)
               process.exitCode = 1
             }
           }

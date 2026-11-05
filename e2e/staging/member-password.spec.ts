@@ -50,7 +50,11 @@ test.describe('real shared-password sign-in on staging', () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, value)
       field.dispatchEvent(new Event('input', { bubbles: true }))
     }, PASSWORD)
-    const exchange = page.waitForResponse(response => response.url().endsWith('/functions/v1/member-session'))
+    // The browser sends a CORS preflight (OPTIONS, answered 204 by handler.ts) before the
+    // POST, to the same URL. Wait for the POST, or the 204 is read as the sign-in's answer
+    // (gate-e2e run 41969015343, 2026-11-05: "Expected 200, Received 204", twice).
+    const exchange = page.waitForResponse(response =>
+      response.url().endsWith('/functions/v1/member-session') && response.request().method() === 'POST')
     await page.getByRole('button', { name: 'Weiter' }).click()
     expect((await exchange).status()).toBe(200)
     await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible({ timeout: 15_000 })
