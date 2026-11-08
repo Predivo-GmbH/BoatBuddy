@@ -38,15 +38,6 @@ function slotsOverlap(aVon: string, aBis: string, bVon: string, bBis: string): b
   return a1 < b2 && b1 < a2
 }
 
-// Maps the DB overlap-constraint violation (mig 028) to a friendly message,
-// as a backstop if two slots are created concurrently. Returns null otherwise.
-function overlapMessage(err: unknown): string | null {
-  const msg = err instanceof Error ? err.message : String(err)
-  return msg.includes('reservierungen_no_overlap')
-    ? 'Zeitüberschneidung – dieser Zeitraum ist bereits reserviert'
-    : null
-}
-
 // A same-driver reservation that would clash with the new [von,bis] slot.
 // Whole-day existing reservations (no times) always clash.
 function findConflict(
@@ -147,7 +138,6 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
             toast.success('Reservierung aktualisiert')
             cancelEdit()
           },
-          onError: (err) => toast.error(overlapMessage(err) ?? 'Fehler beim Aktualisieren'),
         },
       )
       return
@@ -171,7 +161,6 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
           toast.success('Reservierung erstellt')
           onClose()
         },
-        onError: (err) => toast.error(overlapMessage(err) ?? 'Fehler beim Erstellen'),
       },
     )
   }
@@ -266,7 +255,6 @@ export function ReservierungDialog({ datum, reservierungen, onClose }: Reservier
                   toast.success('Reservierung gelöscht')
                   setDeleteId(null)
                 },
-                onError: () => toast.error('Fehler beim Löschen'),
               })
             }
           }}

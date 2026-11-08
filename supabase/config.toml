@@ -16,6 +16,13 @@ verify_jwt = false
 [functions.phone-upload]
 verify_jwt = false
 
+# Public error report: a screen that showed a server error records it, signed in or not (the
+# sign-in screen reports too). Bounded body, validated fields, message scrubbed, 20 per hour per
+# caller and 500 per hour in all; writes one row through the service role and returns only the
+# reference. Reads nothing back to the caller. A bearer is only looked up to store the user id.
+[functions.report-client-error]
+verify_jwt = false
+
 # backfill-reservierungen is an admin-only, one-off backfill that writes to the
 # changelog and checks the service credential in the handler. Never called from the browser
 # (no frontend caller), only invoked manually with the service-role key. Keep JWT

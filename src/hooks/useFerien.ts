@@ -19,6 +19,7 @@ export function useFerien() {
   })
 
   const createFerien = useMutation({
+    meta: { action: 'createFerien' },
     mutationFn: async (input: { fahrer: Fahrer; von_datum: string; bis_datum: string; notiz?: string }) => {
       const { error } = await supabase.from('ferien').insert(input)
       if (error) throw new Error(error.message)
@@ -29,6 +30,7 @@ export function useFerien() {
   })
 
   const updateFerien = useMutation({
+    meta: { action: 'updateFerien' },
     mutationFn: async ({ id, ...fields }: Partial<Ferien> & { id: string }) => {
       const { error } = await supabase.from('ferien').update(fields).eq('id', id)
       if (error) throw new Error(error.message)
@@ -39,6 +41,7 @@ export function useFerien() {
   })
 
   const deleteFerien = useMutation({
+    meta: { action: 'deleteFerien' },
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('ferien').delete().eq('id', id)
       if (error) throw new Error(error.message)

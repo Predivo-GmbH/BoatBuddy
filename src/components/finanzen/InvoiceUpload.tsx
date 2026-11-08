@@ -2,7 +2,8 @@ import { useState, useRef, useCallback } from 'react'
 import { Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { uploadReceipt, extractFromStorage, validateReceiptFile } from '@/lib/extractInvoice'
+import { uploadReceipt, extractFromStorage, validateReceiptFile, receiptMeanwhile } from '@/lib/extractInvoice'
+import { showServerError } from '@/lib/show-server-error'
 import { ExtractionProgress, type ExtractionState } from './ExtractionProgress'
 import type { ReceiptDraft } from '@/types'
 
@@ -37,7 +38,7 @@ export function InvoiceUpload({ onExtracted }: InvoiceUploadProps) {
       setTimeout(() => setState('idle'), 1500)
     } catch (err) {
       setState('error')
-      toast.error(err instanceof Error ? err.message : 'Upload fehlgeschlagen')
+      void showServerError(err, { action: 'belegHochladen', meanwhile: receiptMeanwhile(storagePath) })
       // If the file made it to storage, still let the user save it manually.
       if (storagePath) onExtracted({ status: 'error', dokument_pfad: storagePath })
       setTimeout(() => setState('idle'), 3000)

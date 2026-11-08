@@ -18,6 +18,7 @@ export function useEigentuemer() {
   })
 
   const updateEigentuemer = useMutation({
+    meta: { action: 'updateEigentuemer' },
     mutationFn: async ({ id, ...fields }: { id: string } & Partial<Omit<Eigentuemer, 'id' | 'erstellt_am'>>) => {
       const { error } = await supabase
         .from('eigentuemer')

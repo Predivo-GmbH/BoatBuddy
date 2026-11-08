@@ -24,6 +24,7 @@ export function useAbrechnung() {
   })
 
   const updateConfig = useMutation({
+    meta: { action: 'updateConfig' },
     mutationFn: async (fields: Partial<Omit<AbrechnungConfig, 'id' | 'aktualisiert_am'>>) => {
       if (!config?.id) throw new Error('No config row found')
       const { error } = await supabase

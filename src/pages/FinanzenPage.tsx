@@ -17,7 +17,8 @@ import { useGastsessions } from '@/hooks/useGastsessions'
 import { useTabKeyboard } from '@/hooks/useTabKeyboard'
 import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { uploadReceipt, extractFromStorage, validateReceiptFile } from '@/lib/extractInvoice'
+import { uploadReceipt, extractFromStorage, validateReceiptFile, receiptMeanwhile } from '@/lib/extractInvoice'
+import { showServerError } from '@/lib/show-server-error'
 import { toast } from 'sonner'
 import { DollarSign, Wallet, Camera, Smartphone } from 'lucide-react'
 import type { ReceiptDraft } from '@/types'
@@ -98,7 +99,7 @@ export default function FinanzenPage() {
       const extracted = await extractFromStorage(storagePath)
       setDraftAusgabe({ status: 'ready', data: extracted, dokument_pfad: storagePath })
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Upload fehlgeschlagen')
+      void showServerError(err, { action: 'belegHochladen', meanwhile: receiptMeanwhile(storagePath) })
       // Keep the dialog open for manual entry if the file reached storage.
       setDraftAusgabe(storagePath ? { status: 'error', dokument_pfad: storagePath } : null)
     }

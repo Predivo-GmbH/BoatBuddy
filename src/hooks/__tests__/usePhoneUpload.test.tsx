@@ -2,7 +2,7 @@ import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePhoneUpload } from '../usePhoneUpload'
 
-const mocks = vi.hoisted(() => ({ single: vi.fn(), extract: vi.fn(), toast: vi.fn(), from: vi.fn() }))
+const mocks = vi.hoisted(() => ({ single: vi.fn(), extract: vi.fn(), notice: vi.fn(), from: vi.fn() }))
 vi.mock('@/lib/supabase', () => {
   const query = {
     insert: vi.fn(() => query), select: vi.fn(() => query), eq: vi.fn(() => query), single: mocks.single,
@@ -10,14 +10,14 @@ vi.mock('@/lib/supabase', () => {
   mocks.from.mockReturnValue(query)
   return { supabase: { from: mocks.from } }
 })
-vi.mock('@/lib/extractInvoice', () => ({ extractFromStorage: mocks.extract }))
-vi.mock('sonner', () => ({ toast: { error: mocks.toast } }))
+vi.mock('@/lib/extractInvoice', () => ({ extractFromStorage: mocks.extract, receiptMeanwhile: (p: string | null) => p ? 'attached' : 'default' }))
+vi.mock('@/lib/show-server-error', () => ({ showServerError: mocks.notice }))
 
 beforeEach(() => {
   vi.useFakeTimers()
   mocks.single.mockReset()
   mocks.extract.mockReset()
-  mocks.toast.mockClear()
+  mocks.notice.mockClear()
   mocks.from.mockClear()
 })
 afterEach(() => { cleanup(); vi.useRealTimers() })
@@ -70,5 +70,14 @@ describe('phone upload completion without public Realtime', () => {
     await act(async () => { await result.current.createSession() })
     await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
     expect(onExtracted).toHaveBeenCalledWith({ status: 'error', dokument_pfad: 'phone-uploads/test/photo.jpg' })
+    // The failed reading is our error: the shared notice, with the line that is true here.
+    expect(mocks.notice).toHaveBeenCalledWith(expect.any(Error), { action: 'belegLesen', meanwhile: 'attached' })
+  })
+
+  it('a QR session that cannot be created gets the shared notice', async () => {
+    mocks.single.mockResolvedValueOnce({ data: null, error: { message: 'permission denied', code: '42501' } })
+    const { result } = renderHook(() => usePhoneUpload())
+    await act(async () => { expect(await result.current.createSession()).toBeNull() })
+    expect(mocks.notice).toHaveBeenCalledWith(expect.objectContaining({ code: '42501' }), { action: 'qrSitzungErstellen' })
   })
 })

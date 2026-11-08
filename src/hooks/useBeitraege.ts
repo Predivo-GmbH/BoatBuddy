@@ -30,6 +30,7 @@ export function useBeitraege(jahr: number) {
   }
 
   const createBeitrag = useMutation({
+    meta: { action: 'createBeitrag' },
     mutationFn: async (input: { fahrer: Fahrer; betrag: number; monat: string; notiz?: string }) => {
       const { error } = await supabase.from('beitraege').insert(input)
       if (error) throw new Error(error.message)
@@ -38,6 +39,7 @@ export function useBeitraege(jahr: number) {
   })
 
   const deleteBeitrag = useMutation({
+    meta: { action: 'deleteBeitrag' },
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('beitraege').delete().eq('id', id)
       if (error) throw new Error(error.message)

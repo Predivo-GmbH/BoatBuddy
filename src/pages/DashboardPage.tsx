@@ -145,7 +145,6 @@ export default function DashboardPage() {
           setFahrtNotiz('')
           setFahrtReservierungId('')
         },
-        onError: (err) => toast.error(err instanceof Error ? err.message : 'Fehler beim Speichern'),
       },
     )
   }

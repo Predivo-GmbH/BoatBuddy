@@ -129,7 +129,6 @@ export default function NeuigkeitenPage() {
           setNewDatum(new Date().toISOString().slice(0, 10))
           setShowAdd(false)
         },
-        onError: () => toast.error('Fehler beim Speichern'),
       },
     )
   }
@@ -150,7 +149,6 @@ export default function NeuigkeitenPage() {
           toast.success('Eintrag aktualisiert')
           setEditingId(null)
         },
-        onError: () => toast.error('Fehler beim Speichern'),
       },
     )
   }

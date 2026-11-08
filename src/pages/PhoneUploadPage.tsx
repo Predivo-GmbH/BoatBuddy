@@ -3,10 +3,18 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { supabase } from '@/lib/supabase'
 import { Camera, CheckCircle, AlertCircle, Loader2, RotateCcw } from 'lucide-react'
 import { BoatIcon } from '@/components/shared/BoatIcon'
+import { showServerError } from '@/lib/show-server-error'
 
 type PageState = 'validating' | 'invalid' | 'ready' | 'preview' | 'uploading' | 'success'
 
 const MAX_DIMENSION = 2048
+
+// An expired, used or wrong QR code and an oversized photo answer 4xx: the page already says so
+// or lets the person retake. Everything else (5xx, no answer) is our failure and gets the notice.
+function isOurFailure(error: unknown): boolean {
+  const status = (error as { context?: { status?: unknown } } | null)?.context?.status
+  return !(typeof status === 'number' && status >= 400 && status < 500)
+}
 
 function enhanceImage(canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext('2d')
@@ -62,6 +70,7 @@ export default function PhoneUploadPage() {
     })
       .then(({ data, error }) => {
         if (error || data?.valid !== true) {
+          if (error && isOurFailure(error)) void showServerError(error, { screen: 'phone-upload', action: 'qrCodePruefen' })
           setState('invalid')
         } else {
           setToken(urlToken)
@@ -123,11 +132,19 @@ export default function PhoneUploadPage() {
         body: capturedBlob,
         headers: { 'x-upload-token': token, 'Content-Type': 'image/jpeg' },
       })
-      if (error || data?.success !== true) throw new Error('upload')
+      if (error) throw error
+      if (data?.success !== true) throw new Error('phone-upload: the answer did not confirm the upload')
 
       setState('success')
-    } catch {
+    } catch (err) {
       setState('preview') // allow retry
+      if (isOurFailure(err)) {
+        void showServerError(err, {
+          screen: 'phone-upload',
+          action: 'fotoHochladen',
+          meanwhile: 'Bitte versuche es in ein paar Minuten noch einmal oder erfasse die Ausgabe am Computer.',
+        })
+      }
     }
   }, [capturedBlob, token])
 

@@ -254,7 +254,6 @@ export function NutzungslogTabelle() {
                 toast.success('Eintrag gelöscht')
                 setDeleteId(null)
               },
-              onError: () => toast.error('Fehler beim Löschen'),
             })
           }
         }}
@@ -274,7 +273,6 @@ export function NutzungslogTabelle() {
                   toast.success('Eintrag aktualisiert')
                   setEditingLog(null)
                 },
-                onError: () => toast.error('Fehler beim Aktualisieren'),
               },
             )
           }}

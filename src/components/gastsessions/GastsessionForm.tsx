@@ -105,7 +105,6 @@ export function GastsessionForm() {
           setBetrag('25')
           setDatum(todayISO())
         },
-        onError: () => toast.error('Fehler beim Speichern'),
       },
     )
   }

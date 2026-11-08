@@ -13,7 +13,22 @@ begin
   return false;
 exception when insufficient_privilege then return true;
 end $$;
+create function pg_temp.expect_check(statement text) returns boolean
+language plpgsql security invoker set search_path = pg_catalog, public, pg_temp as $$
+begin
+  execute statement;
+  return false;
+exception when check_violation then return true;
+end $$;
+create function pg_temp.expect_unique(statement text) returns boolean
+language plpgsql security invoker set search_path = pg_catalog, public, pg_temp as $$
+begin
+  execute statement;
+  return false;
+exception when unique_violation then return true;
+end $$;
 grant execute on function pg_temp.check_security(boolean,text), pg_temp.expect_denied(text) to anon, authenticated, service_role;
+grant execute on function pg_temp.expect_check(text), pg_temp.expect_unique(text) to service_role;
 
 select pg_temp.check_security(not exists (
   select 1 from pg_class where relnamespace = 'public'::regnamespace
@@ -94,6 +109,8 @@ select pg_temp.check_security(pg_temp.expect_denied('truncate public.ausgaben'),
 select pg_temp.check_security(pg_temp.expect_denied('create table public.attack(id int)'), 'schema CREATE refused');
 select pg_temp.check_security(pg_temp.expect_denied('select public.bump_extract_rate(''attack'',now())'), 'rate RPC refused');
 select pg_temp.check_security(pg_temp.expect_denied('select * from public.extract_rate_limit'), 'rate table refused');
+select pg_temp.check_security(pg_temp.expect_denied('select * from public.client_error_reports'), 'error reports unreadable by anon');
+select pg_temp.check_security(pg_temp.expect_denied($sql$insert into public.client_error_reports(reference,area,screen,action,message) values ('E-ANON23','other','x','x','forged')$sql$), 'error reports only through the function (anon)');
 select pg_temp.check_security(pg_temp.expect_denied('select * from public.tanken'), 'unused archive table refused');
 select pg_temp.check_security(pg_temp.expect_denied('update public.ausgaben set erstellt_am = now()'), 'expense timestamps protected');
 select pg_temp.check_security(pg_temp.expect_denied('update public.ausgaben set extraktion_daten = ''{}'''), 'AI result protected');
@@ -116,6 +133,8 @@ select pg_temp.check_security(pg_temp.expect_denied('update public.changelog set
 select pg_temp.check_security(pg_temp.expect_denied('update public.phone_upload_sessions set token = ''replaced'''), 'member cannot replace QR token');
 select pg_temp.check_security(pg_temp.expect_denied('update public.phone_upload_sessions set expires_at = now()'), 'member cannot extend QR lifetime');
 select pg_temp.check_security(pg_temp.expect_denied('update public.phone_upload_sessions set status = ''uploaded'''), 'phone completion is service-only');
+select pg_temp.check_security(pg_temp.expect_denied('select * from public.client_error_reports'), 'error reports unreadable by a member');
+select pg_temp.check_security(pg_temp.expect_denied($sql$insert into public.client_error_reports(reference,area,screen,action,message) values ('E-MEMB23','other','x','x','forged')$sql$), 'error reports only through the function (member)');
 
 -- Real app paths: inserts fire helpers/triggers, deletes cascade both ways.
 insert into public.beitraege(fahrer,betrag,monat,notiz) values ('roger',400,'2040-01-01','security fixture');
@@ -170,6 +189,14 @@ reset role;
 set role service_role;
 select pg_temp.check_security(public.bump_extract_rate('fixture','2040-01-01') = 1, 'edge rate counter works');
 select pg_temp.check_security((select count from public.extract_rate_limit where bucket_key = 'fixture' and window_start = '2040-01-01') = 1, 'member-session reads its counter without spending it');
+insert into public.client_error_reports(reference,area,screen,action,status,message,app_version,user_id)
+values ('E-FIX234','signin','anmeldung','memberSession',503,'fixture report','abc1234','07a91df9-55d7-42b4-9944-82f5b88dcf7e');
+select pg_temp.check_security(exists(select 1 from public.client_error_reports where reference = 'E-FIX234' and area = 'signin'), 'report-client-error stores and reads back its row');
+select pg_temp.check_security(pg_temp.expect_check($sql$insert into public.client_error_reports(reference,area,screen,action,message) values ('not-a-ref','other','x','x','m')$sql$), 'report reference shape enforced');
+select pg_temp.check_security(pg_temp.expect_check($sql$insert into public.client_error_reports(reference,area,screen,action,message) values ('E-FIX235','payment','x','x','m')$sql$), 'report area limited to money, signin, other');
+select pg_temp.check_security(pg_temp.expect_check($sql$insert into public.client_error_reports(reference,area,screen,action,message) values ('E-FIX236','other','two words','x','m')$sql$), 'report screen shape enforced');
+select pg_temp.check_security(pg_temp.expect_check(format($sql$insert into public.client_error_reports(reference,area,screen,action,message) values ('E-FIX237','other','x','x',%L)$sql$, repeat('m', 501))), 'report message bounded to 500 characters');
+select pg_temp.check_security(pg_temp.expect_unique($sql$insert into public.client_error_reports(reference,area,screen,action,message) values ('E-FIX234','other','x','x','m')$sql$), 'report reference unique');
 update public.ausgaben set extraktion_daten = '{"fixture":true}' where bezeichnung = 'fixture';
 select pg_temp.check_security(exists(select 1 from public.ausgaben where extraktion_daten is not null), 'service AI result update works');
 insert into public.changelog(titel,kategorie) values ('server fixture','daten');

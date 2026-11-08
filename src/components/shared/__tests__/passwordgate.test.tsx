@@ -98,13 +98,27 @@ describe('PasswordGate with native member sessions', () => {
     expect(screen.getByLabelText('Passwort')).toHaveValue('fixture password')
     expect(mocks.setSession).not.toHaveBeenCalled()
   })
+  // An unavailable sign-in is OUR error: the shared notice (CONTRACT-customer-error-message-2026-11-08 3a-c).
+  const gateAnswers = (answer: () => unknown, report: () => unknown) =>
+    mocks.invoke.mockImplementation(async (name: string) => name === 'member-session' ? answer() : report())
   it.each([
     ['a 503 from the function', () => ({ data: null, error: httpError(503) })],
     ['an unreachable function', () => ({ data: null, error: new Error('Failed to send a request to the Edge Function') })],
-  ])('says the sign-in is unavailable, not "wrong password", on %s', async (_label, answer) => {
-    mocks.invoke.mockResolvedValue(answer()); await mount(); await submit()
-    expect(screen.getByRole('alert')).toHaveTextContent('Anmeldung gerade nicht möglich')
+  ])('says our team was notified, with the reference, not "wrong password", on %s', async (_label, answer) => {
+    gateAnswers(answer, () => ({ data: { reference: 'E-GATE23' }, error: null })); await mount(); await submit()
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(
+      'Bei uns ist etwas schiefgelaufen. Unser Team wurde automatisch benachrichtigt und kümmert sich darum. Referenz: E-GATE23'))
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Falsches Passwort')
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/non-2xx|Edge Function/)
     expect(screen.queryByText('Protected')).not.toBeInTheDocument()
+    const report = mocks.invoke.mock.calls.find(([name]) => name === 'report-client-error')
+    expect(report?.[1].body).toMatchObject({ area: 'signin', screen: 'anmeldung', action: 'memberSession' })
+  })
+  it('offers the filled-in mail and never says "notified" when the report cannot be stored', async () => {
+    gateAnswers(() => ({ data: null, error: httpError(503) }), () => ({ data: null, error: httpError(503) })); await mount(); await submit()
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('wir konnten es nicht automatisch melden'))
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/benachrichtigt|non-2xx/)
+    expect(screen.getByRole('link', { name: 'Nachricht senden' }).getAttribute('href')).toMatch(/^mailto:/)
   })
   it('submits with Enter', async () => {
     await mount(); await userEvent.setup().type(screen.getByLabelText('Passwort'), 'fixture password{Enter}')

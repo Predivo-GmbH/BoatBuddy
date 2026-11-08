@@ -25,6 +25,7 @@ export function useGastsessions() {
   }
 
   const createGastsession = useMutation({
+    meta: { action: 'createGastsession' },
     mutationFn: async (input: { gast_name: string; betrag: number; bezahlt_an: Fahrer; datum: string; notiz?: string }) => {
       const { error } = await supabase.from('gastsessions').insert(input)
       if (error) throw new Error(error.message)
@@ -33,6 +34,7 @@ export function useGastsessions() {
   })
 
   const updateGastsession = useMutation({
+    meta: { action: 'updateGastsession' },
     mutationFn: async ({ id, ...fields }: Partial<Gastsession> & { id: string }) => {
       const { error } = await supabase.from('gastsessions').update(fields).eq('id', id)
       if (error) throw new Error(error.message)
@@ -41,6 +43,7 @@ export function useGastsessions() {
   })
 
   const deleteGastsession = useMutation({
+    meta: { action: 'deleteGastsession' },
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('gastsessions').delete().eq('id', id)
       if (error) throw new Error(error.message)

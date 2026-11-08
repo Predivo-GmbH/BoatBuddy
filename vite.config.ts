@@ -5,6 +5,11 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // The build's commit, sent with every error report (src/lib/server-error.ts) so a report
+  // names the release it came from. 'local' outside CI.
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify((process.env.GITHUB_SHA ?? 'local').slice(0, 12)),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

@@ -18,6 +18,7 @@ export function useWartung() {
   })
 
   const addWartung = useMutation({
+    meta: { action: 'addWartung' },
     mutationFn: async (task: Omit<Wartung, 'id' | 'erstellt_am' | 'erledigt' | 'erledigt_am'>) => {
       const { error } = await supabase
         .from('wartung')
@@ -30,6 +31,7 @@ export function useWartung() {
   })
 
   const toggleWartung = useMutation({
+    meta: { action: 'toggleWartung' },
     mutationFn: async ({ id, erledigt }: { id: string; erledigt: boolean }) => {
       const { error } = await supabase
         .from('wartung')
@@ -46,6 +48,7 @@ export function useWartung() {
   })
 
   const deleteWartung = useMutation({
+    meta: { action: 'deleteWartung' },
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('wartung')

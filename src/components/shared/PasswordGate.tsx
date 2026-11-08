@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { BoatIcon } from './BoatIcon'
+import { ServerErrorNotice } from './ServerErrorNotice'
+import { noticeFor, type Notice } from '@/lib/server-error'
 
 function isMember(session: Session | null) {
   return !!session && session.user.app_metadata.boatbuddy_member === true &&
@@ -10,13 +12,15 @@ function isMember(session: Session | null) {
 }
 
 // What the member sees. Only a refused password says "wrong": a full rate limit or a
-// sign-in that is unavailable must not make members doubt the password they know.
+// sign-in that is unavailable must not make members doubt the password they know. An
+// unavailable sign-in is OUR error: it gets the shared notice (lib/server-error.ts), reported
+// as area signin, with a reference or a pre-filled support mail.
 const MESSAGES = {
   wrong: 'Falsches Passwort',
   busy: 'Zu viele Anmeldeversuche. Bitte warte einige Minuten und versuche es dann erneut.',
-  unavailable: 'Anmeldung gerade nicht möglich. Bitte versuche es später erneut.',
 } as const
-type GateError = keyof typeof MESSAGES
+type GateError = keyof typeof MESSAGES | 'unavailable'
+const SIGNIN = { area: 'signin', screen: 'anmeldung', action: 'memberSession' } as const
 
 // supabase-js puts the function's HTTP response on FunctionsHttpError.context.
 function gateErrorOf(error: unknown): GateError {
@@ -32,7 +36,8 @@ export function PasswordGate({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<GateError | false>(false)
+  const [error, setError] = useState<keyof typeof MESSAGES | false>(false)
+  const [notice, setNotice] = useState<Notice | null>(null)
 
   useEffect(() => {
     let active = true
@@ -72,22 +77,30 @@ export function PasswordGate({ children }: { children: ReactNode }) {
     e.preventDefault()
     if (submitting) return
     setSubmitting(true)
+    setError(false)
+    setNotice(null)
+    // Our side failed: say so, report it, and show the reference or the pre-filled mail.
+    const announce = async (failure: unknown) => {
+      setNotice({ kind: 'pending' })
+      setNotice(await noticeFor(failure, SIGNIN))
+    }
     try {
       const { data, error: gateError } = await supabase.functions.invoke('member-session', { body: { password } })
       if (gateError) {
         const kind = gateErrorOf(gateError)
+        if (kind === 'unavailable') return await announce(gateError)
         setError(kind)
         if (kind === 'wrong') setPassword('')
         return
       }
-      if (!data?.access_token || !data?.refresh_token) throw new Error('login')
+      if (!data?.access_token || !data?.refresh_token) throw new Error('login: the answer carried no session')
       const { data: signedIn, error: sessionError } = await supabase.auth.setSession(data)
-      if (sessionError || !isMember(signedIn.session)) throw new Error('session')
+      if (sessionError || !isMember(signedIn.session)) throw sessionError ?? new Error('session: not a member session')
       queryClient.clear()
       setSession(signedIn.session)
       setPassword('')
-    } catch {
-      setError('unavailable')
+    } catch (failure) {
+      await announce(failure)
     } finally { setSubmitting(false) }
   }
 
@@ -111,6 +124,7 @@ export function PasswordGate({ children }: { children: ReactNode }) {
           autoFocus
         />
         {error && <p role="alert" className="text-sm text-destructive">{MESSAGES[error]}</p>}
+        {notice && <div role="alert" className="text-sm text-destructive"><ServerErrorNotice notice={notice} /></div>}
         <button
           type="submit"
           disabled={submitting}

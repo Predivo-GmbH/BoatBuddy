@@ -18,6 +18,7 @@ export function useGentlemanRules() {
   })
 
   const addRule = useMutation({
+    meta: { action: 'addRule' },
     mutationFn: async ({ regel, sortierung }: { regel: string; sortierung: number }) => {
       const { error } = await supabase
         .from('gentleman_rules')
@@ -30,6 +31,7 @@ export function useGentlemanRules() {
   })
 
   const updateRule = useMutation({
+    meta: { action: 'updateRule' },
     mutationFn: async ({ id, ...fields }: { id: string } & Partial<Omit<GentlemanRule, 'id' | 'erstellt_am'>>) => {
       const { error } = await supabase
         .from('gentleman_rules')
@@ -43,6 +45,7 @@ export function useGentlemanRules() {
   })
 
   const deleteRule = useMutation({
+    meta: { action: 'deleteRule' },
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('gentleman_rules')

@@ -28,6 +28,7 @@ export function useAusgaben() {
   }
 
   const createAusgabe = useMutation({
+    meta: { action: 'createAusgabe' },
     mutationFn: async (input: { bezeichnung: string; betrag: number; kategorie: Kategorie; datum: string; bezahlt_von?: string; notiz?: string; treibstoff_liter?: number | null; dokument_pfad?: string | null; verarbeitungs_status?: Ausgabe['verarbeitungs_status'] }) => {
       const { error } = await supabase.from('ausgaben').insert(input)
       if (error) throw new Error(error.message)
@@ -36,6 +37,7 @@ export function useAusgaben() {
   })
 
   const updateAusgabe = useMutation({
+    meta: { action: 'updateAusgabe' },
     mutationFn: async ({ id, ...fields }: Partial<Ausgabe> & { id: string }) => {
       const { error } = await supabase.from('ausgaben').update(fields).eq('id', id)
       if (error) throw new Error(error.message)
@@ -44,6 +46,7 @@ export function useAusgaben() {
   })
 
   const deleteAusgabe = useMutation({
+    meta: { action: 'deleteAusgabe' },
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('ausgaben').delete().eq('id', id)
       if (error) throw new Error(error.message)

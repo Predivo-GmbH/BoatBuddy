@@ -1,6 +1,6 @@
 # Feature Registry -- BoatBuddy
 
-**Last updated:** 2026-06-02
+**Last updated:** 2026-11-08
 **Codebase path:** `C:\Business\Internal Projects\BoatBuddy`
 **Supabase URL:** `https://xzythvxmuxmczuiophwp.supabase.co`
 
@@ -80,6 +80,8 @@
 | INFRA-002 | ErrorBoundary catches render errors | `critical-path.spec.ts:"ErrorBoundary renders fallback"` | COVERED |
 | INFRA-003 | 404 page shows not-found message with link to dashboard | `critical-path.spec.ts:"404 page shows not found message"` | COVERED |
 | INFRA-004 | Loading skeletons shown while data loads | `critical-path.spec.ts:"loading skeleton appears"` | COVERED |
+| INFRA-005 | Server error notice: every failed save/load, upload, sign-in, phone upload and crash reports itself and says "Unser Team wurde automatisch benachrichtigt ... Referenz: E-XXXXXX" only once the report is stored; otherwise a pre-filled support mail; the raw error text never reaches the screen | `src/lib/__tests__/server-error.test.tsx`, `e2e/local/member-gate.spec.ts`, `e2e/staging/error-notice.spec.ts` | COVERED |
+| INFRA-006 | Server action `report-client-error`: validates and bounds the report, removes e-mail addresses/tokens/long random strings, 20 per hour per caller and 500 in all, answers 200 + reference only after the row is stored (503 otherwise), logs one `client_error area= screen=` line | `supabase/functions/report-client-error/handler.test.ts`, `scripts/fixtures/database-security-checks.sql` | COVERED |
 | NEWS-001 | Neuigkeiten page shows changelog timeline grouped by month | — | NOT COVERED |
 | NEWS-002 | Neuigkeiten page: add new entry form (titel, beschreibung, kategorie, datum) | — | NOT COVERED |
 | NEWS-003 | Neuigkeiten page: inline edit entries | — | NOT COVERED |
@@ -89,7 +91,7 @@
 
 ## Summary
 
-- **Total features:** 78
-- **Covered by E2E:** 72
+- **Total features:** 80
+- **Covered by E2E:** 74
 - **Not covered:** 6 (NEWS-001 through NEWS-006)
 - **Coverage:** 92%
