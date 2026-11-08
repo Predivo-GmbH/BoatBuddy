@@ -14,7 +14,9 @@ import { signInMember } from '../member-session'
 // data changes and no real person is involved. The report itself goes to the REAL deployed
 // report-client-error function, and the row it stored is then read back with the staging service key:
 // the reference on screen must be a row in client_error_reports.
-const PLANTED = 'planted by e2e/staging/error-notice.spec.ts'
+// Words only: report-client-error removes long runs that mix letters and digits (ids, keys) from
+// the stored message, and a file path such as this spec's own would be one of them.
+const PLANTED = 'planted by the staging error notice test'
 
 async function storedRow(reference: string) {
   const { serverKey } = stagingKeys()
