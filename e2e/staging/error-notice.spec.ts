@@ -51,6 +51,8 @@ test.describe('Staging — the customer error notice', () => {
     const row = await storedRow(reference)
     expect(row).toMatchObject({ reference, area: 'signin', screen: 'anmeldung', action: 'memberSession', status: 503, user_id: null })
     expect(row?.message).toContain(PLANTED)
+    // The release evidence: the reference a person would have seen, and that it is a stored row.
+    console.log(`staging error notice: sign-in reference ${reference} shown and stored (area=signin)`)
   })
 
   test('a failed load on a member screen (planted 500) is reported with the member id', async ({ page }) => {
@@ -63,5 +65,6 @@ test.describe('Staging — the customer error notice', () => {
     const reference = await referenceShown(page, page.locator('[data-server-error="notified"]'))
     const row = await storedRow(reference)
     expect(row).toMatchObject({ reference, area: 'other', screen: 'nutzung', action: 'daten-laden', user_id: MEMBER_ID })
+    console.log(`staging error notice: member-screen reference ${reference} shown and stored (area=other)`)
   })
 })
