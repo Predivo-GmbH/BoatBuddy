@@ -205,7 +205,6 @@ export function AusgabenTabelle() {
                           { id: a.id, erstattet: newErstattet, erstattet_am: newErstattet ? new Date().toISOString().split('T')[0] : null },
                           {
                             onSuccess: () => toast.success(newErstattet ? 'Als erstattet markiert' : 'Erstattung zurückgesetzt'),
-                            onError: () => toast.error('Fehler beim Aktualisieren'),
                           },
                         )
                       }}
@@ -255,7 +254,6 @@ export function AusgabenTabelle() {
                 toast.success('Ausgabe gelöscht')
                 setDeleteId(null)
               },
-              onError: () => toast.error('Fehler beim Löschen'),
             })
           }
         }}

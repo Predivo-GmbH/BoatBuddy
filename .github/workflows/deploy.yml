@@ -337,6 +337,15 @@ jobs:
           MEMBER_GATE_PASSWORD: ${{ secrets.MEMBER_GATE_PASSWORD }}
         run: node scripts/member-gate-smoke.mjs --environment staging
 
+      # The new front end says "Unser Team wurde automatisch benachrichtigt" only after
+      # report-client-error answered 200 with a reference. One synthetic report, read back as a
+      # row; before the upload, so a failure leaves the old front end live (2026-11-08).
+      - name: Error reports are stored and answered with a reference (staging)
+        env:
+          SUPABASE_PUBLIC_KEY: ${{ secrets.STAGING_ANON_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/error-report-smoke.mjs --environment staging
+
       - name: Unit tests
         run: npm test -- --run --maxWorkers=2
         env:
@@ -1097,6 +1106,12 @@ jobs:
           SUPABASE_PUBLIC_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           MEMBER_GATE_PASSWORD: ${{ secrets.MEMBER_GATE_PASSWORD }}
         run: node scripts/member-gate-smoke.mjs --environment production
+
+      - name: Error reports are stored and answered with a reference (production)
+        env:
+          SUPABASE_PUBLIC_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/error-report-smoke.mjs --environment production
 
       - name: Deploy via FTP (zero-downtime)
         env:

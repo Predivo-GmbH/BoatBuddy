@@ -43,7 +43,6 @@ export function BeitraegeGrid() {
         { fahrer, betrag: jahr <= 2023 ? 300 : 400, monat: monatStr },
         {
           onSuccess: () => toast.success(`Beitrag für ${FAHRER_LABELS[fahrer]} – ${MONATE[monatIdx]} markiert`),
-          onError: () => toast.error('Fehler beim Erstellen'),
         },
       )
     }
@@ -169,7 +168,6 @@ export function BeitraegeGrid() {
                 toast.success('Beitrag entfernt')
                 setDeleteTarget(null)
               },
-              onError: () => toast.error('Fehler beim Löschen'),
             })
           }
         }}

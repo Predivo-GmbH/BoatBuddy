@@ -39,7 +39,6 @@ export function BootStatsKarte() {
           toast.success('Boot-Daten aktualisiert')
           setEditing(false)
         },
-        onError: () => toast.error('Fehler beim Speichern'),
       },
     )
   }

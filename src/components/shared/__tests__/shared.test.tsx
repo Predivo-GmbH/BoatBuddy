@@ -11,6 +11,10 @@ vi.mock('@/hooks/useFocusTrap', () => ({
   useFocusTrap: () => ({ current: null }),
 }))
 
+// The crash screen reports through report-client-error (lib/server-error.ts).
+const supabaseMocks = vi.hoisted(() => ({ invoke: vi.fn() }))
+vi.mock('@/lib/supabase', () => ({ supabase: { functions: { invoke: supabaseMocks.invoke } } }))
+
 // cn utility relies on clsx + tailwind-merge — no mock needed, real impl works in jsdom
 
 const MockIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -340,6 +344,31 @@ describe('ErrorBoundary', () => {
     expect(
       screen.getByRole('button', { name: 'Seite neu laden' })
     ).toBeInTheDocument()
+  })
+
+  it('reports the crash and shows the notified text with the stored reference', async () => {
+    supabaseMocks.invoke.mockResolvedValue({ data: { reference: 'E-CRASH2' }, error: null })
+    render(
+      <ErrorBoundary>
+        <Bomb />
+      </ErrorBoundary>
+    )
+    expect(await screen.findByText(/Unser Team wurde automatisch benachrichtigt und kümmert sich darum\. Referenz: E-CRASH2/)).toBeInTheDocument()
+    expect(supabaseMocks.invoke).toHaveBeenCalledWith('report-client-error', expect.objectContaining({
+      body: expect.objectContaining({ area: 'other', action: 'seiteAnzeigen' }),
+    }))
+    expect(document.body.textContent).not.toContain('boom')
+  })
+
+  it('offers the filled-in mail, never "notified", when the crash report fails', async () => {
+    supabaseMocks.invoke.mockRejectedValue(new TypeError('Failed to fetch'))
+    render(
+      <ErrorBoundary>
+        <Bomb />
+      </ErrorBoundary>
+    )
+    expect(await screen.findByRole('link', { name: 'Nachricht senden' })).toHaveAttribute('href', expect.stringMatching(/^mailto:/))
+    expect(document.body.textContent).not.toContain('benachrichtigt')
   })
 
   it('does not show the fallback UI when children render successfully', () => {

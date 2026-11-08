@@ -238,7 +238,6 @@ export function GastsessionTabelle() {
                           },
                           {
                             onSuccess: () => toast.success(newStatus ? 'Als eingezahlt markiert' : 'Einzahlung zurückgesetzt'),
-                            onError: () => toast.error('Fehler beim Aktualisieren'),
                           },
                         )
                       }}
@@ -304,7 +303,6 @@ export function GastsessionTabelle() {
                 toast.success('Session gelöscht')
                 setDeleteId(null)
               },
-              onError: () => toast.error('Fehler beim Löschen'),
             })
           }
         }}
@@ -324,7 +322,6 @@ export function GastsessionTabelle() {
                   toast.success('Session aktualisiert')
                   setEditingSession(null)
                 },
-                onError: () => toast.error('Fehler beim Aktualisieren'),
               },
             )
           }}

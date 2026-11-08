@@ -1,5 +1,13 @@
 import { supabase } from '@/lib/supabase'
 import type { Kategorie } from '@/lib/fahrer'
+import { DEFAULT_MEANWHILE, UserFacingError } from '@/lib/server-error'
+
+/** The "In der Zwischenzeit" line after a failed receipt upload or reading: true in both cases. */
+export function receiptMeanwhile(storagePath: string | null): string {
+  return storagePath
+    ? 'Du kannst die Ausgabe von Hand erfassen, der Beleg ist schon angehängt.'
+    : DEFAULT_MEANWHILE
+}
 
 /**
  * Draft-in-memory invoice extraction.
@@ -58,7 +66,7 @@ export async function extractFromStorage(storagePath: string): Promise<Extracted
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) throw new Error('Bitte erneut anmelden')
+  if (!session) throw new UserFacingError('Bitte lade die Seite neu und melde dich erneut an.')
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 120_000) // 2 min ceiling
@@ -75,7 +83,8 @@ export async function extractFromStorage(storagePath: string): Promise<Extracted
     })
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      throw new Error(`AI-Extraktion fehlgeschlagen (${res.status})${body ? `: ${body.slice(0, 120)}` : ''}`)
+      // For the error report only (lib/server-error.ts); the screen never shows this text.
+      throw Object.assign(new Error(`AI-Extraktion fehlgeschlagen (${res.status})${body ? `: ${body.slice(0, 120)}` : ''}`), { status: res.status })
     }
     const json = await res.json()
     return (json?.extracted ?? {}) as ExtractedInvoice

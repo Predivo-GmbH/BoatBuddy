@@ -67,7 +67,6 @@ export function NutzungslogForm() {
           setDatum(todayISO())
           setExpanded(false)
         },
-        onError: (err) => toast.error(err instanceof Error ? err.message : 'Fehler beim Speichern'),
       },
     )
   }

@@ -24,6 +24,7 @@ export function useNutzungslogs() {
   })
 
   const createNutzungslog = useMutation({
+    meta: { action: 'createNutzungslog' },
     mutationFn: async (input: {
       datum: string
       fahrer: Fahrer
@@ -60,6 +61,7 @@ export function useNutzungslogs() {
   })
 
   const updateNutzungslog = useMutation({
+    meta: { action: 'updateNutzungslog' },
     mutationFn: async ({ id, ...fields }: Partial<Nutzungslog> & { id: string }) => {
       let oldHours = 0
       if (fields.betriebsstunden !== undefined) {
@@ -80,6 +82,7 @@ export function useNutzungslogs() {
   })
 
   const deleteNutzungslog = useMutation({
+    meta: { action: 'deleteNutzungslog' },
     mutationFn: async (id: string) => {
       const { error } = await supabase.rpc('delete_nutzungslog_atomic', { p_id: id })
       if (error) throw new Error(error.message)

@@ -83,7 +83,6 @@ export function FerienDialog({ editFerien, onClose }: FerienDialogProps) {
             toast.success('Ferien aktualisiert')
             onClose()
           },
-          onError: () => toast.error('Fehler beim Aktualisieren'),
         },
       )
       return
@@ -101,7 +100,6 @@ export function FerienDialog({ editFerien, onClose }: FerienDialogProps) {
           toast.success('Ferien eingetragen')
           onClose()
         },
-        onError: () => toast.error('Fehler beim Speichern'),
       },
     )
   }
@@ -196,7 +194,6 @@ export function FerienDialog({ editFerien, onClose }: FerienDialogProps) {
                       toast.success('Ferien entfernt')
                       onClose()
                     },
-                    onError: () => toast.error('Fehler beim Loeschen'),
                   })
                 }
               }}

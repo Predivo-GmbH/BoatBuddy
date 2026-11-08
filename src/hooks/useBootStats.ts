@@ -26,6 +26,7 @@ export function useBootStats() {
   })
 
   const updateBootStats = useMutation({
+    meta: { action: 'updateBootStats' },
     mutationFn: async (fields: Partial<Omit<BootStats, 'id' | 'aktualisiert_am'>>) => {
       if (!stats?.id) throw new Error('No boot stats row found')
       const { error } = await supabase

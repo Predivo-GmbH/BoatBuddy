@@ -43,10 +43,7 @@ export function OffenePostenCard() {
           toast.success('Als erstattet markiert')
           setProcessingId(null)
         },
-        onError: () => {
-          toast.error('Fehler beim Aktualisieren')
-          setProcessingId(null)
-        },
+        onError: () => setProcessingId(null),
       },
     )
   }
@@ -60,10 +57,7 @@ export function OffenePostenCard() {
           toast.success('Als eingezahlt markiert')
           setProcessingId(null)
         },
-        onError: () => {
-          toast.error('Fehler beim Aktualisieren')
-          setProcessingId(null)
-        },
+        onError: () => setProcessingId(null),
       },
     )
   }

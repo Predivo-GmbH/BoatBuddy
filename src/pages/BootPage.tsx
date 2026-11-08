@@ -141,7 +141,8 @@ function EigentuemerTab() {
       toast.success('Anteile gespeichert')
       setEditing(false)
     } catch {
-      toast.error('Fehler beim Speichern der Anteile')
+      // The failed save already shows the shared notice (MutationCache, lib/query-client.ts);
+      // the edit stays open so nothing typed is lost.
     }
   }
 
@@ -300,7 +301,6 @@ function AbrechnungTab() {
           toast.success('Abrechnungs-Konfiguration gespeichert')
           setEditing(false)
         },
-        onError: () => toast.error('Fehler beim Speichern'),
       },
     )
   }

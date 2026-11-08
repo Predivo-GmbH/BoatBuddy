@@ -1,11 +1,12 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { PasswordGate } from '@/components/shared/PasswordGate'
 import { AppLayout } from '@/components/shared/AppLayout'
+import { createQueryClient } from '@/lib/query-client'
 
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
 const FinanzenPage = lazy(() => import('@/pages/FinanzenPage'))
@@ -17,14 +18,7 @@ const NeuigkeitenPage = lazy(() => import('@/pages/NeuigkeitenPage'))
 const PhoneUploadPage = lazy(() => import('@/pages/PhoneUploadPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1,
-    },
-  },
-})
+const queryClient = createQueryClient()
 
 function App() {
   return (

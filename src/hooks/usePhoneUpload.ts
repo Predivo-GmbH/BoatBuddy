@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { toast } from 'sonner'
-import { extractFromStorage } from '@/lib/extractInvoice'
+import { extractFromStorage, receiptMeanwhile } from '@/lib/extractInvoice'
+import { showServerError } from '@/lib/show-server-error'
 import type { ReceiptDraft } from '@/types'
 
 interface PhoneUploadSession {
@@ -52,7 +52,8 @@ export function usePhoneUpload({ onExtracted }: UsePhoneUploadOptions = {}) {
     try {
       const extracted = await extractFromStorage(storagePath)
       onExtractedRef.current?.({ status: 'ready', data: extracted, dokument_pfad: storagePath })
-    } catch {
+    } catch (err) {
+      void showServerError(err, { action: 'belegLesen', meanwhile: receiptMeanwhile(storagePath) })
       onExtractedRef.current?.({ status: 'error', dokument_pfad: storagePath })
     }
   }, [cleanup])
@@ -112,8 +113,8 @@ export function usePhoneUpload({ onExtracted }: UsePhoneUploadOptions = {}) {
       startPolling(data.id, token)
 
       return newSession
-    } catch {
-      toast.error('Fehler beim Erstellen der Upload-Session')
+    } catch (err) {
+      void showServerError(err, { action: 'qrSitzungErstellen' })
       return null
     } finally {
       setIsCreating(false)

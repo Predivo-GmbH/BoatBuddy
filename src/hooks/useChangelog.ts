@@ -22,6 +22,7 @@ export function useChangelog() {
   }
 
   const addEntry = useMutation({
+    meta: { action: 'addEntry' },
     mutationFn: async (input: { titel: string; beschreibung?: string; kategorie: string; datum: string }) => {
       const { error } = await supabase.from('changelog').insert(input)
       if (error) throw new Error(error.message)
@@ -30,6 +31,7 @@ export function useChangelog() {
   })
 
   const updateEntry = useMutation({
+    meta: { action: 'updateEntry' },
     mutationFn: async ({ id, ...fields }: Partial<ChangelogEntry> & { id: string }) => {
       const { error } = await supabase.from('changelog').update(fields).eq('id', id)
       if (error) throw new Error(error.message)
@@ -38,6 +40,7 @@ export function useChangelog() {
   })
 
   const deleteEntry = useMutation({
+    meta: { action: 'deleteEntry' },
     mutationFn: async (id: string) => {
       // Cascade: also delete the linked source record (trip, expense, …) so News and
       // the underlying data stay in sync. Manually-added news (no source) just delete.

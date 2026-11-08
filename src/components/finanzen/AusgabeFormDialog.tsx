@@ -6,6 +6,7 @@ import { todayISO } from '@/lib/format'
 import { Plus, X, Upload, Camera, FileCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { uploadReceipt, extractFromStorage, removeReceipt, validateReceiptFile, type ExtractedInvoice } from '@/lib/extractInvoice'
+import { showServerError } from '@/lib/show-server-error'
 import { ExtractionProgress, type ExtractionState } from './ExtractionProgress'
 import type { Ausgabe, ReceiptDraft } from '@/types'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
@@ -163,7 +164,10 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
       toast.success('Beleg extrahiert — bitte prüfen und speichern')
     } catch (err) {
       setUploadState('error')
-      toast.error(err instanceof Error ? err.message : 'Upload fehlgeschlagen')
+      void showServerError(err, {
+        action: 'belegHochladen',
+        meanwhile: 'Du kannst die Ausgabe von Hand erfassen und den Beleg später noch einmal hochladen.',
+      })
     }
   }, [applyExtracted])
 
@@ -228,7 +232,6 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
             toast.success('Ausgabe aktualisiert')
             close()
           },
-          onError: () => toast.error('Fehler beim Aktualisieren'),
         },
       )
     } else {
@@ -248,7 +251,6 @@ export function AusgabeFormDialog({ editAusgabe, onClose, autoOpen, forcePayerSe
             toast.success('Ausgabe gespeichert')
             close()
           },
-          onError: () => toast.error('Fehler beim Speichern'),
         },
       )
     }

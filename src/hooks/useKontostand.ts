@@ -21,6 +21,7 @@ export function useKontostand() {
   const latestKontostand = snapshots[0] ?? null
 
   const createSnapshot = useMutation({
+    meta: { action: 'createSnapshot' },
     mutationFn: async (input: { betrag: number; datum: string; notiz?: string }) => {
       const { error } = await supabase.from('kontostand_snapshots').insert(input)
       if (error) throw new Error(error.message)
