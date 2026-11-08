@@ -6,7 +6,7 @@
 import { createElement } from 'react'
 import { toast } from 'sonner'
 import { ServerErrorNotice } from '@/components/shared/ServerErrorNotice'
-import { noticeFor, screenName, UserFacingError, type ErrorContext } from '@/lib/server-error'
+import { noticeFor, screenName, supportMail, UserFacingError, type ErrorContext, type Notice } from '@/lib/server-error'
 
 // Several queries of one screen failing together are one problem: one notice, one report.
 export const REPEAT_WINDOW_MS = 30_000
@@ -28,7 +28,12 @@ export async function showServerError(error: unknown, ctx: ErrorContext): Promis
   if (now - (shownAt.get(key) ?? Number.NEGATIVE_INFINITY) < REPEAT_WINDOW_MS) return
   shownAt.set(key, now)
   const id = toast.loading(createElement(ServerErrorNotice, { notice: { kind: 'pending' } }), { duration: Number.POSITIVE_INFINITY })
-  const notice = await noticeFor(error, { ...ctx, screen })
+  // noticeFor never claims a report it did not get; if even describing the error fails, the
+  // person still gets the mail (with what little is known), never a spinner that stays.
+  const notice: Notice = await noticeFor(error, { ...ctx, screen }).catch(() => ({
+    kind: 'fallback' as const,
+    mailto: supportMail({ status: null, message: 'unbekannter Fehler' }, { ...ctx, screen }),
+  }))
   toast.error(createElement(ServerErrorNotice, { notice, meanwhile: ctx.meanwhile }), {
     id,
     // Long enough to read out the reference or reach the mail button; the person can close it.
