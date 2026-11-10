@@ -63,7 +63,7 @@ jobs:
   # ---------------------------------------------------------------------------------------
   gates:
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     # After a STAGING deploy only (a push run). A production release (dispatch) or a nightly gauntlet (schedule) leaves
     # staging exactly as the push run left it, so re-running these gates after them tested the same staging twice;
@@ -150,7 +150,7 @@ jobs:
   # ---------------------------------------------------------------------------------------
   full:
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40  # v11 gates + the Gate A runtime crawl (measured 7.8 min/run, 2026-08-24)
     if: ${{ github.event_name != 'workflow_run' }}
     env:

@@ -37,7 +37,7 @@ test('every Google font weight and subset is served locally with a valid woff2 f
 test('every workflow uses GitHub-hosted runners and locked installs; staging alone verifies FTPS', () => {
   for (const file of fs.readdirSync(new URL('.github/workflows/', root))) {
     const text = read(`.github/workflows/${file}`).split('\n').filter(line => !/^\s*#/.test(line)).join('\n')
-    for (const [, runner] of text.matchAll(/runs-on:\s*([^\n]+)/g)) assert.equal(runner, 'ubuntu-latest', file)
+    for (const [, runner] of text.matchAll(/runs-on:\s*([^\n]+)/g)) assert.equal(runner, 'ubuntu-24.04', file)
     assert.doesNotMatch(text, /npm\s+install\b/, file)
   }
   const deploy = read('.github/workflows/deploy.yml')
