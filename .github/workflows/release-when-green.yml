@@ -38,7 +38,7 @@ jobs:
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # GitHub-hosted like every BoatBuddy job (public repository, SR-SUP-08). A few GitHub reads, one dispatch, a 15 s settle.
     # Up to 3 passes of ~1 min each (decide, dispatch, confirm the run GitHub created; again if main moved meanwhile).
     timeout-minutes: 8

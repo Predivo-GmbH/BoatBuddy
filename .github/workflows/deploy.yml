@@ -154,7 +154,7 @@ jobs:
   # `(inputs.release_sha || github.sha) == github.sha`, which is always true without a pin (push, schedule, the button).
   release-pin:
     if: github.event_name == 'workflow_dispatch' && inputs.release_sha != '' && inputs.release_sha != github.sha
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Main moved on - nothing is released by this run
@@ -211,7 +211,7 @@ jobs:
       cancel-in-progress: false
     if: github.event_name == 'push'
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Verify FTP credentials (fail fast on a stale secret)
@@ -673,7 +673,7 @@ jobs:
     # ---------------------------------------------------------------------------
     if: github.event_name != 'push' && (inputs.release_sha || github.sha) == github.sha
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -732,7 +732,7 @@ jobs:
     needs: gate-integration
     if: ${{ !cancelled() && github.event_name != 'push' && (inputs.release_sha || github.sha) == github.sha }}
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       # Ubuntu 26.04 (what our self-hosted runners came up on, 2026-08-25) has no Playwright
@@ -835,7 +835,7 @@ jobs:
   gate-security:
     if: github.event_name != 'push' && (inputs.release_sha || github.sha) == github.sha
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -887,7 +887,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm == 'deploy' && (inputs.release_sha || github.sha) == github.sha
     needs: [main-pr-guard, gate-integration, gate-e2e, gate-security]
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       # Read the successful staging workflow for the exact promoted commit.

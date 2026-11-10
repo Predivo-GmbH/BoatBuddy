@@ -15,7 +15,7 @@ permissions:
 jobs:
   verify:
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read

@@ -27,7 +27,7 @@ permissions:
 jobs:
   critical-path:
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # 25, not 10. MEASURED 2026-09-15 on the shared self-hosted host, one run each:
     # ChannelMover 13m12s, BackOffice 11m30s, BoatBuddy 8m25s, ScoutCopilot 6m35s - and
     # ReplyFlow was KILLED at 10m27s by a 10-minute budget on a suite that had passed in

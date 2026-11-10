@@ -16,7 +16,7 @@ permissions:
 jobs:
   bump:
     # SR-SUP-08: public repository; GitHub-hosted only. Reviewed 2026-11-04.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       # Propose dependency changes on a branch/PR; never push directly to main.
