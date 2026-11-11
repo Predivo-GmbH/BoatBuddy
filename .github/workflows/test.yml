@@ -139,6 +139,13 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
+      - name: Playwright's system packages from earlier runs (an Ubuntu mirror outage then costs nothing)
+        if: runner.environment == 'github-hosted'
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/playwright-debs
+          key: playwright-debs-${{ runner.os }}-${{ hashFiles('package-lock.json', '*/package-lock.json') }}
+          restore-keys: playwright-debs-${{ runner.os }}-
       # No cache-hit guard. On GitHub's throwaway machines, skipping the install on a cache hit
       # is a safe optimisation. On a persistent self-hosted runner it is a correctness bug: the
       # cache reports a hit while ~/.cache/ms-playwright holds a DIFFERENT browser build, the
@@ -155,11 +162,8 @@ jobs:
           # GitHub-hosted runners are throwaway boxes with no such provisioning, so they keep
           # --with-deps. This matters: clearing RUNNER_LABEL sends every job back to them, and
           # that fallback has to actually work.
-          if [ "${{ runner.environment }}" = "self-hosted" ]; then
-            npx playwright install chromium
-          else
-            npx playwright install --with-deps chromium
-          fi
+          # gate-kit 0.11.0: the same self-hosted split, plus apt retries and fallback mirrors (Ubuntu mirror outage 11.11.2026)
+          bash "$GITHUB_WORKSPACE/.github/gate-kit/scripts/install-playwright.sh" chromium
 
       - name: Member gate and public phone upload (offline desktop and mobile)
         run: npx playwright test --config playwright.member-local.config.ts
