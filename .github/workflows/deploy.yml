@@ -421,7 +421,16 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASS }}
           LFTP_PASSWORD: ${{ secrets.FTP_PASS }}
         run: |
-          sudo apt-get install -y lftp
+          # lftp: the laptop runner has it; a GitHub machine installs it. 11.11.2026 from ~13:55Z GitHub's machines
+          # could not resolve azure.archive.ubuntu.com and every apt step failed - so a failed install points apt at
+          # archive.ubuntu.com once and tries again. A second failure still fails the step.
+          if ! command -v lftp >/dev/null 2>&1; then
+            if ! { sudo apt-get update -qq && sudo apt-get install -y -qq lftp; }; then
+              echo "apt mirror unreachable - retrying the install via archive.ubuntu.com"
+              sudo sed -i 's#http://azure.archive.ubuntu.com/ubuntu#http://archive.ubuntu.com/ubuntu#g' /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true
+              sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+            fi
+          fi
           echo "boatbuddy-staging" > ./dist/.site-id
           # Resilient FTPS for Metanet: force PASV, single data connection, retry loop.
           # Exclude .htpasswd so the mirror's --delete never removes the auth file.
@@ -1120,7 +1129,16 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASS }}
           LFTP_PASSWORD: ${{ secrets.FTP_PASS }}
         run: |
-          sudo apt-get install -y lftp
+          # lftp: the laptop runner has it; a GitHub machine installs it. 11.11.2026 from ~13:55Z GitHub's machines
+          # could not resolve azure.archive.ubuntu.com and every apt step failed - so a failed install points apt at
+          # archive.ubuntu.com once and tries again. A second failure still fails the step.
+          if ! command -v lftp >/dev/null 2>&1; then
+            if ! { sudo apt-get update -qq && sudo apt-get install -y -qq lftp; }; then
+              echo "apt mirror unreachable - retrying the install via archive.ubuntu.com"
+              sudo sed -i 's#http://azure.archive.ubuntu.com/ubuntu#http://archive.ubuntu.com/ubuntu#g' /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null || true
+              sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+            fi
+          fi
           LFTP_SETTINGS="set ftp:ssl-force yes; set ssl:verify-certificate no; set ftp:ssl-protect-data no; set ftp:passive-mode yes; set ftp:prefer-epsv no; set net:timeout 30; set net:max-retries 4; set net:persist-retries 4; set net:reconnect-interval-base 8; set mirror:parallel-transfer-count 4;"
           echo "boatbuddy" > ./dist/.site-id
 
